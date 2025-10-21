@@ -52,6 +52,7 @@ export default function AdminPage() {
       studentName: requesterName,
       submissionDate: serverTimestamp(),
       status: 'queued',
+      order: songs?.length ?? 0,
     });
 
     batch.commit().catch(e => console.error("Error adding song:", e));
@@ -67,6 +68,18 @@ export default function AdminPage() {
     setEditingSong(null);
   };
 
+  const handleReorder = (reorderedSongs: Song[]) => {
+    if (!firestore) return;
+
+    const batch = writeBatch(firestore);
+    reorderedSongs.forEach((song, index) => {
+      const songRef = doc(firestore, 'song_requests', song.id);
+      batch.update(songRef, { order: index });
+    });
+
+    batch.commit().catch(e => console.error("Error reordering songs:", e));
+  };
+
 
   const sortedSongs = React.useMemo(() => {
     if (!songs) return [];
@@ -78,12 +91,13 @@ export default function AdminPage() {
 
     // Sort the songs based on status and submission date
     return songsWithDates.sort((a, b) => {
-        const statusOrder = { playing: 1, queued: 2, played: 3 };
-        const aStatus = statusOrder[a.status] || 99;
-        const bStatus = statusOrder[b.status] || 99;
+        if (a.status === 'playing') return -1;
+        if (b.status === 'playing') return 1;
+        if (a.status === 'played' && b.status !== 'played') return 1;
+        if (b.status === 'played' && a.status !== 'played') return -1;
 
-        if (aStatus !== bStatus) {
-            return aStatus - bStatus;
+        if (a.order !== b.order) {
+            return (a.order ?? 999) - (b.order ?? 999);
         }
 
         // For songs with the same status, sort by submission date (oldest first)
@@ -114,6 +128,7 @@ export default function AdminPage() {
           songs={sortedSongs}
           isLoading={isLoading || isUserLoading}
           onEditSong={setEditingSong}
+          onReorder={handleReorder}
         />
       </main>
       {editingSong && (

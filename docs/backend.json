@@ -37,6 +37,10 @@
             "type": "string",
             "description": "Current status of the song request.",
             "enum": ["queued", "playing", "played"]
+        },
+        "order": {
+            "type": "number",
+            "description": "The order of the song in the queue."
         }
       },
       "required": [
@@ -46,7 +50,8 @@
         "title",
         "karaokeUrl",
         "submissionDate",
-        "status"
+        "status",
+        "order"
       ]
     },
     "Student": {

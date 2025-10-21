@@ -21,6 +21,7 @@ import {
   writeBatch,
   query,
   where,
+  getDocs,
 } from 'firebase/firestore';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 
@@ -56,6 +57,9 @@ export default function StudentPage() {
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
 
+    const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
+    const totalSongs = totalSongsSnapshot.size;
+
     const batch = writeBatch(firestore);
 
     // Set student document with their name.
@@ -70,6 +74,7 @@ export default function StudentPage() {
       studentName: studentName, // Denormalized name for easier display
       submissionDate: serverTimestamp(),
       status: 'queued',
+      order: totalSongs,
     });
 
     try {
@@ -99,12 +104,13 @@ export default function StudentPage() {
 
     // Sort the songs based on status and submission date
     return songsWithDates.sort((a, b) => {
-        const statusOrder = { playing: 1, queued: 2, played: 3 };
-        const aStatus = statusOrder[a.status] || 99;
-        const bStatus = statusOrder[b.status] || 99;
+        if (a.status === 'playing') return -1;
+        if (b.status === 'playing') return 1;
+        if (a.status === 'played' && b.status !== 'played') return 1;
+        if (b.status === 'played' && a.status !== 'played') return -1;
 
-        if (aStatus !== bStatus) {
-            return aStatus - bStatus;
+        if (a.order !== b.order) {
+            return (a.order ?? 999) - (b.order ?? 999);
         }
 
         // For songs with the same status, sort by submission date (oldest first)

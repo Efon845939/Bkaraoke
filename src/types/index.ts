@@ -7,6 +7,7 @@ export type Song = {
   studentId: string;
   status: 'queued' | 'playing' | 'played';
   submissionDate: Date;
+  order: number;
 };
 
 export type Student = {
