@@ -83,25 +83,20 @@ export default function AdminPage() {
 
   const sortedSongs = React.useMemo(() => {
     if (!songs) return [];
-    // Convert Firestore Timestamps to JS Dates
-    const songsWithDates = songs.map(song => ({
-        ...song,
-        submissionDate: (song.submissionDate as any)?.toDate ? (song.submissionDate as any).toDate() : new Date(),
-    }));
-
-    // Sort the songs based on status and submission date
-    return songsWithDates.sort((a, b) => {
+    // The useCollection hook already provides a live stream of data.
+    // When the `order` property is updated in Firestore, the hook will
+    // provide a new `songs` array, and this useMemo will re-run.
+    // We just need to ensure the sorting logic is correct.
+    return [...songs].sort((a, b) => {
+        // Handle status priority first
         if (a.status === 'playing') return -1;
         if (b.status === 'playing') return 1;
         if (a.status === 'played' && b.status !== 'played') return 1;
         if (b.status === 'played' && a.status !== 'played') return -1;
 
-        if (a.order !== b.order) {
-            return (a.order ?? 999) - (b.order ?? 999);
-        }
-
-        // For songs with the same status, sort by submission date (oldest first)
-        return a.submissionDate.getTime() - b.submissionDate.getTime();
+        // For songs with the same status (e.g., all 'queued'), sort by the 'order' field.
+        // A lower order number means it comes first.
+        return (a.order ?? 999) - (b.order ?? 999);
     });
   }, [songs]);
 
