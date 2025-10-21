@@ -1,0 +1,359 @@
+
+'use client';
+
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc } from 'firebase/firestore';
+import type { Song, Student, AuditLog } from '@/types';
+import { PageHeader } from '@/components/page-header';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ListMusic, Users, History, Trash2, Pencil } from 'lucide-react';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { SongQueue } from '@/components/song-queue';
+import { SongSubmissionForm } from '@/components/song-submission-form';
+import { EditSongDialog } from '@/components/edit-song-dialog';
+import { EditProfileDialog } from '@/components/edit-profile-dialog';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { Badge } from '@/components/ui/badge';
+
+// A non-blocking wrapper for addDoc
+const addDocumentNonBlocking = (ref: any, data: any) => {
+    addDoc(ref, data).catch(e => console.error("Failed to add document non-blocking", e));
+}
+
+export default function OwnerDashboardPage() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [studentFilter, setStudentFilter] = React.useState('');
+  const [editingSong, setEditingSong] = React.useState<Song | null>(null);
+  const [editingStudent, setEditingStudent] = React.useState<Student | null>(null);
+  const [songList, setSongList] = React.useState<Song[]>([]);
+
+  const isOwner = user?.email?.endsWith('@karaoke.owner.app');
+
+  React.useEffect(() => {
+    if (!isUserLoading && !isOwner) {
+      router.replace('/owner');
+    }
+  }, [user, isUserLoading, router, isOwner]);
+
+  // --- Firestore Queries ---
+  const studentsQuery = useMemoFirebase(() => {
+    if (!firestore || !isOwner) return null;
+    return collection(firestore, 'students');
+  }, [firestore, isOwner]);
+
+  const songsQuery = useMemoFirebase(() => {
+    if (!firestore || !isOwner) return null;
+    return query(collection(firestore, 'song_requests'), orderBy('order'));
+  }, [firestore, isOwner]);
+  
+  const auditLogsQuery = useMemoFirebase(() => {
+      if (!firestore || !isOwner) return null;
+      return query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'));
+  }, [firestore, isOwner]);
+
+  const { data: students, isLoading: studentsLoading } = useCollection<Student>(studentsQuery);
+  const { data: songsFromHook, isLoading: songsLoading } = useCollection<Song>(songsQuery);
+  const { data: auditLogs, isLoading: auditLogsLoading } = useCollection<AuditLog>(auditLogsQuery);
+  
+  // --- Effects ---
+  React.useEffect(() => {
+    if (songsFromHook) {
+      const sorted = [...songsFromHook].sort((a, b) => {
+        if (a.status === 'playing' && b.status !== 'playing') return -1;
+        if (b.status === 'playing' && a.status !== 'playing') return 1;
+        if (a.status === 'played' && b.status !== 'played') return 1;
+        if (b.status === 'played' && a.status !== 'played') return -1;
+        return (a.order ?? Infinity) - (b.order ?? Infinity);
+      });
+      setSongList(sorted);
+    }
+  }, [songsFromHook]);
+  
+  // --- Helper Functions ---
+  const createAuditLog = (action: string, details: string) => {
+    if (!firestore || !user) return;
+    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+      timestamp: serverTimestamp(),
+      actorId: user.uid,
+      actorName: user.displayName || user.email || 'Bilinmeyen Sahip',
+      action,
+      details
+    });
+  };
+
+  // --- Handlers ---
+   const handleSongAdd = (newSong: { title: string; url: string; firstName?: string; lastName?: string }) => {
+    if (!firestore || !user) return;
+  
+    const requesterName = newSong.firstName && newSong.lastName 
+      ? `${newSong.firstName} ${newSong.lastName}`
+      : 'Sahip';
+    const studentId = 'owner-added';
+  
+    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
+  
+    const batch = writeBatch(firestore);
+    batch.set(songRequestDocRef, {
+      title: newSong.title,
+      karaokeUrl: newSong.url,
+      id: songRequestDocRef.id,
+      studentId: studentId,
+      studentName: requesterName,
+      submissionDate: serverTimestamp(),
+      status: 'queued',
+      order: songList?.length ?? 0,
+    });
+  
+    batch.commit().then(() => {
+        createAuditLog('SONG_ADDED_BY_OWNER', `Şarkı: "${newSong.title}", Ekleyen: ${requesterName}`);
+    }).catch(e => console.error("Şarkı eklenirken hata oluştu:", e));
+  };
+  
+  const handleSongUpdate = (songId: string, updatedData: { title: string; url: string }) => {
+    if (!firestore) return;
+    const songDocRef = doc(firestore, 'song_requests', songId);
+    
+    const songToUpdate = songList.find(s => s.id === songId);
+    if (songToUpdate) {
+        const batch = writeBatch(firestore);
+        batch.update(songDocRef, {
+            title: updatedData.title,
+            karaokeUrl: updatedData.url,
+        });
+        batch.commit().then(() => {
+            createAuditLog('SONG_UPDATED', `Şarkı ID: ${songId}, Yeni Başlık: "${updatedData.title}"`);
+        }).catch(e => console.error("Şarkı güncellenirken hata oluştu:", e));
+    }
+    setEditingSong(null);
+  };
+
+  const handleReorder = (reorderedSongs: Song[]) => {
+    if (!firestore) return;
+    setSongList(reorderedSongs);
+
+    const batch = writeBatch(firestore);
+    reorderedSongs.forEach((song, index) => {
+      const songRef = doc(firestore, 'song_requests', song.id);
+      batch.update(songRef, { order: index });
+    });
+
+    batch.commit().then(() => {
+        createAuditLog('QUEUE_REORDERED', `Şarkı sırası yeniden düzenlendi.`);
+    }).catch(e => {
+        console.error("Şarkılar yeniden sıralanırken hata oluştu:", e)
+        if(songsFromHook) setSongList(songsFromHook);
+    });
+  };
+
+  const handleProfileUpdate = async (values: { firstName: string, lastName: string }) => {
+    if (!firestore || !editingStudent) return;
+    const studentId = editingStudent.id;
+    const oldName = editingStudent.name;
+    const newDisplayName = `${values.firstName} ${values.lastName}`;
+    
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const studentDocRef = doc(firestore, 'students', studentId);
+            transaction.update(studentDocRef, { name: newDisplayName });
+
+            const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
+            const songRequestsSnapshot = await getDocs(songRequestsQuery);
+            songRequestsSnapshot.forEach((songDoc) => {
+                transaction.update(songDoc.ref, { studentName: newDisplayName });
+            });
+        });
+
+        createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${studentId})`);
+        toast({ title: 'Profil Güncellendi', description: 'Kullanıcının adı başarıyla güncellendi.' });
+    } catch (error) {
+        console.error('Profil güncellenirken hata oluştu:', error);
+        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
+    }
+    setEditingStudent(null);
+};
+
+
+  // --- Memoized Filters ---
+  const filteredStudents = React.useMemo(() => {
+    if (!students) return [];
+    return students.filter(student =>
+      student.name.toLowerCase().includes(studentFilter.toLowerCase())
+    );
+  }, [students, studentFilter]);
+
+  if (isUserLoading || !isOwner) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Sistem Sahibi Erişimi Yükleniyor ve Doğrulanıyor...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto max-w-7xl space-y-8 p-4 md:p-8">
+      <PageHeader />
+      <h1 className="text-4xl font-headline tracking-wider">Sistem Sahibi Paneli</h1>
+      
+      <SongSubmissionForm
+        onSongAdd={handleSongAdd}
+        studentName="Sahip"
+        showNameInput={true}
+       />
+
+      <SongQueue
+        role="owner"
+        songs={songList}
+        isLoading={songsLoading && songList.length === 0}
+        onEditSong={setEditingSong}
+        onReorder={handleReorder}
+       />
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-3"><Users /> Tüm Kullanıcılar</CardTitle>
+                    <CardDescription>Sisteme kayıtlı tüm katılımcılar ve yöneticiler.</CardDescription>
+                     <div className="pt-4">
+                        <Input
+                            placeholder="Kullanıcı ara..."
+                            value={studentFilter}
+                            onChange={(e) => setStudentFilter(e.target.value)}
+                            className="w-full"
+                        />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border h-96 overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-card">
+                                <TableRow>
+                                    <TableHead>İsim</TableHead>
+                                    <TableHead>Rol</TableHead>
+                                    <TableHead>Eylemler</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {studentsLoading ? (
+                                    Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
+                                            <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : filteredStudents.length > 0 ? (
+                                    filteredStudents.map(student => (
+                                        <TableRow key={student.id}>
+                                            <TableCell className="font-medium">{student.name}</TableCell>
+                                            <TableCell className="text-muted-foreground capitalize">{student.role}</TableCell>
+                                            <TableCell>
+                                                <Button variant="ghost" size="icon" onClick={() => setEditingStudent(student)}>
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center">Kullanıcı bulunamadı.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-3"><History /> Denetim Kayıtları</CardTitle>
+                    <CardDescription>Sistemde gerçekleştirilen önemli eylemlerin kaydı.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <div className="rounded-md border h-96 overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-card">
+                                <TableRow>
+                                    <TableHead>Tarih</TableHead>
+                                    <TableHead>Aktör</TableHead>
+                                    <TableHead>Eylem</TableHead>
+                                    <TableHead>Detay</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {auditLogsLoading ? (
+                                     Array.from({ length: 5 }).map((_, i) => (
+                                        <TableRow key={i}>
+                                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-1/2" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-1/3" /></TableCell>
+                                            <TableCell><Skeleton className="h-6 w-full" /></TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : auditLogs && auditLogs.length > 0 ? (
+                                    auditLogs.map(log => (
+                                        <TableRow key={log.id}>
+                                            <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                                                {(log.timestamp as any)?.toDate 
+                                                    ? format((log.timestamp as any).toDate(), 'dd/MM/yy HH:mm:ss') 
+                                                    : 'Bilinmeyen'}
+                                            </TableCell>
+                                            <TableCell className="font-medium">{log.actorName}</TableCell>
+                                            <TableCell><Badge variant="outline">{log.action}</Badge></TableCell>
+                                            <TableCell className="text-sm">{log.details}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">Denetim kaydı bulunamadı.</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+
+        {editingSong && (
+            <EditSongDialog
+            song={editingSong}
+            isOpen={!!editingSong}
+            onOpenChange={(isOpen) => !isOpen && setEditingSong(null)}
+            onSongUpdate={handleSongUpdate}
+            />
+        )}
+        {editingStudent && (
+            <EditProfileDialog
+                user={{ displayName: editingStudent.name } as any} // Simplified for dialog
+                isOpen={!!editingStudent}
+                onOpenChange={(isOpen) => !isOpen && setEditingStudent(null)}
+                onProfileUpdate={handleProfileUpdate}
+                dialogTitle="Kullanıcı Adını Düzenle"
+                dialogDescription="Kullanıcının görünen adını güncelleyin."
+            />
+        )}
+    </div>
+  );
+}

@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [loginRole, setLoginRole] = React.useState<'student' | 'admin' | null>(
     null
   );
+  const router = useRouter();
 
   const handleRoleSelect = (role: 'student' | 'admin') => {
     setLoginRole(role);
@@ -32,7 +34,7 @@ export default function LoginPage() {
           background-position: 0 0, 10px 10px;
         }
       `}</style>
-      <Card className="w-full max-w-md animate-in fade-in zoom-in-95 shadow-2xl">
+      <Card className="w-full max-w-lg animate-in fade-in zoom-in-95 shadow-2xl">
         <CardHeader className="items-center text-center">
           <Logo />
           <p className="pt-2 text-muted-foreground">
@@ -44,7 +46,7 @@ export default function LoginPage() {
           <h2 className="text-center font-body text-lg font-bold uppercase tracking-widest text-primary/80">
             Giriş Yap veya Kayıt Ol
           </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
              <Button
                 className="w-full"
                 size="lg"
@@ -59,6 +61,14 @@ export default function LoginPage() {
                 onClick={() => handleRoleSelect('admin')}
               >
                 Yönetici
+              </Button>
+              <Button
+                className="w-full"
+                size="lg"
+                variant="outline"
+                onClick={() => router.push('/owner')}
+              >
+                Sistem Sahibi
               </Button>
           </div>
         </CardContent>
