@@ -6,15 +6,18 @@ import { Logo } from '@/components/logo';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { LoginDialog } from '@/components/login-dialog';
+import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [loginRole, setLoginRole] = React.useState<'student' | 'admin' | null>(
     null
   );
+  const [authAction, setAuthAction] = React.useState<'login' | 'signup' | null>(null);
 
-  const handleRoleSelect = (role: 'student' | 'admin') => {
+  const handleRoleSelect = (role: 'student' | 'admin', action: 'login' | 'signup' | null = 'login') => {
     setLoginRole(role);
+    setAuthAction(action);
     setDialogOpen(true);
   };
 
@@ -43,14 +46,40 @@ export default function LoginPage() {
           <h2 className="text-center font-body text-lg font-bold uppercase tracking-widest text-primary/80">
             Select Role
           </h2>
-          <LoginDialog
-            role={loginRole}
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            onRoleSelect={handleRoleSelect}
-          />
+          <div className="grid grid-cols-2 gap-4">
+             <Button
+                className="w-full"
+                size="lg"
+                onClick={() => handleRoleSelect('student', 'signup')}
+              >
+                Student Sign Up
+              </Button>
+              <Button
+                className="w-full"
+                size="lg"
+                variant="secondary"
+                onClick={() => handleRoleSelect('student', 'login')}
+              >
+                Student Sign In
+              </Button>
+          </div>
+           <Button
+            variant="outline"
+            className="w-full"
+            size="lg"
+            onClick={() => handleRoleSelect('admin')}
+          >
+            Enter as Admin
+          </Button>
+
         </CardContent>
       </Card>
+      <LoginDialog
+            role={loginRole}
+            authAction={authAction}
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+          />
     </main>
   );
 }
