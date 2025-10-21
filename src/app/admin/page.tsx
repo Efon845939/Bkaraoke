@@ -10,6 +10,8 @@ import type { Song } from '@/types';
 import { useFirestore, useCollection, useMemoFirebase, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { EditSongDialog } from '@/components/edit-song-dialog';
+import { arrayMove } from '@dnd-kit/sortable';
+
 
 export default function AdminPage() {
   const { user, isUserLoading } = useUser();
@@ -17,6 +19,7 @@ export default function AdminPage() {
   const router = useRouter();
 
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
+  const [songList, setSongList] = React.useState<Song[]>([]);
 
   const isAdmin = user?.email === 'admin@karaoke.app';
 
@@ -31,7 +34,21 @@ export default function AdminPage() {
     return collection(firestore, 'song_requests');
   }, [firestore, isAdmin]);
 
-  const { data: songs, isLoading } = useCollection<Song>(songsQuery);
+  const { data: songsFromHook, isLoading } = useCollection<Song>(songsQuery);
+
+  React.useEffect(() => {
+    if (songsFromHook) {
+      const sorted = [...songsFromHook].sort((a, b) => {
+        if (a.status === 'playing' && b.status !== 'playing') return -1;
+        if (b.status === 'playing' && a.status !== 'playing') return 1;
+        if (a.status === 'played' && b.status !== 'played') return 1;
+        if (b.status === 'played' && a.status !== 'played') return -1;
+        return (a.order ?? Infinity) - (b.order ?? Infinity);
+      });
+      setSongList(sorted);
+    }
+  }, [songsFromHook]);
+
 
   const handleSongAdd = (newSong: { title: string; url: string; name?: string }) => {
     if (!firestore || !user) return;
@@ -52,7 +69,7 @@ export default function AdminPage() {
       studentName: requesterName,
       submissionDate: serverTimestamp(),
       status: 'queued',
-      order: songs?.length ?? 0,
+      order: songList?.length ?? 0,
     });
 
     batch.commit().catch(e => console.error("Error adding song:", e));
@@ -71,34 +88,23 @@ export default function AdminPage() {
   const handleReorder = (reorderedSongs: Song[]) => {
     if (!firestore) return;
 
+    // Instantly update the UI
+    setSongList(reorderedSongs);
+
     const batch = writeBatch(firestore);
     reorderedSongs.forEach((song, index) => {
       const songRef = doc(firestore, 'song_requests', song.id);
       batch.update(songRef, { order: index });
     });
 
-    batch.commit().catch(e => console.error("Error reordering songs:", e));
-  };
-
-
-  const sortedSongs = React.useMemo(() => {
-    if (!songs) return [];
-    // The useCollection hook already provides a live stream of data.
-    // When the `order` property is updated in Firestore, the hook will
-    // provide a new `songs` array, and this useMemo will re-run.
-    // We just need to ensure the sorting logic is correct.
-    return [...songs].sort((a, b) => {
-        // Handle status priority first
-        if (a.status === 'playing') return -1;
-        if (b.status === 'playing') return 1;
-        if (a.status === 'played' && b.status !== 'played') return 1;
-        if (b.status === 'played' && a.status !== 'played') return -1;
-
-        // For songs with the same status (e.g., all 'queued'), sort by the 'order' field.
-        // A lower order number means it comes first.
-        return (a.order ?? 999) - (b.order ?? 999);
+    batch.commit().catch(e => {
+        console.error("Error reordering songs:", e)
+        // If the commit fails, revert to the original list from the hook
+        if(songsFromHook) {
+            setSongList(songsFromHook);
+        }
     });
-  }, [songs]);
+  };
 
   if (isUserLoading || !isAdmin) {
     return (
@@ -120,8 +126,8 @@ export default function AdminPage() {
         <h2 className="mb-4 text-3xl tracking-wider">Admin Dashboard</h2>
         <SongQueue
           role="admin"
-          songs={sortedSongs}
-          isLoading={isLoading || isUserLoading}
+          songs={songList}
+          isLoading={isLoading && songList.length === 0}
           onEditSong={setEditingSong}
           onReorder={handleReorder}
         />

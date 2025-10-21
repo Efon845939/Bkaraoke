@@ -96,7 +96,9 @@ export function SongQueue({
     if (active.id !== over?.id && onReorder) {
       const oldIndex = songs.findIndex((s) => s.id === active.id);
       const newIndex = songs.findIndex((s) => s.id === over?.id);
-      onReorder(arrayMove(songs, oldIndex, newIndex));
+      if (oldIndex !== -1 && newIndex !== -1) {
+        onReorder(arrayMove(songs, oldIndex, newIndex));
+      }
     }
   };
 
@@ -295,7 +297,7 @@ const SortableSongRow = ({
   return (
     <TableRow ref={setNodeRef} style={style}>
       {role === 'admin' && (
-        <TableCell className="w-12 cursor-grab" {...attributes} {...listeners}>
+        <TableCell className="w-12 cursor-grab touch-none" {...attributes} {...listeners}>
           <GripVertical className="h-5 w-5 text-muted-foreground" />
         </TableCell>
       )}
