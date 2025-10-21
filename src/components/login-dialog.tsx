@@ -149,7 +149,7 @@ export function LoginDialog({
         toast({
           variant: 'destructive',
           title: 'Giriş başarısız',
-          description: 'Geçersiz isim veya PIN. Lütfen tekrar deneyin.',
+          description: 'Geçersiz isim veya PIN. Lütfen tekrar deneyin veya yeni hesap oluşturun.',
           duration: 3000,
         });
       } else {
@@ -242,7 +242,7 @@ export function LoginDialog({
                     <FormItem>
                       <FormLabel>İsim</FormLabel>
                       <FormControl>
-                        <Input placeholder="ör., Jane" {...field} />
+                        <Input placeholder="ör., Ahmet" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -255,7 +255,7 @@ export function LoginDialog({
                     <FormItem>
                       <FormLabel>Soyisim</FormLabel>
                       <FormControl>
-                        <Input placeholder="ör., Doe" {...field} />
+                        <Input placeholder="ör., Yılmaz" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

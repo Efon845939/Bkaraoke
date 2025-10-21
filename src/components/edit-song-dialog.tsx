@@ -96,7 +96,7 @@ export function EditSongDialog({
                   <FormControl>
                     <div className="relative">
                       <Mic className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="ör., Bohemian Rhapsody" {...field} className="pl-10" />
+                      <Input placeholder="ör., Tarkan - Şıkıdım" {...field} className="pl-10" />
                     </div>
                   </FormControl>
                   <FormMessage />
