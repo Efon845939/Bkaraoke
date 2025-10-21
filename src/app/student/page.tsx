@@ -13,6 +13,7 @@ import {
   useMemoFirebase,
   useUser,
   updateDocumentNonBlocking,
+  useAuth,
 } from '@/firebase';
 import {
   collection,
@@ -22,15 +23,22 @@ import {
   query,
   where,
   getDocs,
+  runTransaction,
 } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
+import { EditProfileDialog } from '@/components/edit-profile-dialog';
 
 export default function StudentPage() {
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
+  const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
@@ -94,6 +102,51 @@ export default function StudentPage() {
     setEditingSong(null);
   };
 
+   const handleProfileUpdate = async (values: { firstName: string, lastName: string }) => {
+    if (!auth?.currentUser || !firestore) return;
+
+    const newDisplayName = `${values.firstName} ${values.lastName}`;
+    const studentId = auth.currentUser.uid;
+
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        // 1. Update Firebase Auth display name
+        if (auth.currentUser) {
+            await updateProfile(auth.currentUser, { displayName: newDisplayName });
+        }
+
+        // 2. Update student document
+        const studentDocRef = doc(firestore, 'students', studentId);
+        transaction.update(studentDocRef, { name: newDisplayName });
+
+        // 3. Update denormalized names in song requests
+        const songRequestsQuery = query(
+          collection(firestore, 'song_requests'),
+          where('studentId', '==', studentId)
+        );
+        const songRequestsSnapshot = await getDocs(songRequestsQuery);
+        songRequestsSnapshot.forEach((songDoc) => {
+          transaction.update(songDoc.ref, { studentName: newDisplayName });
+        });
+      });
+
+      toast({
+        title: 'Profil Güncellendi',
+        description: 'Adınız başarıyla güncellendi.',
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Profil güncellenirken hata oluştu:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Hata',
+        description: 'Profiliniz güncellenirken bir sorun oluştu.',
+        duration: 3000,
+      });
+    }
+    setEditProfileOpen(false);
+  };
+
   const sortedSongs = React.useMemo(() => {
     if (!songs) return [];
     // Convert Firestore Timestamps to JS Dates
@@ -128,7 +181,7 @@ export default function StudentPage() {
 
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
-      <PageHeader />
+      <PageHeader onEditProfile={() => setEditProfileOpen(true)} />
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} showNameInput={!user.displayName} />
         <SongQueue
@@ -145,6 +198,14 @@ export default function StudentPage() {
           isOpen={!!editingSong}
           onOpenChange={(isOpen) => !isOpen && setEditingSong(null)}
           onSongUpdate={handleSongUpdate}
+        />
+      )}
+       {isEditProfileOpen && user && (
+        <EditProfileDialog
+          user={user}
+          isOpen={isEditProfileOpen}
+          onOpenChange={setEditProfileOpen}
+          onProfileUpdate={handleProfileUpdate}
         />
       )}
     </div>

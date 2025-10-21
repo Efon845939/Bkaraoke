@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
 import type { Song } from '@/types';
-import { useFirestore, useCollection, useMemoFirebase, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { arrayMove } from '@dnd-kit/sortable';
@@ -80,10 +80,16 @@ export default function AdminPage() {
   const handleSongUpdate = (songId: string, updatedData: { title: string; url: string }) => {
     if (!firestore) return;
     const songDocRef = doc(firestore, 'song_requests', songId);
-    updateDocumentNonBlocking(songDocRef, {
-      title: updatedData.title,
-      karaokeUrl: updatedData.url,
-    });
+    
+    const songToUpdate = songList.find(s => s.id === songId);
+    if (songToUpdate) {
+        const batch = writeBatch(firestore);
+        batch.update(songDocRef, {
+            title: updatedData.title,
+            karaokeUrl: updatedData.url,
+        });
+        batch.commit().catch(e => console.error("Şarkı güncellenirken hata oluştu:", e));
+    }
     setEditingSong(null);
   };
 
