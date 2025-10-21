@@ -2,39 +2,35 @@
  * @fileoverview Firestore Security Rules for Karaoke App
  *
  * Core Philosophy:
- * This ruleset enforces a combination of user-based access control for student profiles
- * and role-based authorization for administrative tasks. It also allows public read
- * access to song requests, with owner-only writes. All writes are restricted to
- * authenticated users.
+ * This ruleset enforces a combination of user-ownership and role-based access control.
+ * Students can only manage their own profiles, while admins have broader access.
+ * Song requests are publicly readable but only modifiable by authorized users.
+ * Audit logs are write-only for server-side functions to ensure integrity.
  *
  * Data Structure:
- * - /students/{studentId}: Stores student and admin profiles, with 'studentId' matching the Firebase Auth UID.
- * - /song_requests/{songRequestId}: Stores song requests.
- * - /audit_logs/{logId}: Stores audit logs of actions performed in the system.
+ * - /students/{studentId}: Stores student profiles, with the document ID matching the Firebase Auth UID.
+ * - /song_requests/{songRequestId}: Stores all song requests in a single collection.
+ * - /audit_logs/{logId}: Stores audit logs.
  *
  * Key Security Decisions:
- * - Students can only read/write their own profile data. Admins are not yet implemented.
- * - Song requests are publicly readable but only writable by authenticated users who set a correct `studentId`.
- * - Audit logs are only writeable, intended for server-side logging.
+ * - Students can only read/write their own student document. Admins have no special access to these profiles.
+ * - Song requests are readable by everyone, but can only be created by students and updated/deleted by admins.
+ * - Audit logs can only be created by server-side functions, not by clients.
+ * - No user listing is allowed for the /students collection.
  *
  * Denormalization for Authorization:
- * - The 'SongRequest' entity requires the 'studentId' field to match the authenticated user's UID for writes.
- *
- * Structural Segregation:
- * - There is no structural segregation in this data model.
+ * - The `SongRequest` entity denormalizes the `studentName` to avoid needing to query the `students` collection for display purposes. The `studentId` is used to relate the song request to the student.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to student profiles.
-     * @path /students/{studentId}
-     * @allow (create) - Authenticated user can create their own profile if the studentId matches their UID.
-     * @allow (get, list, update, delete) - Authenticated user can only access their own profile if the studentId matches their UID.
-     * @deny (create) - If the studentId does not match the authenticated user's UID.
-     * @deny (update, delete) - If the studentId does not match the authenticated user's UID or the document doesn't exist.
-     * @principle Enforces document ownership for all operations.
+     * @description Secure student profiles.
+     * @path /databases/{database}/documents/students/{studentId}
+     * @allow (get, create, update, delete) User with matching UID can manage their own profile.
+     * @deny (get, create, update, delete) User tries to access a different user's profile.
+     * @principle Enforces document ownership for writes.
      */
     match /students/{studentId} {
       function isSignedIn() {
@@ -42,59 +38,55 @@ service cloud.firestore {
       }
 
       function isOwner(studentId) {
-        return request.auth.uid == studentId;
+        return isSignedIn() && request.auth.uid == studentId;
       }
 
-      allow get, list: if isSignedIn() && isOwner(studentId);
-      allow create: if isSignedIn() && request.auth.uid == studentId;
-      allow update: if isSignedIn() && isOwner(studentId);
-      allow delete: if isSignedIn() && isOwner(studentId);
+      allow get: if isOwner(studentId);
+      allow list: if false;
+
+      allow create: if isOwner(studentId);
+      allow update: if isOwner(studentId);
+      allow delete: if isOwner(studentId);
     }
 
     /**
-     * @description Controls access to song requests. Allows public reads, but restricts writes to authenticated users with validated studentId.
-     * @path /song_requests/{songRequestId}
-     * @allow (get, list) - Anyone can read song requests.
-     * @allow (create) - Authenticated users can create song requests if the studentId matches their UID.
-     * @allow (update, delete) - Only the owner (identified by studentId) can update or delete their song requests, if the document exists.
-     * @deny (create) - If the studentId does not match the authenticated user's UID.
-     * @deny (update, delete) - If the studentId does not match the authenticated user's UID or the document doesn't exist.
-     * @principle Allows public reads with owner-only writes, enforcing document ownership for writes.
+     * @description Secure song requests.
+     * @path /databases/{database}/documents/song_requests/{songRequestId}
+     * @allow (get, list) Everyone can read song requests.
+     * @allow (create) Students can create song requests with the correct studentId.
+     * @allow (update, delete) Only admins can update or delete song requests.
+     * @deny (create, update, delete) Non-admins cannot modify song requests.
+     * @principle Public read access with owner-only writes and admin modifications.
      */
     match /song_requests/{songRequestId} {
       function isSignedIn() {
         return request.auth != null;
       }
 
-      function isOwner() {
-        return request.auth.uid == resource.data.studentId;
+      function isAdmin() {
+        return isSignedIn() && request.auth.token.role == 'admin';
       }
 
-      function isNewOwner() {
-        return request.auth.uid == request.resource.data.studentId;
+      function isStudent() {
+        return isSignedIn() && request.auth.token.role == 'student';
       }
 
       allow get, list: if true;
-      allow create: if isSignedIn() && isNewOwner();
-      allow update: if isSignedIn() && isOwner();
-      allow delete: if isSignedIn() && isOwner();
+      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
-      /**
-       * @description Controls access to audit logs. Only allows creation (server-side logging).
-       * @path /audit_logs/{logId}
-       * @allow (create) - Authenticated users can create audit logs.
-       * @deny (get, list, update, delete) - No one can read, list, update, or delete audit logs.
-       * @principle Restricts access to audit logs, only allowing creation.
-       */
-      match /audit_logs/{logId} {
-        function isSignedIn() {
-          return request.auth != null;
-        }
-
-        // Ensure an authenticated user is making the request
-        allow create: if isSignedIn();
-        allow get, list, update, delete: if false;
-      }
+    /**
+     * @description Secure audit logs.
+     * @path /databases/{database}/documents/audit_logs/{logId}
+     * @allow (create) Only server-side functions can create audit logs.
+     * @deny (get, list, update, delete) Clients cannot read or modify audit logs.
+     * @principle Write-only collection for server-side logging.
+     */
+    match /audit_logs/{logId} {
+      allow get, list, update, delete: if false;
+      allow create: if request.auth.token.firebase.sign_in_provider == "service";
+    }
   }
 }
