@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ListMusic, Users, BookClock, Trash2, Pencil } from 'lucide-react';
+import { ListMusic, Users, History, Trash2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { SongQueue } from '@/components/song-queue';
@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Badge } from '@/components/ui/badge';
 
 export default function OwnerPage() {
   const { user, isUserLoading } = useUser();
@@ -42,7 +43,7 @@ export default function OwnerPage() {
   const [editingStudent, setEditingStudent] = React.useState<Student | null>(null);
   const [songList, setSongList] = React.useState<Song[]>([]);
 
-  const isOwner = user?.email === 'owner@karaoke.app';
+  const isOwner = user?.email?.endsWith('@karaoke.owner.app');
 
   React.useEffect(() => {
     if (!isUserLoading && !isOwner) {
@@ -58,7 +59,7 @@ export default function OwnerPage() {
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore || !isOwner) return null;
-    return collection(firestore, 'song_requests');
+    return query(collection(firestore, 'song_requests'), orderBy('order'));
   }, [firestore, isOwner]);
   
   const auditLogsQuery = useMemoFirebase(() => {
@@ -281,7 +282,7 @@ export default function OwnerPage() {
 
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-3"><BookClock /> Denetim Kayıtları</CardTitle>
+                    <CardTitle className="flex items-center gap-3"><History /> Denetim Kayıtları</CardTitle>
                     <CardDescription>Sistemde gerçekleştirilen önemli eylemlerin kaydı.</CardDescription>
                 </CardHeader>
                 <CardContent>
