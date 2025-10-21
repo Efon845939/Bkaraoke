@@ -50,15 +50,17 @@ export default function AdminPage() {
   }, [songsFromHook]);
 
 
-  const handleSongAdd = (newSong: { title: string; url: string; name?: string }) => {
+  const handleSongAdd = (newSong: { title: string; url: string; firstName?: string; lastName?: string }) => {
     if (!firestore || !user) return;
-
-    const requesterName = newSong.name || 'Yönetici';
+  
+    const requesterName = newSong.firstName && newSong.lastName 
+      ? `${newSong.firstName} ${newSong.lastName}`
+      : 'Yönetici';
     const studentId = user.uid;
-
+  
     const studentDocRef = doc(firestore, 'students', studentId);
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
-
+  
     const batch = writeBatch(firestore);
     batch.set(studentDocRef, { id: studentId, name: 'Yönetici Kullanıcısı' }, { merge: true });
     batch.set(songRequestDocRef, {
@@ -71,7 +73,7 @@ export default function AdminPage() {
       status: 'queued',
       order: songList?.length ?? 0,
     });
-
+  
     batch.commit().catch(e => console.error("Şarkı eklenirken hata oluştu:", e));
   };
   
