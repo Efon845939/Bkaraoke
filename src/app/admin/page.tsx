@@ -14,17 +14,19 @@ export default function AdminPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
+  const isAdmin = user?.uid === 'admin-account';
+
   React.useEffect(() => {
-    // If not loading and no user, or user is not the admin, redirect to home
-    if (!isUserLoading && (!user || user.uid !== 'admin-account')) {
+    // If not loading and not an admin, redirect to home
+    if (!isUserLoading && !isAdmin) {
       router.push('/');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, isAdmin]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !isAdmin) return null; // Only query if user is an admin
     return collection(firestore, 'song_requests');
-  }, [firestore]);
+  }, [firestore, isAdmin]);
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
@@ -46,7 +48,7 @@ export default function AdminPage() {
   }, [songs]);
 
   // Render a loading state while checking for user auth
-  if (isUserLoading || !user || user.uid !== 'admin-account') {
+  if (isUserLoading || !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Loading & Verifying Admin Access...</p>
