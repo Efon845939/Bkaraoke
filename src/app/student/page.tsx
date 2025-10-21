@@ -17,6 +17,8 @@ import {
   serverTimestamp,
   doc,
   writeBatch,
+  query,
+  where,
 } from 'firebase/firestore';
 import { initiateAnonymousSignIn, useAuth } from '@/firebase';
 
@@ -32,9 +34,12 @@ export default function StudentPage() {
   }, [user, isUserLoading, auth]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'song_requests');
-  }, [firestore]);
+    if (!firestore || !user) return null;
+    return query(
+      collection(firestore, 'song_requests'),
+      where('studentId', '==', user.uid)
+    );
+  }, [firestore, user]);
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
@@ -96,6 +101,7 @@ export default function StudentPage() {
           role="student"
           songs={sortedSongs}
           isLoading={isLoading || isUserLoading}
+          currentUserId={user?.uid}
         />
       </main>
     </div>

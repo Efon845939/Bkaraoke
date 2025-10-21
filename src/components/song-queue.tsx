@@ -61,9 +61,10 @@ type SongQueueProps = {
   role: 'student' | 'admin';
   songs: Song[];
   isLoading: boolean;
+  currentUserId?: string;
 };
 
-export function SongQueue({ role, songs, isLoading }: SongQueueProps) {
+export function SongQueue({ role, songs, isLoading, currentUserId }: SongQueueProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -135,68 +136,103 @@ export function SongQueue({ role, songs, isLoading }: SongQueueProps) {
         id: 'actions',
         cell: ({ row }) => {
           const song = row.original;
-          if (role !== 'admin') return null;
+          const isOwner = song.studentId === currentUserId;
 
-          return (
-            <div className="text-right">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => window.open(song.karaokeUrl, '_blank')}
-                  >
-                    <Youtube className="mr-2 h-4 w-4" />
-                    <span>Open Link</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Pen className="mr-2 h-4 w-4" />
-                      <span>Change Status</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
-                        <DropdownMenuItem
-                          onClick={() => updateSongStatus(song.id, 'playing')}
-                        >
-                          <Play className="mr-2 h-4 w-4" />
-                          Playing
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => updateSongStatus(song.id, 'played')}
-                        >
-                          <Check className="mr-2 h-4 w-4" />
-                          Played
-                        </DropdownMenuItem>
-                         <DropdownMenuItem
-                          onClick={() => updateSongStatus(song.id, 'queued')}
-                        >
-                          <ListMusic className="mr-2 h-4 w-4" />
-                          Queued
-                        </DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => deleteSong(song.id)}
-                    className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          );
+          if (role === 'admin') {
+            return (
+              <div className="text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => window.open(song.karaokeUrl, '_blank')}
+                    >
+                      <Youtube className="mr-2 h-4 w-4" />
+                      <span>Open Link</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <Pen className="mr-2 h-4 w-4" />
+                        <span>Change Status</span>
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuPortal>
+                        <DropdownMenuSubContent>
+                          <DropdownMenuItem
+                            onClick={() => updateSongStatus(song.id, 'playing')}
+                          >
+                            <Play className="mr-2 h-4 w-4" />
+                            Playing
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => updateSongStatus(song.id, 'played')}
+                          >
+                            <Check className="mr-2 h-4 w-4" />
+                            Played
+                          </DropdownMenuItem>
+                           <DropdownMenuItem
+                            onClick={() => updateSongStatus(song.id, 'queued')}
+                          >
+                            <ListMusic className="mr-2 h-4 w-4" />
+                            Queued
+                          </DropdownMenuItem>
+                        </DropdownMenuSubContent>
+                      </DropdownMenuPortal>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => deleteSong(song.id)}
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Delete</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            );
+          }
+          
+          if (role === 'student' && isOwner) {
+            return (
+              <div className="text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                     <DropdownMenuItem
+                      onClick={() => window.open(song.karaokeUrl, '_blank')}
+                    >
+                      <Youtube className="mr-2 h-4 w-4" />
+                      <span>Open Link</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => deleteSong(song.id)}
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Delete</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            );
+          }
+
+          return null;
         },
       },
     ],
-    [role, firestore, toast]
+    [role, firestore, toast, currentUserId]
   );
 
   const table = useReactTable({
@@ -214,7 +250,7 @@ export function SongQueue({ role, songs, isLoading }: SongQueueProps) {
     initialState: {
       columnVisibility: {
         studentName: role === 'admin',
-        actions: role === 'admin',
+        actions: true,
       },
     },
   });
@@ -224,14 +260,16 @@ export function SongQueue({ role, songs, isLoading }: SongQueueProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <ListMusic />
-          Current Queue
+          {role === 'admin' ? 'Current Queue' : 'My Requests'}
         </CardTitle>
         <CardDescription>
-          Search for songs or see what's up next.
+          {role === 'admin'
+            ? "Search for songs or see what's up next."
+            : "Here are the songs you've requested."}
         </CardDescription>
         <div className="pt-4">
           <Input
-            placeholder="Search songs in the queue..."
+            placeholder="Search songs..."
             value={globalFilter ?? ''}
             onChange={(event) => setGlobalFilter(String(event.target.value))}
             className="w-full md:w-1/2"
@@ -288,7 +326,9 @@ export function SongQueue({ role, songs, isLoading }: SongQueueProps) {
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    The queue is empty. Go ahead and add a song!
+                    {role === 'admin'
+                      ? 'The queue is empty.'
+                      : "You haven't requested any songs yet."}
                   </TableCell>
                 </TableRow>
               )}
