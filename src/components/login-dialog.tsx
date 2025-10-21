@@ -80,17 +80,27 @@ export function LoginDialog({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues:
-      role === 'student'
-        ? { firstName: '', lastName: '', pin: '' }
-        : { pin: '' },
+    // Initialize all possible fields to prevent uncontrolled -> controlled warning
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      pin: '',
+    },
   });
 
   React.useEffect(() => {
-    form.reset();
+    // Reset form values when the dialog opens or role changes
+    if (open) {
+      form.reset(
+        role === 'student'
+          ? { firstName: '', lastName: '', pin: '' }
+          : { pin: '' }
+      );
+    }
   }, [role, open, form]);
 
   const handleStudentLogin = async (values: z.infer<typeof studentSchema>) => {
+    if (!auth) return;
     setIsLoading(true);
     const { firstName, lastName, pin } = values;
     // Create a stable, unique "email" from user details
@@ -99,7 +109,7 @@ export function LoginDialog({
 
     try {
       // First, try to sign in
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email, password);
       toast({ title: 'Welcome back!' });
       router.push('/student');
     } catch (signInError: any) {
@@ -139,6 +149,7 @@ export function LoginDialog({
   };
 
   const handleAdminLogin = async (values: z.infer<typeof adminSchema>) => {
+    if (!auth) return;
     setIsLoading(true);
     const adminEmail = 'admin@karaoke.app';
     // Use a hardcoded, non-obvious UID for the admin account in rules
