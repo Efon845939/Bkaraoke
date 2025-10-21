@@ -13,6 +13,7 @@ import {
   useMemoFirebase,
   useUser,
   updateDocumentNonBlocking,
+  addDocumentNonBlocking,
   useAuth,
 } from '@/firebase';
 import {
@@ -56,13 +57,23 @@ export default function StudentPage() {
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
+  const createAuditLog = (action: string, details: string) => {
+    if (!firestore || !user) return;
+    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+      timestamp: serverTimestamp(),
+      actorId: user.uid,
+      actorName: user.displayName || user.email,
+      action,
+      details
+    });
+  };
+
   const handleSongAdd = async (newSong: { title: string; url: string, name?: string }) => {
     if (!firestore || !user?.displayName) return;
 
     const studentId = user.uid;
     const studentName = newSong.name || user.displayName;
     const studentDocRef = doc(firestore, 'students', studentId);
-
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
 
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
@@ -70,16 +81,14 @@ export default function StudentPage() {
 
     const batch = writeBatch(firestore);
 
-    // Set student document with their name.
-    batch.set(studentDocRef, { id: studentId, name: studentName }, { merge: true });
+    batch.set(studentDocRef, { id: studentId, name: studentName, role: 'student' }, { merge: true });
 
-    // Create the new song request
     batch.set(songRequestDocRef, {
       title: newSong.title,
       karaokeUrl: newSong.url,
       id: songRequestDocRef.id,
       studentId: studentId,
-      studentName: studentName, // Denormalized name for easier display
+      studentName: studentName,
       submissionDate: serverTimestamp(),
       status: 'queued',
       order: totalSongs,
@@ -87,39 +96,37 @@ export default function StudentPage() {
 
     try {
       await batch.commit();
+      createAuditLog('SONG_ADDED', `Şarkı: "${newSong.title}"`);
     } catch (e) {
       console.error("Şarkı eklenirken hata oluştu:", e);
     }
   };
 
   const handleSongUpdate = (songId: string, updatedData: { title: string; url: string }) => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
     const songDocRef = doc(firestore, 'song_requests', songId);
     updateDocumentNonBlocking(songDocRef, {
       title: updatedData.title,
       karaokeUrl: updatedData.url,
     });
+    createAuditLog('SONG_UPDATED', `Şarkı ID: ${songId}, Yeni Başlık: "${updatedData.title}"`);
     setEditingSong(null);
   };
 
    const handleProfileUpdate = async (values: { firstName: string, lastName: string }) => {
     if (!auth?.currentUser || !firestore) return;
 
+    const oldDisplayName = auth.currentUser.displayName;
     const newDisplayName = `${values.firstName} ${values.lastName}`;
     const studentId = auth.currentUser.uid;
 
     try {
       await runTransaction(firestore, async (transaction) => {
-        // 1. Update Firebase Auth display name
-        if (auth.currentUser) {
-            await updateProfile(auth.currentUser, { displayName: newDisplayName });
-        }
+        await updateProfile(auth.currentUser!, { displayName: newDisplayName });
 
-        // 2. Update student document
         const studentDocRef = doc(firestore, 'students', studentId);
         transaction.update(studentDocRef, { name: newDisplayName });
 
-        // 3. Update denormalized names in song requests
         const songRequestsQuery = query(
           collection(firestore, 'song_requests'),
           where('studentId', '==', studentId)
@@ -130,6 +137,7 @@ export default function StudentPage() {
         });
       });
 
+      createAuditLog('PROFILE_UPDATED', `Kullanıcı: "${oldDisplayName}" -> "${newDisplayName}"`);
       toast({
         title: 'Profil Güncellendi',
         description: 'Adınız başarıyla güncellendi.',
@@ -149,24 +157,19 @@ export default function StudentPage() {
 
   const sortedSongs = React.useMemo(() => {
     if (!songs) return [];
-    // Convert Firestore Timestamps to JS Dates
     const songsWithDates = songs.map(song => ({
         ...song,
         submissionDate: (song.submissionDate as any)?.toDate ? (song.submissionDate as any).toDate() : new Date(),
     }));
 
-    // Sort the songs based on status and submission date
     return songsWithDates.sort((a, b) => {
         if (a.status === 'playing') return -1;
         if (b.status === 'playing') return 1;
         if (a.status === 'played' && b.status !== 'played') return 1;
         if (b.status === 'played' && a.status !== 'played') return -1;
-
         if (a.order !== b.order) {
             return (a.order ?? 999) - (b.order ?? 999);
         }
-
-        // For songs with the same status, sort by submission date (oldest first)
         return a.submissionDate.getTime() - b.submissionDate.getTime();
     });
   }, [songs]);

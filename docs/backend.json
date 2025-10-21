@@ -5,7 +5,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "SongRequest",
       "type": "object",
-      "description": "Represents a song request submitted by a student.",
+      "description": "Represents a song request submitted by a user.",
       "properties": {
         "id": {
           "type": "string",
@@ -58,21 +58,42 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Student",
       "type": "object",
-      "description": "Represents a student who can submit song requests.",
+      "description": "Represents a student or admin who can submit song requests.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the student (matches Firebase Auth UID)."
+          "description": "Unique identifier for the user (matches Firebase Auth UID)."
         },
         "name": {
           "type": "string",
-          "description": "Name of the student."
+          "description": "Name of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user.",
+          "enum": ["student", "admin"]
         }
       },
       "required": [
         "id",
-        "name"
+        "name",
+        "role"
       ]
+    },
+    "AuditLog": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "AuditLog",
+        "type": "object",
+        "description": "Represents a log of an action taken in the system.",
+        "properties": {
+            "id": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "actorId": { "type": "string" },
+            "actorName": { "type": "string" },
+            "action": { "type": "string" },
+            "details": { "type": "string" }
+        },
+        "required": ["id", "timestamp", "actorId", "actorName", "action", "details"]
     }
   },
   "auth": {
@@ -85,13 +106,19 @@
       "schema": {
         "$ref": "#/entities/Student"
       },
-      "description": "Stores student profiles. Each document represents a student who can submit song requests."
+      "description": "Stores student and admin profiles. Each document represents a user."
     },
     "/song_requests/{songRequestId}": {
         "schema": {
             "$ref": "#/entities/SongRequest"
         },
-        "description": "Stores all song requests in a single collection for easier querying and sorting by admins."
+        "description": "Stores all song requests in a single collection for easier querying and sorting by admins/owners."
+    },
+    "/audit_logs/{logId}": {
+        "schema": {
+            "$ref": "#/entities/AuditLog"
+        },
+        "description": "Stores a chronological log of all significant actions taken in the application."
     }
   }
 }

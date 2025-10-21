@@ -40,6 +40,8 @@ interface EditProfileDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onProfileUpdate: (values: EditProfileFormValues) => void;
+  dialogTitle?: string;
+  dialogDescription?: string;
 }
 
 export function EditProfileDialog({
@@ -47,6 +49,8 @@ export function EditProfileDialog({
   isOpen,
   onOpenChange,
   onProfileUpdate,
+  dialogTitle = 'Profili Düzenle',
+  dialogDescription = 'Adınızdaki veya soyadınızdaki yazım hatalarını düzeltin.',
 }: EditProfileDialogProps) {
   const [firstName, lastName] = user.displayName?.split(' ') || ['', ''];
 
@@ -72,10 +76,8 @@ export function EditProfileDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Profili Düzenle</DialogTitle>
-          <DialogDescription>
-            Adınızdaki veya soyadınızdaki yazım hatalarını düzeltin.
-          </DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form

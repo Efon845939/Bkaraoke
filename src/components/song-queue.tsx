@@ -62,12 +62,12 @@ import {
   CardDescription,
 } from './ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirestore, deleteDocumentNonBlocking, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
+import { doc, collection, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
 
 type SongQueueProps = {
-  role: 'student' | 'admin';
+  role: 'student' | 'admin' | 'owner';
   songs: Song[];
   isLoading: boolean;
   currentUserId?: string;
@@ -117,12 +117,10 @@ export function SongQueue({
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <ListMusic />
-            {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
+            {role === 'admin' ? 'Mevcut Sıra (Salt Okunur)' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
           </CardTitle>
           <CardDescription>
-            {role === 'admin'
-              ? "Şarkıları arayın veya sırada ne olduğunu görün."
-              : "İstediğiniz şarkılar burada."}
+            {role === 'admin' ? "Sırada ne olduğunu görün." : "İstediğiniz şarkılar burada."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -136,74 +134,40 @@ export function SongQueue({
     );
   }
   
-  const dndContent = (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={filteredSongs.map(s => s.id)} strategy={verticalListSortingStrategy}>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {role === 'admin' && <TableHead className="w-12"></TableHead>}
-              <TableHead>Durum</TableHead>
-              <TableHead>Şarkı Başlığı</TableHead>
-              {role === 'admin' && <TableHead>İsteyen</TableHead>}
-              <TableHead className="text-right">Eylemler</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSongs.length > 0 ? (
-              filteredSongs.map((song) => (
-                <SortableSongRow
-                  key={song.id}
-                  song={song}
-                  role={role}
-                  currentUserId={currentUserId}
-                  onEditSong={onEditSong}
-                />
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={role === 'admin' ? 5 : 4} className="h-24 text-center">
-                  {role === 'admin'
-                    ? 'Sıra boş.'
-                    : "Henüz bir şarkı istemediniz."}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </SortableContext>
-    </DndContext>
-  );
+  const canDrag = role === 'owner' && onReorder;
 
-  const regularContent = (
-     <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Durum</TableHead>
-              <TableHead>Şarkı Başlığı</TableHead>
-              <TableHead className="text-right">Eylemler</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSongs.length > 0 ? (
-              filteredSongs.map((song) => (
-                <SortableSongRow
-                  key={song.id}
-                  song={song}
-                  role={role}
-                  currentUserId={currentUserId}
-                  onEditSong={onEditSong}
-                />
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={3} className="h-24 text-center">
-                  Henüz bir şarkı istemediniz.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+  const tableContent = (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          {canDrag && <TableHead className="w-12"></TableHead>}
+          <TableHead>Durum</TableHead>
+          <TableHead>Şarkı Başlığı</TableHead>
+          {(role === 'admin' || role === 'owner') && <TableHead>İsteyen</TableHead>}
+          <TableHead className="text-right">Eylemler</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {filteredSongs.length > 0 ? (
+          filteredSongs.map((song) => (
+            <SortableSongRow
+              key={song.id}
+              song={song}
+              role={role}
+              currentUserId={currentUserId}
+              onEditSong={onEditSong}
+              canDrag={canDrag}
+            />
+          ))
+        ) : (
+          <TableRow>
+            <TableCell colSpan={(role === 'admin' || role === 'owner') ? (canDrag ? 5: 4) : 3} className="h-24 text-center">
+              {role === 'student' ? "Henüz bir şarkı istemediniz." : 'Sıra boş.'}
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 
   return (
@@ -211,12 +175,10 @@ export function SongQueue({
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <ListMusic />
-          {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
+           {role === 'admin' ? 'Mevcut Sıra (Salt Okunur)' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
         </CardTitle>
         <CardDescription>
-          {role === 'admin'
-            ? "Şarkıları arayın veya sırada ne olduğunu görün."
-            : "İstediğiniz şarkılar burada."}
+          Şarkıları arayın veya sırada ne olduğunu görün.
         </CardDescription>
         <div className="pt-4">
           <Input
@@ -229,7 +191,15 @@ export function SongQueue({
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">
-          {role === 'admin' ? dndContent : regularContent}
+          {canDrag ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={filteredSongs.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                {tableContent}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            tableContent
+          )}
         </div>
       </CardContent>
     </Card>
@@ -242,14 +212,17 @@ const SortableSongRow = ({
   role,
   currentUserId,
   onEditSong,
+  canDrag
 }: {
   song: Song;
-  role: 'admin' | 'student';
+  role: 'admin' | 'student' | 'owner';
   currentUserId?: string;
   onEditSong: (song: Song) => void;
+  canDrag: boolean;
 }) => {
   const { toast } = useToast();
   const firestore = useFirestore();
+  const { user } = useUser();
 
   const {
     attributes,
@@ -258,7 +231,7 @@ const SortableSongRow = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: song.id, disabled: role !== 'admin' });
+  } = useSortable({ id: song.id, disabled: !canDrag });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -266,24 +239,37 @@ const SortableSongRow = ({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1 : 0,
   };
+  
+  const createAuditLog = (action: string, details: string) => {
+    if (!firestore || !user) return;
+    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+      timestamp: serverTimestamp(),
+      actorId: user.uid,
+      actorName: user.displayName || user.email,
+      action,
+      details
+    });
+  };
 
-  const deleteSong = (id: string) => {
+  const deleteSong = (id: string, title: string) => {
     if (!firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'song_requests', id));
+    createAuditLog('SONG_DELETED', `Şarkı: "${title}" (ID: ${id})`);
     toast({
       title: 'Şarkı Kaldırıldı',
-      description: 'Şarkı sıradan kaldırıldı.',
+      description: `"${title}" sıradan kaldırıldı.`,
       duration: 3000,
     });
   };
 
-  const updateSongStatus = (id: string, status: Song['status']) => {
+  const updateSongStatus = (id: string, status: Song['status'], title: string) => {
     if (!firestore) return;
     const translatedStatus = status === 'playing' ? 'çalınıyor' : status === 'played' ? 'çalındı' : 'sırada';
     updateDocumentNonBlocking(doc(firestore, 'song_requests', id), { status });
+    createAuditLog('STATUS_CHANGED', `Şarkı: "${title}", Yeni Durum: ${status.toUpperCase()}`);
     toast({
       title: 'Durum Güncellendi',
-      description: `Şarkının durumu "${translatedStatus}" olarak güncellendi.`,
+      description: `"${title}" durumuna "${translatedStatus}" olarak güncellendi.`,
       duration: 3000,
     });
   };
@@ -295,7 +281,8 @@ const SortableSongRow = ({
       : status === 'queued'
       ? 'secondary'
       : 'outline';
-  const isOwner = song.studentId === currentUserId;
+  const isOwnerOfSong = song.studentId === currentUserId;
+  const canModify = role === 'owner' || (role === 'student' && isOwnerOfSong);
   
   const statusTranslations = {
       queued: 'Sırada',
@@ -305,7 +292,7 @@ const SortableSongRow = ({
 
   return (
     <TableRow ref={setNodeRef} style={style}>
-      {role === 'admin' && (
+      {canDrag && (
         <TableCell className="w-12 cursor-grab touch-none" {...attributes} {...listeners}>
           <GripVertical className="h-5 w-5 text-muted-foreground" />
         </TableCell>
@@ -316,7 +303,7 @@ const SortableSongRow = ({
         </Badge>
       </TableCell>
       <TableCell className="font-medium">{song.title}</TableCell>
-      {role === 'admin' && <TableCell>{song.studentName}</TableCell>}
+      {(role === 'admin' || role === 'owner') && <TableCell>{song.studentName}</TableCell>}
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -330,13 +317,13 @@ const SortableSongRow = ({
               <Youtube className="mr-2 h-4 w-4" />
               <span>Bağlantıyı Aç</span>
             </DropdownMenuItem>
-            {(role === 'admin' || isOwner) && (
+            {canModify && (
               <DropdownMenuItem onClick={() => onEditSong(song)}>
                 <Pencil className="mr-2 h-4 w-4" />
                 <span>Düzenle</span>
               </DropdownMenuItem>
             )}
-            {role === 'admin' && (
+            {role === 'owner' && (
               <>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
@@ -345,15 +332,15 @@ const SortableSongRow = ({
                   </DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuSubContent>
-                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'playing')}>
+                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'playing', song.title)}>
                         <Play className="mr-2 h-4 w-4" />
                         Çalınıyor
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'played')}>
+                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'played', song.title)}>
                         <Check className="mr-2 h-4 w-4" />
                         Çalındı
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'queued')}>
+                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'queued', song.title)}>
                         <ListMusic className="mr-2 h-4 w-4" />
                         Sırada
                       </DropdownMenuItem>
@@ -363,11 +350,11 @@ const SortableSongRow = ({
                 <DropdownMenuSeparator />
               </>
             )}
-            {(role === 'admin' || isOwner) && (
+            {canModify && (
               <>
-               {role === 'student' && <DropdownMenuSeparator />}
+               {role !== 'owner' && <DropdownMenuSeparator />}
                 <DropdownMenuItem
-                  onClick={() => deleteSong(song.id)}
+                  onClick={() => deleteSong(song.id, song.title)}
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />

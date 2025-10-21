@@ -10,9 +10,9 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   updateProfile,
-  signOut,
 } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -34,37 +34,22 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { serverTimestamp } from 'firebase/firestore';
 
 const studentSchema = z.object({
-  firstName: z
-    .string()
-    .min(1, 'İsim gerekli')
-    .transform(
-      (name) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
-    ),
-  lastName: z
-    .string()
-    .min(1, 'Soyisim gerekli')
-    .transform(
-      (name) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
-    ),
+  firstName: z.string().min(1, 'İsim gerekli').transform(name => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()),
+  lastName: z.string().min(1, 'Soyisim gerekli').transform(name => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()),
   pin: z.string().length(4, 'PIN 4 haneli olmalıdır.').regex(/^\d{4}$/, 'PIN sadece rakamlardan oluşmalıdır.'),
 });
 
-const adminSchema = z.object({
-  pin: z.string().refine((pin) => pin === 'kara90ke' || pin === 'gizli_kara90ke', {
-    message: 'Geçersiz yönetici PINi.',
-  }),
-});
-
-const ownerSchema = z.object({
-  password: z.string().refine((password) => password === 'theownerthebest', {
-    message: 'Geçersiz sahip şifresi.',
+const adminSchema = studentSchema.extend({
+  adminPin: z.string().refine((pin) => pin === 'kara90ke' || pin === 'gizli_kara90ke', {
+    message: 'Geçersiz yönetici/sahip PINi.',
   }),
 });
 
 type LoginDialogProps = {
-  role: 'student' | 'admin' | 'owner' | null;
+  role: 'student' | 'admin' | null;
   authAction: 'login' | 'signup' | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -77,11 +62,12 @@ export function LoginDialog({
   onOpenChange,
 }: LoginDialogProps) {
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const formSchema = role === 'student' ? studentSchema : role === 'admin' ? adminSchema : ownerSchema;
+  const formSchema = role === 'admin' ? adminSchema : studentSchema;
   type FormValues = z.infer<typeof formSchema>;
 
   const form = useForm<FormValues>({
@@ -90,176 +76,104 @@ export function LoginDialog({
       firstName: '',
       lastName: '',
       pin: '',
-      password: '',
+      adminPin: '',
     } as any,
   });
 
   React.useEffect(() => {
     if (open) {
-      form.reset({ firstName: '', lastName: '', pin: '', password: '' });
+      form.reset({ firstName: '', lastName: '', pin: '', adminPin: '' });
     }
   }, [role, authAction, open, form]);
 
-  const handleStudentSignUp = async (values: z.infer<typeof studentSchema>) => {
-    if (!auth) return;
-    setIsLoading(true);
-    const { firstName, lastName, pin } = values;
-    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@karaoke.app`;
-    const password = `${pin}${firstName}${lastName}`;
-
-    try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      await updateProfile(userCredential.user, {
-        displayName: `${firstName} ${lastName}`,
-      });
-      toast({ title: 'Hesap oluşturuldu!', description: 'Hoş geldiniz! Yeni hesabınız hazır.', duration: 3000 });
-      router.push('/student');
-    } catch (signUpError: any) {
-      if (signUpError.code === 'auth/email-already-in-use') {
-        toast({
-          variant: 'destructive',
-          title: 'Kayıt başarısız',
-          description: 'Bu isimle bir hesap zaten mevcut. Lütfen giriş yapın.',
-          duration: 3000,
-        });
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Kayıt başarısız',
-          description: signUpError.message,
-          duration: 3000,
-        });
-      }
-    } finally {
-      setIsLoading(false);
-      onOpenChange(false);
-    }
+  const createAuditLog = (actorId: string, actorName: string, action: string, details: string) => {
+    if (!firestore) return;
+    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+      timestamp: serverTimestamp(),
+      actorId,
+      actorName,
+      action,
+      details
+    });
   };
 
-  const handleStudentSignIn = async (values: z.infer<typeof studentSchema>) => {
-    if (!auth) return;
+  const handleAuth = async (values: FormValues) => {
+    if (!auth || !firestore) return;
     setIsLoading(true);
+
     const { firstName, lastName, pin } = values;
-    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@karaoke.app`;
+    const isAdmin = role === 'admin';
+    const isOwnerLogin = isAdmin && 'adminPin' in values && values.adminPin === 'gizli_kara90ke';
+    
+    const emailDomain = isOwnerLogin ? '@karaoke.owner.app' : isAdmin ? '@karaoke.admin.app' : '@karaoke.app';
+    const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${emailDomain}`;
     const password = `${pin}${firstName}${lastName}`;
-
+    const displayName = `${firstName} ${lastName}`;
+    
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Tekrar hoş geldiniz!', duration: 3000 });
-      router.push('/student');
-    } catch (signInError: any) {
-      if (signInError.code === 'auth/user-not-found') {
-         toast({
-          variant: 'destructive',
-          title: 'Giriş başarısız',
-          description: 'Bu isimle bir kullanıcı bulunamadı. Lütfen önce kayıt olun.',
-          duration: 3000,
-        });
-      } else if (signInError.code === 'auth/invalid-credential') {
-         toast({
-          variant: 'destructive',
-          title: 'Giriş başarısız',
-          description: 'Geçersiz PIN. Lütfen tekrar deneyin.',
-          duration: 3000,
-        });
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Giriş başarısız',
-          description: signInError.message,
-          duration: 3000,
-        });
-      }
-    } finally {
-      setIsLoading(false);
-      onOpenChange(false);
-    }
-  };
+        let userCredential;
+        if (authAction === 'signup') {
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            await updateProfile(userCredential.user, { displayName });
+            
+            const userRole = isOwnerLogin ? 'owner' : isAdmin ? 'admin' : 'student';
+            await setDoc(doc(firestore, 'students', userCredential.user.uid), {
+                id: userCredential.user.uid,
+                name: displayName,
+                role: userRole
+            });
+            createAuditLog(userCredential.user.uid, displayName, 'USER_SIGNUP', `Rol: ${userRole}`);
+            toast({ title: 'Hesap oluşturuldu!', description: 'Hoş geldiniz! Yeni hesabınız hazır.' });
+        } else { // Login
+            userCredential = await signInWithEmailAndPassword(auth, email, password);
+            toast({ title: 'Tekrar hoş geldiniz!' });
+        }
 
-  const handleAdminLogin = async (values: z.infer<typeof adminSchema>) => {
-    if (!auth) return;
-    setIsLoading(true);
-  
-    const { pin } = values;
-  
-    if (pin === 'gizli_kara90ke') {
-      // Owner login logic
-      const ownerEmail = 'owner@karaoke.app';
-      const ownerPassword = 'theownerthebest';
-      try {
-        await signOut(auth);
-        await signInWithEmailAndPassword(auth, ownerEmail, ownerPassword);
-        router.push('/owner');
-      } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-          try {
-            await createUserWithEmailAndPassword(auth, ownerEmail, ownerPassword);
-            await signInWithEmailAndPassword(auth, ownerEmail, ownerPassword);
+        if (isOwnerLogin) {
             router.push('/owner');
-          } catch (creationError: any) {
-            toast({ variant: 'destructive', title: 'Sahip hesabı kurulumu başarısız', description: creationError.message, duration: 3000 });
-          }
-        } else {
-          toast({ variant: 'destructive', title: 'Sahip girişi başarısız', description: error.message, duration: 3000 });
-        }
-      } finally {
-        setIsLoading(false);
-        onOpenChange(false);
-      }
-    } else if (pin === 'kara90ke') {
-      // Admin login logic
-      const adminEmail = 'admin@karaoke.app';
-      const adminPassword = 'supersecretadminpassword';
-      try {
-        await signOut(auth);
-        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-        router.push('/admin');
-      } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-          try {
-            await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
-            await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        } else if (isAdmin) {
             router.push('/admin');
-          } catch (creationError: any) {
-            toast({ variant: 'destructive', title: 'Yönetici kurulumu başarısız', description: creationError.message, duration: 3000 });
-          }
         } else {
-          toast({ variant: 'destructive', title: 'Yönetici girişi başarısız', description: error.message, duration: 3000 });
+            router.push('/student');
         }
-      } finally {
+
+    } catch (error: any) {
+        let title = 'Hata';
+        let description = 'Bilinmeyen bir hata oluştu.';
+
+        if (error.code === 'auth/email-already-in-use') {
+            title = 'Kayıt başarısız';
+            description = 'Bu isimle bir hesap zaten mevcut. Lütfen giriş yapın veya farklı bir isim deneyin.';
+        } else if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            title = 'Giriş başarısız';
+            description = 'Girilen bilgilerle eşleşen bir kullanıcı bulunamadı. Lütfen bilgilerinizi kontrol edin veya kayıt olun.';
+        } else {
+            description = error.message;
+        }
+
+        toast({ variant: 'destructive', title, description, duration: 4000 });
+    } finally {
         setIsLoading(false);
         onOpenChange(false);
-      }
     }
   };
 
   const getDialogContent = () => {
+    const isSignup = authAction === 'signup';
     if (role === 'admin') {
       return {
-        title: 'Yönetici Girişi',
-        description: 'Panele erişmek için yönetici PIN\'ini girin.',
-        handler: handleAdminLogin,
-        buttonText: 'Giriş Yap'
+        title: isSignup ? 'Yönetici Hesabı Oluştur' : 'Yönetici Girişi',
+        description: isSignup ? 'Yönetici olmak için bilgilerinizi ve yönetici PIN\'ini girin.' : 'Panele erişmek için yönetici bilgilerinizi girin.',
+        handler: handleAuth,
+        buttonText: isSignup ? 'Kayıt Ol' : 'Giriş Yap'
       };
     }
     if (role === 'student') {
-      if (authAction === 'signup') {
-        return {
-          title: 'Öğrenci Hesabı Oluştur',
-          description: 'Hesap oluşturmak için adınızı ve 4 haneli bir PIN girin.',
-          handler: handleStudentSignUp,
-          buttonText: 'Kayıt Ol'
-        };
-      }
       return {
-        title: 'Öğrenci Girişi',
-        description: 'Şarkı listenize erişmek için adınızı ve PIN\'inizi girin.',
-        handler: handleStudentSignIn,
-        buttonText: 'Giriş Yap'
+        title: isSignup ? 'Öğrenci Hesabı Oluştur' : 'Öğrenci Girişi',
+        description: isSignup ? 'Hesap oluşturmak için adınızı ve 4 haneli bir PIN girin.' : 'Şarkı listenize erişmek için adınızı ve PIN\'inizi girin.',
+        handler: handleAuth,
+        buttonText: isSignup ? 'Kayıt Ol' : 'Giriş Yap'
       };
     }
     return { title: '', description: '', handler: async () => {}, buttonText: '' };
@@ -275,70 +189,64 @@ export function LoginDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handler as any)} className="space-y-4">
-            {role === 'student' && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="firstName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>İsim</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ör., Ahmet" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="lastName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Soyisim</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ör., Yılmaz" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-            {role === 'student' && <FormField
+          <form onSubmit={form.handleSubmit(handler)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="firstName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>İsim</FormLabel>
+                  <FormControl>
+                    <Input placeholder="ör., Ahmet" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="lastName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Soyisim</FormLabel>
+                  <FormControl>
+                    <Input placeholder="ör., Yılmaz" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
               control={form.control}
               name="pin"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>4 Haneli PIN</FormLabel>
+                  <FormLabel>4 Haneli Kişisel PIN</FormLabel>
                   <FormControl>
                     <Input type="password" maxLength={4} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
-            />}
-             {role === 'admin' && <FormField
-              control={form.control}
-              name="pin"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Yönetici PIN'i</FormLabel>
-                  <FormControl>
-                    <Input type="password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />}
+            />
+            {role === 'admin' && (
+              <FormField
+                control={form.control}
+                name="adminPin"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Yönetici/Sahip PIN'i</FormLabel>
+                    <FormControl>
+                      <Input type="password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <DialogFooter>
               <Button type="submit" disabled={isLoading} className="w-full">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  buttonText
-                )}
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : buttonText}
               </Button>
             </DialogFooter>
           </form>
