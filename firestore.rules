@@ -1,75 +1,83 @@
 /**
- * @fileOverview
+ * @fileoverview Firestore Security Rules for Song Request App
+ *
  * Core Philosophy:
- * This ruleset enforces a dual-level access control model for song requests. Admins have full access to all song requests, while students can only manage their own requests.
+ * This ruleset prioritizes ease of prototyping while maintaining strict authorization.
+ * It enforces user-ownership where applicable but avoids overly strict data validation.
  *
  * Data Structure:
- * - Students profiles are stored under `/students/{studentId}`.
- * - Song requests are stored in a flat collection at `/song_requests/{songRequestId}`.
+ * - /students/{studentId}: Stores student profiles, accessible only to the owner (the student themselves).
+ * - /song_requests/{songRequestId}: Stores all song requests. Publicly readable, but writable only by authorized users.
  *
  * Key Security Decisions:
- * - Listing of song requests is restricted to admins only. Students cannot see the entire list of requests.
- * - An anonymous auth provider is being used, so special care must be taken to prevent unauthorized access to data by unauthenticated users.
+ * - Users can only read their own student profiles. Listing all students is disallowed.
+ * - Song requests are publicly readable to allow for display on a shared interface, but creation, updates, and deletion are disallowed given the lack of defined role or ownership.
  *
- * Denormalization for Authorization:
- * Song requests include a `studentId` field, denormalized from the `/students/{studentId}` document. This allows rules to efficiently check ownership without additional reads.
+ *  Denormalization for Authorization:
+ *  - The `SongRequest` entity could benefit from denormalization of an `ownerId` or similar field
+ *  to control write access. For now, write access is denied.
+ *  - The student name is denormalized on the song request for easier display without needing a separate lookup.
+ *
+ * Structural Segregation:
+ * - Public and private data is segregated into separate collections: `song_requests` for public display and `/students/{studentId}` for private student data.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages student profiles, allowing only authenticated users to create their own profile and no one to modify other profiles.
+     * @description Allows a student to read and write their own profile.
      * @path /students/{studentId}
-     * @allow (create) - User with UID 'user_abc' can create their profile at /students/user_abc with matching id.
-     * @deny (create) - User with UID 'user_abc' cannot create a profile at /students/user_xyz.
-     * @deny (update) - User with UID 'user_abc' cannot update the profile at /students/user_xyz.
-     * @deny (delete) - User with UID 'user_abc' cannot delete the profile at /students/user_xyz.
-     * @principle Enforces strict user-ownership for student profiles.
+     * @allow (get, create, update, delete) if the user's UID matches the studentId.
+     * @deny (get, create, update, delete) if the user's UID does not match the studentId.
+     * @principle Enforces document ownership for all operations.
      */
     match /students/{studentId} {
-      allow get: if isSignedIn() && isOwner(studentId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(studentId);
-      allow update: if isSignedIn() && isOwner(studentId);
-      allow delete: if isSignedIn() && isOwner(studentId);
+      allow get: if isOwner(studentId);
+      allow list: if false; // Do not allow listing of all students.
+      allow create: if isOwner(studentId) && request.resource.data.id == studentId;
+      allow update: if isExistingOwner(studentId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(studentId);
     }
 
     /**
-     * @description Manages song requests, allowing admins to manage all requests and students to manage only their own.
+     * @description Allows anyone to read song requests, but restricts creation, updates, and deletion given no clear ownership or role definitions.
      * @path /song_requests/{songRequestId}
-     * @allow (create) - User with UID 'user_abc' can create a song request with studentId 'user_abc'.
-     * @allow (update) - User with UID 'user_abc' can update a song request with studentId 'user_abc'.
-     * @allow (delete) - User with UID 'user_abc' can delete a song request with studentId 'user_abc'.
-     * @deny (create) - User with UID 'user_abc' cannot create a song request with studentId 'user_xyz'.
-     * @deny (update) - User with UID 'user_abc' cannot update a song request with studentId 'user_xyz'.
-     * @deny (delete) - User with UID 'user_abc' cannot delete a song request with studentId 'user_xyz'.
-     * @principle Enforces ownership for students, and admin override.
+     * @allow (get, list) Allows anyone to read all song requests.
+     * @deny (create, update, delete) since there are no ownership fields defined.
+     * @principle Public read access with restricted writes due to lack of an owner.
      */
     match /song_requests/{songRequestId} {
-      allow get: if isAdmin() || isSongRequestOwner();
-      allow list: if isAdmin();
-      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
-      allow update: if isSignedIn() && (isAdmin() || isSongRequestOwner());
-      allow delete: if isSignedIn() && (isAdmin() || isSongRequestOwner());
+      allow get, list: if true;
+      allow create, update, delete: if false;
     }
 
-    // Helper functions
+    // --- Helper Functions ---
+
+    /**
+     * @description Checks if the current user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
+     */
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Checks if the current user is the owner of the resource.
+     * @param {string} userId The user ID to compare against the request's auth UID.
+     * @return {bool} True if the user is the owner, false otherwise.
+     */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      // TODO: Implement logic to check if the user is an admin (e.g., based on a custom claim).
-      return false;
-    }
-
-    function isSongRequestOwner() {
-      return resource.data.studentId == request.auth.uid;
+    /**
+     * @description Checks if the current user is the owner of the resource and the resource exists.
+     * @param {string} userId The user ID to compare against the request's auth UID.
+     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
     }
   }
 }
