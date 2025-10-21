@@ -5,11 +5,20 @@ import * as React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import type { Song } from '@/types';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth, initiateAnonymousSignIn } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 export default function AdminPage() {
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
+
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -40,7 +49,7 @@ export default function AdminPage() {
       <PageHeader />
       <main>
         <h2 className="text-3xl tracking-wider mb-4">Admin Dashboard</h2>
-        <SongQueue role="admin" songs={sortedSongs} isLoading={isLoading} />
+        <SongQueue role="admin" songs={sortedSongs} isLoading={isLoading || isUserLoading} />
       </main>
     </div>
   );
