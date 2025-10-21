@@ -34,7 +34,7 @@ export default function LoginPage() {
           background-position: 0 0, 10px 10px;
         }
       `}</style>
-      <Card className="w-full max-w-sm animate-in fade-in zoom-in-95 shadow-2xl">
+      <Card className="w-full max-w-md animate-in fade-in zoom-in-95 shadow-2xl">
         <CardHeader className="items-center text-center">
           <Logo />
           <p className="pt-2 text-muted-foreground">
@@ -63,13 +63,31 @@ export default function LoginPage() {
                 Öğrenci Girişi
               </Button>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                className="w-full"
+                size="lg"
+                onClick={() => handleRoleSelect('admin', 'signup')}
+              >
+                Yönetici Kaydı
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                size="lg"
+                onClick={() => handleRoleSelect('admin', 'login')}
+              >
+                Yönetici Girişi
+              </Button>
+          </div>
            <Button
-            variant="outline"
-            className="w-full"
+            variant="destructive"
+            className="w-full bg-red-800 hover:bg-red-900"
             size="lg"
-            onClick={() => handleRoleSelect('admin')}
+            onClick={() => handleRoleSelect('owner')}
           >
-            Yönetici Olarak Gir
+            Sistem Sahibi Girişi
           </Button>
         </CardContent>
       </Card>
