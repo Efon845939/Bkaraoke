@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Mic, User, Youtube } from 'lucide-react';
+import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -32,10 +33,9 @@ const baseSchema = z.object({
 });
 
 const formSchemaWithAdmin = baseSchema.extend({
-  name: z.string().min(2, "Name must be at least 2 characters."),
+  name: z.string().min(2, "Name must be at least 2 characters.").optional(),
 });
 
-type SongFormValues = z.infer<typeof baseSchema>;
 type SongFormValuesWithAdmin = z.infer<typeof formSchemaWithAdmin>;
 
 interface SongSubmissionFormProps {
@@ -51,19 +51,34 @@ export function SongSubmissionForm({
 }: SongSubmissionFormProps) {
   const { toast } = useToast();
   
-  const finalSchema = showNameInput ? formSchemaWithAdmin : baseSchema;
+  const finalSchema = showNameInput ? formSchemaWithAdmin.refine(data => !showNameInput || (data.name && data.name.length >= 2), {
+    message: "Name must be at least 2 characters.",
+    path: ["name"],
+  }) : baseSchema;
 
   const form = useForm<SongFormValuesWithAdmin>({
     resolver: zodResolver(finalSchema),
     defaultValues: {
-      name: '',
+      name:  '',
       title: '',
       url: '',
     },
   });
+  
+  React.useEffect(() => {
+    if (showNameInput) {
+        form.reset({ name: '', title: '', url: ''});
+    } else {
+        form.reset({ name: studentName, title: '', url: ''});
+    }
+  }, [showNameInput, studentName, form]);
 
   function onSubmit(values: SongFormValuesWithAdmin) {
-    onSongAdd(values);
+    const submissionValues = {
+        ...values,
+        name: showNameInput ? values.name : studentName,
+    };
+    onSongAdd(submissionValues);
     toast({
       title: 'Request Submitted!',
       description: `"${values.title}" has been added to the queue.`,

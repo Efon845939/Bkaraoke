@@ -91,19 +91,25 @@ export default function StudentPage() {
 
   const sortedSongs = React.useMemo(() => {
     if (!songs) return [];
-    // Convert Firestore Timestamps to JS Dates and sort
-    return songs
-      .map(song => ({
+    // Convert Firestore Timestamps to JS Dates
+    const songsWithDates = songs.map(song => ({
         ...song,
         submissionDate: (song.submissionDate as any)?.toDate ? (song.submissionDate as any).toDate() : new Date(),
-      }))
-      .sort((a, b) => {
-        const statusOrder = { playing: 0, queued: 1, played: 2 };
-        if (statusOrder[a.status] !== statusOrder[b.status]) {
-          return statusOrder[a.status] - statusOrder[b.status];
+    }));
+
+    // Sort the songs based on status and submission date
+    return songsWithDates.sort((a, b) => {
+        const statusOrder = { playing: 1, queued: 2, played: 3 };
+        const aStatus = statusOrder[a.status] || 99;
+        const bStatus = statusOrder[b.status] || 99;
+
+        if (aStatus !== bStatus) {
+            return aStatus - bStatus;
         }
+
+        // For songs with the same status, sort by submission date (oldest first)
         return a.submissionDate.getTime() - b.submissionDate.getTime();
-      });
+    });
   }, [songs]);
 
   if (isUserLoading || !user) {
@@ -118,7 +124,7 @@ export default function StudentPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
-        <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} showNameInput={true} />
+        <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} showNameInput={!user.displayName} />
         <SongQueue
           role="student"
           songs={sortedSongs}
