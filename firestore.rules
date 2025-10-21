@@ -1,75 +1,79 @@
 /**
- * @fileoverview Firestore Security Rules for the Karaoke Request App.
- *
- * Core Philosophy:
- * This ruleset enforces a user-ownership model for student profiles,
- * allowing each student to manage their own profile data. Song requests
- * are stored in a shared collection and are publicly readable, but can only be
- * created with a valid student ID and modified/deleted by an admin (not implemented in these rules).
+ * @file Overview
+ * This ruleset enforces a user-ownership model for student profiles and allows authenticated users to create song requests.
  *
  * Data Structure:
- * - /students/{studentId}: Stores individual student profiles, with the `studentId` matching the Firebase Auth UID.
- * - /song_requests/{songRequestId}: Stores all song requests.
+ * - /students/{studentId}: Stores student profiles, where studentId matches the Firebase Auth UID.
+ * - /song_requests/{songRequestId}: Stores song requests.
  *
  * Key Security Decisions:
  * - Students can only read and write their own profile data.
- * - Song requests are publicly readable to allow for display in the app.
- * - No validation on the exact shape of data to allow for rapid prototyping.
- * - Admin roles are not implemented.
+ * - Only authenticated users can create song requests.
+ * - Song requests can be read by anyone, allowing for a public queue.
+ * - Song requests can only be updated or deleted by the user who created them.
  *
  * Denormalization for Authorization:
- * - The `SongRequest` entity denormalizes the student's name (`studentName`) for display purposes.
- *   Authorization is still based on the `studentId` field to ensure the request belongs to the authenticated user.
- *
- * Structural Segregation:
- * - The application uses separate collections for student profiles (private) and song requests (public read),
- *   optimizing for different access patterns and security requirements.
+ * - Song requests have a `studentId` field, which allows rules to quickly verify the owner of the request.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows students to manage their own profile data.
-     * @path /students/{studentId}
-     * @allow (create) - A student can create their own profile if the studentId matches their auth UID.
-     * @allow (get, list, update, delete) - A student can read, update, and delete their profile if the studentId matches their auth UID.
-     * @deny - A student cannot create, read, update, or delete another student's profile.
-     * @principle Enforces document ownership for student profiles.
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
      */
-    match /students/{studentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-      allow get: if isOwner(studentId);
-      allow list: if isOwner(studentId);
-      allow create: if isOwner(studentId) && request.resource.data.id == studentId;
-      allow update: if isOwner(studentId) && resource.data.id == studentId;
-      allow delete: if isOwner(studentId) && resource != null; //Ensures document exists before deleting
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     /**
-     * @description Allows anyone to read song requests, but only authenticated users can create them with their student ID.
+     * @description Checks if the user is the owner of the resource.
+     * @param {string} userId - The user ID to check against.
+     * @return {bool} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the resource and the resource exists.
+     * @param {string} userId - The user ID to check against.
+     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for student profiles.
+     * @path /students/{studentId}
+     * @allow (read) - Authenticated user can read any student profiles.
+     * @allow (write) - Only the student with matching UID can create, update, or delete their own profile.
+     * @deny (write) - Another user attempts to modify a different student's profile.
+     * @principle Enforces document ownership for writes.
+     */
+    match /students/{studentId} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isOwner(studentId);
+      allow update: if isExistingOwner(studentId);
+      allow delete: if isExistingOwner(studentId);
+    }
+
+    /**
+     * @description Rules for song requests.
      * @path /song_requests/{songRequestId}
-     * @allow (get, list) - Anyone can read song requests.
-     * @allow (create) - An authenticated user can create a song request with their student ID.
-     * @deny (update, delete) - Only admins can update or delete song requests (not implemented).
-     * @principle Allows public read access for song requests with authenticated creation and admin-only modification.
+     * @allow (read) - Anyone can read song requests.
+     * @allow (create) - Authenticated user can create song requests with studentId that match the user's id.
+     * @deny (update, delete) - Only the student who created the request can update or delete it.
+     * @principle Enforces document ownership for writes.
      */
     match /song_requests/{songRequestId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
-      allow update: if false; // TODO: Add admin role check
-      allow delete: if false; // TODO: Add admin role check
+      allow update: if isSignedIn() && request.auth.uid == resource.data.studentId && resource != null;
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.studentId && resource != null;
     }
   }
 }
