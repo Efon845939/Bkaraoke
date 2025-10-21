@@ -114,7 +114,7 @@ export function LoginDialog({
       router.push('/student');
     } catch (signInError: any) {
       // If sign-in fails because the user doesn't exist, create a new account
-      if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
+      if (signInError.code === 'auth/user-not-found') {
         try {
           const userCredential = await createUserWithEmailAndPassword(
             auth,
@@ -134,6 +134,13 @@ export function LoginDialog({
             description: signUpError.message,
           });
         }
+      } else if (signInError.code === 'auth/invalid-credential') {
+        // Handle incorrect PIN specifically
+        toast({
+          variant: 'destructive',
+          title: 'Login failed',
+          description: 'Invalid PIN. Please try again.',
+        });
       } else {
         // Handle other sign-in errors
         toast({
