@@ -48,7 +48,7 @@ const studentSchema = z.object({
     .transform(
       (name) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
     ),
-  pin: z.string().length(4, 'PIN 4 haneli olmalıdır.').regex(/^\d{4}$/, 'PIN 4 haneli olmalıdır.'),
+  pin: z.string().length(4, 'PIN 4 haneli olmalıdır.').regex(/^\d{4}$/, 'PIN sadece rakamlardan oluşmalıdır.'),
 });
 
 const adminSchema = z.object({
@@ -109,7 +109,7 @@ export function LoginDialog({
       await updateProfile(userCredential.user, {
         displayName: `${firstName} ${lastName}`,
       });
-      toast({ title: 'Hesap oluşturuldu!', description: 'Hoş geldiniz! Yeni hesabınız hazır.' });
+      toast({ title: 'Hesap oluşturuldu!', description: 'Hoş geldiniz! Yeni hesabınız hazır.', duration: 3000 });
       router.push('/student');
     } catch (signUpError: any) {
       if (signUpError.code === 'auth/email-already-in-use') {
@@ -117,12 +117,14 @@ export function LoginDialog({
           variant: 'destructive',
           title: 'Kayıt başarısız',
           description: 'Bu isimle bir hesap zaten mevcut. Lütfen giriş yapın.',
+          duration: 3000,
         });
       } else {
         toast({
           variant: 'destructive',
           title: 'Kayıt başarısız',
           description: signUpError.message,
+          duration: 3000,
         });
       }
     } finally {
@@ -140,26 +142,22 @@ export function LoginDialog({
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Tekrar hoş geldiniz!' });
+      toast({ title: 'Tekrar hoş geldiniz!', duration: 3000 });
       router.push('/student');
     } catch (signInError: any) {
-      if (signInError.code === 'auth/user-not-found') {
+      if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
         toast({
           variant: 'destructive',
           title: 'Giriş başarısız',
-          description: 'Bu isimle bir hesap bulunamadı. Lütfen önce kaydolun.',
-        });
-      } else if (signInError.code === 'auth/invalid-credential') {
-        toast({
-          variant: 'destructive',
-          title: 'Giriş başarısız',
-          description: 'Geçersiz PIN. Lütfen tekrar deneyin.',
+          description: 'Geçersiz isim veya PIN. Lütfen tekrar deneyin.',
+          duration: 3000,
         });
       } else {
         toast({
           variant: 'destructive',
           title: 'Giriş başarısız',
           description: signInError.message,
+          duration: 3000,
         });
       }
     } finally {
@@ -185,10 +183,10 @@ export function LoginDialog({
            await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
           router.push('/admin');
         } catch (creationError: any) {
-           toast({ variant: 'destructive', title: 'Yönetici kurulumu başarısız', description: creationError.message });
+           toast({ variant: 'destructive', title: 'Yönetici kurulumu başarısız', description: creationError.message, duration: 3000 });
         }
       } else {
-        toast({ variant: 'destructive', title: 'Yönetici girişi başarısız', description: error.message });
+        toast({ variant: 'destructive', title: 'Yönetici girişi başarısız', description: error.message, duration: 3000 });
       }
     } finally {
       setIsLoading(false);

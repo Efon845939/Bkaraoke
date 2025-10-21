@@ -82,6 +82,7 @@ export function SongSubmissionForm({
     toast({
       title: 'İstek Gönderildi!',
       description: `"${values.title}" sıraya eklendi.`,
+      duration: 3000,
     });
     form.reset();
   }

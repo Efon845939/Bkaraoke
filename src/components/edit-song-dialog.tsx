@@ -71,6 +71,7 @@ export function EditSongDialog({
     toast({
       title: 'Şarkı Güncellendi!',
       description: `"${values.title}" güncellendi.`,
+      duration: 3000,
     });
     onOpenChange(false);
   }

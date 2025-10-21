@@ -273,6 +273,7 @@ const SortableSongRow = ({
     toast({
       title: 'Şarkı Kaldırıldı',
       description: 'Şarkı sıradan kaldırıldı.',
+      duration: 3000,
     });
   };
 
@@ -283,6 +284,7 @@ const SortableSongRow = ({
     toast({
       title: 'Durum Güncellendi',
       description: `Şarkının durumu "${translatedStatus}" olarak güncellendi.`,
+      duration: 3000,
     });
   };
 
