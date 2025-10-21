@@ -11,7 +11,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection } from 'firebase/firestore';
 import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
 
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { serverTimestamp } from 'firebase/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const studentSchema = z.object({
   firstName: z.string().min(1, 'İsim gerekli').transform(name => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()),
@@ -50,14 +51,12 @@ const adminSchema = studentSchema.extend({
 
 type LoginDialogProps = {
   role: 'student' | 'admin' | null;
-  authAction: 'login' | 'signup' | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
 export function LoginDialog({
   role,
-  authAction,
   open,
   onOpenChange,
 }: LoginDialogProps) {
@@ -66,6 +65,7 @@ export function LoginDialog({
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [authAction, setAuthAction] = React.useState<'login' | 'signup'>('login');
 
   const formSchema = role === 'admin' ? adminSchema : studentSchema;
   type FormValues = z.infer<typeof formSchema>;
@@ -83,12 +83,14 @@ export function LoginDialog({
   React.useEffect(() => {
     if (open) {
       form.reset({ firstName: '', lastName: '', pin: '', adminPin: '' });
+      setAuthAction('login'); // Reset to login tab when dialog opens
     }
-  }, [role, authAction, open, form]);
+  }, [role, open, form]);
 
   const createAuditLog = (actorId: string, actorName: string, action: string, details: string) => {
     if (!firestore) return;
-    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+    const auditLogsCollection = collection(firestore, 'audit_logs');
+    addDocumentNonBlocking(auditLogsCollection, {
       timestamp: serverTimestamp(),
       actorId,
       actorName,
@@ -159,27 +161,23 @@ export function LoginDialog({
   };
 
   const getDialogContent = () => {
-    const isSignup = authAction === 'signup';
     if (role === 'admin') {
       return {
-        title: isSignup ? 'Yönetici Hesabı Oluştur' : 'Yönetici Girişi',
-        description: isSignup ? 'Yönetici olmak için bilgilerinizi ve yönetici PIN\'ini girin.' : 'Panele erişmek için yönetici bilgilerinizi girin.',
-        handler: handleAuth,
-        buttonText: isSignup ? 'Kayıt Ol' : 'Giriş Yap'
+        title: 'Yönetici Alanı',
+        description: 'Panele erişmek için yönetici bilgilerinizi girin.',
       };
     }
     if (role === 'student') {
       return {
-        title: isSignup ? 'Öğrenci Hesabı Oluştur' : 'Öğrenci Girişi',
-        description: isSignup ? 'Hesap oluşturmak için adınızı ve 4 haneli bir PIN girin.' : 'Şarkı listenize erişmek için adınızı ve PIN\'inizi girin.',
-        handler: handleAuth,
-        buttonText: isSignup ? 'Kayıt Ol' : 'Giriş Yap'
+        title: 'Katılımcı Alanı',
+        description: 'Şarkı istemek için giriş yapın veya yeni hesap oluşturun.',
       };
     }
-    return { title: '', description: '', handler: async () => {}, buttonText: '' };
+    return { title: '', description: '' };
   };
-
-  const { title, description, handler, buttonText } = getDialogContent();
+  
+  const { title, description } = getDialogContent();
+  const buttonText = authAction === 'signup' ? 'Hesap Oluştur' : 'Giriş Yap';
 
   return (
     <Dialog open={open && !!role} onOpenChange={onOpenChange}>
@@ -188,69 +186,77 @@ export function LoginDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handler)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>İsim</FormLabel>
-                  <FormControl>
-                    <Input placeholder="ör., Ahmet" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Soyisim</FormLabel>
-                  <FormControl>
-                    <Input placeholder="ör., Yılmaz" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="pin"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>4 Haneli Kişisel PIN</FormLabel>
-                  <FormControl>
-                    <Input type="password" maxLength={4} {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {role === 'admin' && (
-              <FormField
-                control={form.control}
-                name="adminPin"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Yönetici/Sahip PIN'i</FormLabel>
-                    <FormControl>
-                      <Input type="password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+        <Tabs value={authAction} onValueChange={(value) => setAuthAction(value as 'login' | 'signup')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="login">Giriş Yap</TabsTrigger>
+            <TabsTrigger value="signup">Hesap Oluştur</TabsTrigger>
+          </TabsList>
+          <TabsContent value={authAction}>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleAuth)} className="space-y-4 pt-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>İsim</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ör., Ahmet" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Soyisim</FormLabel>
+                      <FormControl>
+                        <Input placeholder="ör., Yılmaz" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pin"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>4 Haneli Kişisel PIN</FormLabel>
+                      <FormControl>
+                        <Input type="password" maxLength={4} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {role === 'admin' && (
+                  <FormField
+                    control={form.control}
+                    name="adminPin"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Yönetici/Sahip PIN'i</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
-            )}
-            <DialogFooter>
-              <Button type="submit" disabled={isLoading} className="w-full">
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : buttonText}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <DialogFooter>
+                  <Button type="submit" disabled={isLoading} className="w-full">
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : buttonText}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

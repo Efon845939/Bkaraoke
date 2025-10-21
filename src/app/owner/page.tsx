@@ -3,8 +3,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirestore, useCollection, useMemoFirebase, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc } from 'firebase/firestore';
 import type { Song, Student, AuditLog } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +31,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
+
+// A non-blocking wrapper for addDoc
+const addDocumentNonBlocking = (ref: any, data: any) => {
+    addDoc(ref, data).catch(e => console.error("Failed to add document non-blocking", e));
+}
 
 export default function OwnerPage() {
   const { user, isUserLoading } = useUser();
@@ -228,7 +233,7 @@ export default function OwnerPage() {
             <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-3"><Users /> Tüm Kullanıcılar</CardTitle>
-                    <CardDescription>Sisteme kayıtlı tüm öğrenciler ve yöneticiler.</CardDescription>
+                    <CardDescription>Sisteme kayıtlı tüm katılımcılar ve yöneticiler.</CardDescription>
                      <div className="pt-4">
                         <Input
                             placeholder="Kullanıcı ara..."

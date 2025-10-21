@@ -13,11 +13,9 @@ export default function LoginPage() {
   const [loginRole, setLoginRole] = React.useState<'student' | 'admin' | null>(
     null
   );
-  const [authAction, setAuthAction] = React.useState<'login' | 'signup' | null>(null);
 
-  const handleRoleSelect = (role: 'student' | 'admin', action: 'login' | 'signup' | null = 'login') => {
+  const handleRoleSelect = (role: 'student' | 'admin') => {
     setLoginRole(role);
-    setAuthAction(action);
     setDialogOpen(true);
   };
 
@@ -44,51 +42,32 @@ export default function LoginPage() {
         <Separator />
         <CardContent className="flex flex-col gap-4 p-6">
           <h2 className="text-center font-body text-lg font-bold uppercase tracking-widest text-primary/80">
-            Rol Seçin
+            Giriş Yap veya Kayıt Ol
           </h2>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
              <Button
                 className="w-full"
                 size="lg"
-                onClick={() => handleRoleSelect('student', 'signup')}
+                onClick={() => handleRoleSelect('student')}
               >
-                Öğrenci Kaydı
+                Katılımcı
               </Button>
               <Button
                 className="w-full"
                 size="lg"
                 variant="secondary"
-                onClick={() => handleRoleSelect('student', 'login')}
+                onClick={() => handleRoleSelect('admin')}
               >
-                Öğrenci Girişi
-              </Button>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-              <Button
-                variant="outline"
-                className="w-full"
-                size="lg"
-                onClick={() => handleRoleSelect('admin', 'signup')}
-              >
-                Yönetici Kaydı
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                size="lg"
-                onClick={() => handleRoleSelect('admin', 'login')}
-              >
-                Yönetici Girişi
+                Yönetici
               </Button>
           </div>
         </CardContent>
       </Card>
       <LoginDialog
             role={loginRole}
-            authAction={authAction}
             open={dialogOpen}
             onOpenChange={setDialogOpen}
-          />
+      />
     </main>
   );
 }
