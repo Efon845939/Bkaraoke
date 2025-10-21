@@ -5,9 +5,10 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
+import { SongSubmissionForm } from '@/components/song-submission-form';
 import type { Song } from '@/types';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 export default function AdminPage() {
   const { user, isUserLoading } = useUser();
@@ -30,6 +31,38 @@ export default function AdminPage() {
   }, [firestore, isAdmin]);
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
+
+  const handleSongAdd = async (newSong: { title: string; url: string }) => {
+    if (!firestore || !user) return;
+
+    const studentId = user.uid;
+    const studentName = 'Admin'; // Admin submits as "Admin"
+    const studentDocRef = doc(firestore, 'students', studentId);
+
+    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
+
+    const batch = writeBatch(firestore);
+
+    // Set a student document for the admin user if it doesn't exist.
+    batch.set(studentDocRef, { id: studentId, name: studentName }, { merge: true });
+
+    // Create the new song request
+    batch.set(songRequestDocRef, {
+      title: newSong.title,
+      karaokeUrl: newSong.url,
+      id: songRequestDocRef.id,
+      studentId: studentId,
+      studentName: studentName,
+      submissionDate: serverTimestamp(),
+      status: 'queued',
+    });
+
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.error("Error adding song:", e);
+    }
+  };
 
   const sortedSongs = React.useMemo(() => {
     if (!songs) return [];
@@ -60,7 +93,8 @@ export default function AdminPage() {
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
-      <main>
+      <main className="space-y-8">
+        <SongSubmissionForm onSongAdd={handleSongAdd} studentName="Admin" />
         <h2 className="mb-4 text-3xl tracking-wider">Admin Dashboard</h2>
         <SongQueue role="admin" songs={sortedSongs} isLoading={isLoading || isUserLoading} />
       </main>
