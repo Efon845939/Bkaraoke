@@ -1,0 +1,67 @@
+/**
+ * @fileoverview Firestore Security Rules for the Karaoke Queue application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for student profiles and their song requests. Each student can only manage their own profile and song requests.
+ *
+ * Data Structure:
+ * - /students/{studentId}: Stores student profiles.
+ * - /students/{studentId}/song_requests/{songRequestId}: Stores song requests submitted by a specific student.
+ *
+ * Key Security Decisions:
+ * - Students can only create, update, and delete song requests under their own student ID.
+ * - No user listing is allowed for the root `/students` collection.
+ *
+ * Denormalization for Authorization:
+ * - Song requests are nested under the students collection to establish ownership. This allows verifying the student ID directly from the path without needing to read the document.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Protects the root /students collection, preventing unauthorized listing.
+     * @path /students/{studentId}
+     * @allow (create) A student with ID 'student_abc' can create their own profile document.
+     * @deny (list) No one can list all students.
+     * @deny (create) A student with ID 'student_xyz' cannot create a profile under 'student_abc'.
+     * @principle Prevents unauthorized listing of student profiles.
+     */
+    match /students/{studentId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(studentId);
+      allow update: if isExistingOwner(studentId);
+      allow delete: if isExistingOwner(studentId);
+    }
+
+    /**
+     * @description Enforces ownership for song requests, allowing students to manage their own requests.
+     * @path /students/{studentId}/song_requests/{songRequestId}
+     * @allow (create) A student with ID 'student_abc' can create a song request under their profile.
+     * @allow (update) A student with ID 'student_abc' can update a song request under their profile.
+     * @allow (delete) A student with ID 'student_abc' can delete a song request under their profile.
+     * @deny (create) A student with ID 'student_xyz' cannot create a song request under 'student_abc'.
+     * @principle Enforces document ownership for song request writes.
+     */
+    match /students/{studentId}/song_requests/{songRequestId} {
+      allow get: if isOwner(studentId);
+      allow list: if isOwner(studentId);
+      allow create: if isSignedIn() && isOwner(studentId);
+      allow update: if isExistingOwner(studentId);
+      allow delete: if isExistingOwner(studentId);
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
+  }
+}
