@@ -38,29 +38,27 @@ export default function StudentPage() {
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
-  const handleSongAdd = async (newSong: { title: string; url: string }) => {
+  const handleSongAdd = async (newSong: { name: string; title: string; url: string }) => {
     if (!firestore || !user) return;
 
-    // In a real app, you'd have a proper student profile creation flow.
-    // For this demo, we'll create a student document if one doesn't exist.
     const studentId = user.uid;
-    const studentName = user.isAnonymous ? 'Anonymous User' : user.displayName || 'Anonymous User';
+    const studentName = newSong.name;
     const studentDocRef = doc(firestore, 'students', studentId);
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
 
     const batch = writeBatch(firestore);
 
-    // Create student if it's a new user.
+    // Create or update student document with the new name.
     batch.set(studentDocRef, { id: studentId, name: studentName }, { merge: true });
 
     // Create the new song request
     batch.set(songRequestDocRef, {
-      ...newSong,
+      title: newSong.title,
+      karaokeUrl: newSong.url,
       id: songRequestDocRef.id,
       studentId: studentId,
       studentName: studentName, // Denormalized name for easier display
-      karaokeUrl: newSong.url,
       submissionDate: serverTimestamp(),
       status: 'queued',
     });

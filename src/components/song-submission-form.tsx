@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mic, Youtube } from 'lucide-react';
+import { Mic, Youtube, User } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters.'),
   title: z.string().min(2, 'Title must be at least 2 characters.'),
   url: z.string().url('Please enter a valid YouTube, Vimeo, etc. URL.'),
 });
@@ -42,6 +43,7 @@ export function SongSubmissionForm({ onSongAdd }: SongSubmissionFormProps) {
   const form = useForm<SongFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: '',
       title: '',
       url: '',
     },
@@ -67,6 +69,22 @@ export function SongSubmissionForm({ onSongAdd }: SongSubmissionFormProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Your Name</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input placeholder="e.g., Jane Doe" {...field} className="pl-10" />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="title"
