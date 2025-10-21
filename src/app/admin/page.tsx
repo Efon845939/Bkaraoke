@@ -2,23 +2,24 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import type { Song } from '@/types';
-import { useFirestore, useCollection, useMemoFirebase, useUser, useAuth, initiateAnonymousSignIn } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 
 export default function AdminPage() {
-  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
 
   React.useEffect(() => {
-    if (!isUserLoading && !user) {
-      initiateAnonymousSignIn(auth);
+    // If not loading and no user, or user is not the admin, redirect to home
+    if (!isUserLoading && (!user || user.uid !== 'admin-account')) {
+      router.push('/');
     }
-  }, [user, isUserLoading, auth]);
-
+  }, [user, isUserLoading, router]);
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -44,11 +45,20 @@ export default function AdminPage() {
       });
   }, [songs]);
 
+  // Render a loading state while checking for user auth
+  if (isUserLoading || !user || user.uid !== 'admin-account') {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Loading & Verifying Admin Access...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main>
-        <h2 className="text-3xl tracking-wider mb-4">Admin Dashboard</h2>
+        <h2 className="mb-4 text-3xl tracking-wider">Admin Dashboard</h2>
         <SongQueue role="admin" songs={sortedSongs} isLoading={isLoading || isUserLoading} />
       </main>
     </div>

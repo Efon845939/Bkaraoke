@@ -3,19 +3,28 @@ import Link from 'next/link';
 import { LogOut } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export function PageHeader() {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
+
   return (
-    <header className="mb-8 flex items-center justify-between rounded-lg border bg-card/80 backdrop-blur-sm p-4 shadow-md sticky top-4 z-10">
+    <header className="sticky top-4 z-10 mb-8 flex items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
       <Link href="/">
         <Logo />
       </Link>
-      <Link href="/" passHref>
-        <Button variant="ghost">
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
-        </Button>
-      </Link>
+      <Button variant="ghost" onClick={handleLogout}>
+        <LogOut className="mr-2 h-4 w-4" />
+        Logout
+      </Button>
     </header>
   );
 }

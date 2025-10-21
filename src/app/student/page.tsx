@@ -2,6 +2,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
@@ -11,6 +12,8 @@ import {
   useCollection,
   useMemoFirebase,
   useUser,
+  setDocumentNonBlocking,
+  addDocumentNonBlocking,
 } from '@/firebase';
 import {
   collection,
@@ -20,18 +23,17 @@ import {
   query,
   where,
 } from 'firebase/firestore';
-import { initiateAnonymousSignIn, useAuth } from '@/firebase';
 
 export default function StudentPage() {
-  const auth = useAuth();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
-      initiateAnonymousSignIn(auth);
+      router.push('/');
     }
-  }, [user, isUserLoading, auth]);
+  }, [user, isUserLoading, router]);
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -43,18 +45,18 @@ export default function StudentPage() {
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
-  const handleSongAdd = async (newSong: { name: string; title: string; url: string }) => {
-    if (!firestore || !user) return;
+  const handleSongAdd = async (newSong: { title: string; url: string }) => {
+    if (!firestore || !user?.displayName) return;
 
     const studentId = user.uid;
-    const studentName = newSong.name;
+    const studentName = user.displayName;
     const studentDocRef = doc(firestore, 'students', studentId);
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
 
     const batch = writeBatch(firestore);
 
-    // Create or update student document with the new name.
+    // Set student document with their name.
     batch.set(studentDocRef, { id: studentId, name: studentName }, { merge: true });
 
     // Create the new song request
@@ -92,11 +94,19 @@ export default function StudentPage() {
       });
   }, [songs]);
 
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
-        <SongSubmissionForm onSongAdd={handleSongAdd} />
+        <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} />
         <SongQueue
           role="student"
           songs={sortedSongs}

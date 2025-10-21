@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mic, Youtube, User } from 'lucide-react';
+import { Mic, Youtube } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -27,7 +27,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters.'),
   title: z.string().min(2, 'Title must be at least 2 characters.'),
   url: z.string().url('Please enter a valid YouTube, Vimeo, etc. URL.'),
 });
@@ -35,15 +34,15 @@ const formSchema = z.object({
 type SongFormValues = z.infer<typeof formSchema>;
 
 interface SongSubmissionFormProps {
-  onSongAdd: (song: SongFormValues) => void;
+  onSongAdd: (song: Omit<SongFormValues, 'name'>) => void;
+  studentName: string;
 }
 
-export function SongSubmissionForm({ onSongAdd }: SongSubmissionFormProps) {
+export function SongSubmissionForm({ onSongAdd, studentName }: SongSubmissionFormProps) {
   const { toast } = useToast();
   const form = useForm<SongFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
       title: '',
       url: '',
     },
@@ -63,28 +62,12 @@ export function SongSubmissionForm({ onSongAdd }: SongSubmissionFormProps) {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardHeader>
-            <CardTitle>Request a Song</CardTitle>
+            <CardTitle>Request a Song, {studentName}!</CardTitle>
             <CardDescription>
               Add your favorite karaoke track to the list.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Your Name</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input placeholder="e.g., Jane Doe" {...field} className="pl-10" />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="title"
@@ -93,7 +76,7 @@ export function SongSubmissionForm({ onSongAdd }: SongSubmissionFormProps) {
                   <FormLabel>Song Title</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Mic className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Mic className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input placeholder="e.g., Bohemian Rhapsody" {...field} className="pl-10" />
                     </div>
                   </FormControl>
@@ -109,7 +92,7 @@ export function SongSubmissionForm({ onSongAdd }: SongSubmissionFormProps) {
                   <FormLabel>Karaoke Video Link</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input placeholder="https://youtube.com/watch?v=..." {...field} className="pl-10" />
                     </div>
                   </FormControl>
