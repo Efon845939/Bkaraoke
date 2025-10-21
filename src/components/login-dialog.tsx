@@ -57,8 +57,14 @@ const adminSchema = z.object({
   }),
 });
 
+const ownerSchema = z.object({
+  password: z.string().refine((password) => password === 'theownerthebest', {
+    message: 'Geçersiz sahip şifresi.',
+  }),
+});
+
 type LoginDialogProps = {
-  role: 'student' | 'admin' | null;
+  role: 'student' | 'admin' | 'owner' | null;
   authAction: 'login' | 'signup' | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -75,7 +81,7 @@ export function LoginDialog({
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
 
-  const formSchema = role === 'student' ? studentSchema : adminSchema;
+  const formSchema = role === 'student' ? studentSchema : role === 'admin' ? adminSchema : ownerSchema;
   type FormValues = z.infer<typeof formSchema>;
 
   const form = useForm<FormValues>({
@@ -84,12 +90,13 @@ export function LoginDialog({
       firstName: '',
       lastName: '',
       pin: '',
-    },
+      password: '',
+    } as any,
   });
 
   React.useEffect(() => {
     if (open) {
-      form.reset({ firstName: '', lastName: '', pin: '' });
+      form.reset({ firstName: '', lastName: '', pin: '', password: '' });
     }
   }, [role, authAction, open, form]);
 
@@ -145,11 +152,18 @@ export function LoginDialog({
       toast({ title: 'Tekrar hoş geldiniz!', duration: 3000 });
       router.push('/student');
     } catch (signInError: any) {
-      if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
-        toast({
+      if (signInError.code === 'auth/user-not-found') {
+         toast({
           variant: 'destructive',
           title: 'Giriş başarısız',
-          description: 'Geçersiz isim veya PIN. Lütfen tekrar deneyin veya yeni hesap oluşturun.',
+          description: 'Bu isimle bir kullanıcı bulunamadı. Lütfen önce kayıt olun.',
+          duration: 3000,
+        });
+      } else if (signInError.code === 'auth/invalid-credential') {
+         toast({
+          variant: 'destructive',
+          title: 'Giriş başarısız',
+          description: 'Geçersiz PIN. Lütfen tekrar deneyin.',
           duration: 3000,
         });
       } else {
@@ -194,7 +208,44 @@ export function LoginDialog({
     }
   };
 
+  const handleOwnerLogin = async (values: z.infer<typeof ownerSchema>) => {
+    if (!auth) return;
+    setIsLoading(true);
+    const ownerEmail = 'owner@karaoke.app';
+    const ownerPassword = 'theownerthebest';
+
+    try {
+        await signOut(auth);
+        await signInWithEmailAndPassword(auth, ownerEmail, ownerPassword);
+        router.push('/owner');
+    } catch (error: any) {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            try {
+                await createUserWithEmailAndPassword(auth, ownerEmail, ownerPassword);
+                await signInWithEmailAndPassword(auth, ownerEmail, ownerPassword);
+                router.push('/owner');
+            } catch (creationError: any) {
+                toast({ variant: 'destructive', title: 'Sahip hesabı kurulumu başarısız', description: creationError.message, duration: 3000 });
+            }
+        } else {
+            toast({ variant: 'destructive', title: 'Sahip girişi başarısız', description: error.message, duration: 3000 });
+        }
+    } finally {
+        setIsLoading(false);
+        onOpenChange(false);
+    }
+  };
+
+
   const getDialogContent = () => {
+    if (role === 'owner') {
+      return {
+        title: 'Sistem Sahibi Girişi',
+        description: 'Genel bakış paneline erişmek için sahip şifresini girin.',
+        handler: handleOwnerLogin,
+        buttonText: 'Giriş Yap'
+      };
+    }
     if (role === 'admin') {
       return {
         title: 'Yönetici Girişi',
@@ -263,19 +314,45 @@ export function LoginDialog({
                 />
               </>
             )}
-            <FormField
+            {role === 'student' && <FormField
               control={form.control}
               name="pin"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{role === 'student' ? '4 Haneli PIN' : 'Yönetici PIN\'i'}</FormLabel>
+                  <FormLabel>4 Haneli PIN</FormLabel>
                   <FormControl>
-                    <Input type="password" maxLength={role === 'student' ? 4 : undefined} {...field} />
+                    <Input type="password" maxLength={4} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
-            />
+            />}
+             {role === 'admin' && <FormField
+              control={form.control}
+              name="pin"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Yönetici PIN'i</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />}
+            {role === 'owner' && <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sahip Şifresi</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />}
             <DialogFooter>
               <Button type="submit" disabled={isLoading} className="w-full">
                 {isLoading ? (

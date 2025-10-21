@@ -10,12 +10,12 @@ import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [loginRole, setLoginRole] = React.useState<'student' | 'admin' | null>(
+  const [loginRole, setLoginRole] = React.useState<'student' | 'admin' | 'owner' | null>(
     null
   );
   const [authAction, setAuthAction] = React.useState<'login' | 'signup' | null>(null);
 
-  const handleRoleSelect = (role: 'student' | 'admin', action: 'login' | 'signup' | null = 'login') => {
+  const handleRoleSelect = (role: 'student' | 'admin' | 'owner', action: 'login' | 'signup' | null = 'login') => {
     setLoginRole(role);
     setAuthAction(action);
     setDialogOpen(true);
@@ -70,6 +70,14 @@ export default function LoginPage() {
             onClick={() => handleRoleSelect('admin')}
           >
             Yönetici Olarak Gir
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full"
+            size="lg"
+            onClick={() => handleRoleSelect('owner')}
+          >
+            Sistem Sahibi Girişi
           </Button>
 
         </CardContent>
