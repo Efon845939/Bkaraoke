@@ -117,12 +117,12 @@ export function SongQueue({
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <ListMusic />
-            {role === 'admin' ? 'Current Queue' : 'My Requests'}
+            {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
           </CardTitle>
           <CardDescription>
             {role === 'admin'
-              ? "Search for songs or see what's up next."
-              : "Here are the songs you've requested."}
+              ? "Şarkıları arayın veya sırada ne olduğunu görün."
+              : "İstediğiniz şarkılar burada."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -143,10 +143,10 @@ export function SongQueue({
           <TableHeader>
             <TableRow>
               {role === 'admin' && <TableHead className="w-12"></TableHead>}
-              <TableHead>Status</TableHead>
-              <TableHead>Song Title</TableHead>
-              {role === 'admin' && <TableHead>Requested By</TableHead>}
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Durum</TableHead>
+              <TableHead>Şarkı Başlığı</TableHead>
+              {role === 'admin' && <TableHead>İsteyen</TableHead>}
+              <TableHead className="text-right">Eylemler</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -164,8 +164,8 @@ export function SongQueue({
               <TableRow>
                 <TableCell colSpan={role === 'admin' ? 5 : 4} className="h-24 text-center">
                   {role === 'admin'
-                    ? 'The queue is empty.'
-                    : "You haven't requested any songs yet."}
+                    ? 'Sıra boş.'
+                    : "Henüz bir şarkı istemediniz."}
                 </TableCell>
               </TableRow>
             )}
@@ -179,9 +179,9 @@ export function SongQueue({
      <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Status</TableHead>
-              <TableHead>Song Title</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Durum</TableHead>
+              <TableHead>Şarkı Başlığı</TableHead>
+              <TableHead className="text-right">Eylemler</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -198,7 +198,7 @@ export function SongQueue({
             ) : (
               <TableRow>
                 <TableCell colSpan={3} className="h-24 text-center">
-                  You haven't requested any songs yet.
+                  Henüz bir şarkı istemediniz.
                 </TableCell>
               </TableRow>
             )}
@@ -211,16 +211,16 @@ export function SongQueue({
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <ListMusic />
-          {role === 'admin' ? 'Current Queue' : 'My Requests'}
+          {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
         </CardTitle>
         <CardDescription>
           {role === 'admin'
-            ? "Search for songs or see what's up next."
-            : "Here are the songs you've requested."}
+            ? "Şarkıları arayın veya sırada ne olduğunu görün."
+            : "İstediğiniz şarkılar burada."}
         </CardDescription>
         <div className="pt-4">
           <Input
-            placeholder="Search songs..."
+            placeholder="Şarkı ara..."
             value={globalFilter ?? ''}
             onChange={(event) => setGlobalFilter(String(event.target.value))}
             className="w-full md:w-1/2"
@@ -271,17 +271,18 @@ const SortableSongRow = ({
     if (!firestore) return;
     deleteDocumentNonBlocking(doc(firestore, 'song_requests', id));
     toast({
-      title: 'Song Removed',
-      description: 'The song has been removed from the queue.',
+      title: 'Şarkı Kaldırıldı',
+      description: 'Şarkı sıradan kaldırıldı.',
     });
   };
 
   const updateSongStatus = (id: string, status: Song['status']) => {
     if (!firestore) return;
+    const translatedStatus = status === 'playing' ? 'çalınıyor' : status === 'played' ? 'çalındı' : 'sırada';
     updateDocumentNonBlocking(doc(firestore, 'song_requests', id), { status });
     toast({
-      title: 'Status Updated',
-      description: `The song status has been updated to "${status}".`,
+      title: 'Durum Güncellendi',
+      description: `Şarkının durumu "${translatedStatus}" olarak güncellendi.`,
     });
   };
 
@@ -293,6 +294,12 @@ const SortableSongRow = ({
       ? 'secondary'
       : 'outline';
   const isOwner = song.studentId === currentUserId;
+  
+  const statusTranslations = {
+      queued: 'Sırada',
+      playing: 'Çalınıyor',
+      played: 'Çalındı'
+  }
 
   return (
     <TableRow ref={setNodeRef} style={style}>
@@ -303,7 +310,7 @@ const SortableSongRow = ({
       )}
       <TableCell>
         <Badge variant={badgeVariant} className="w-20 justify-center capitalize shadow-sm">
-          {status}
+          {statusTranslations[status]}
         </Badge>
       </TableCell>
       <TableCell className="font-medium">{song.title}</TableCell>
@@ -312,19 +319,19 @@ const SortableSongRow = ({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Open menu</span>
+              <span className="sr-only">Menüyü aç</span>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => window.open(song.karaokeUrl, '_blank')}>
               <Youtube className="mr-2 h-4 w-4" />
-              <span>Open Link</span>
+              <span>Bağlantıyı Aç</span>
             </DropdownMenuItem>
             {(role === 'admin' || isOwner) && (
               <DropdownMenuItem onClick={() => onEditSong(song)}>
                 <Pencil className="mr-2 h-4 w-4" />
-                <span>Edit</span>
+                <span>Düzenle</span>
               </DropdownMenuItem>
             )}
             {role === 'admin' && (
@@ -332,21 +339,21 @@ const SortableSongRow = ({
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Pen className="mr-2 h-4 w-4" />
-                    <span>Change Status</span>
+                    <span>Durumu Değiştir</span>
                   </DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuSubContent>
                       <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'playing')}>
                         <Play className="mr-2 h-4 w-4" />
-                        Playing
+                        Çalınıyor
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'played')}>
                         <Check className="mr-2 h-4 w-4" />
-                        Played
+                        Çalındı
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'queued')}>
                         <ListMusic className="mr-2 h-4 w-4" />
-                        Queued
+                        Sırada
                       </DropdownMenuItem>
                     </DropdownMenuSubContent>
                   </DropdownMenuPortal>
@@ -362,7 +369,7 @@ const SortableSongRow = ({
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Delete</span>
+                  <span>Sil</span>
                 </DropdownMenuItem>
               </>
             )}

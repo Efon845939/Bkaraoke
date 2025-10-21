@@ -38,22 +38,22 @@ import { Loader2 } from 'lucide-react';
 const studentSchema = z.object({
   firstName: z
     .string()
-    .min(1, 'First name is required')
+    .min(1, 'İsim gerekli')
     .transform(
       (name) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
     ),
   lastName: z
     .string()
-    .min(1, 'Last name is required')
+    .min(1, 'Soyisim gerekli')
     .transform(
       (name) => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()
     ),
-  pin: z.string().length(4, 'PIN must be 4 digits.').regex(/^\d{4}$/, 'PIN must be 4 digits.'),
+  pin: z.string().length(4, 'PIN 4 haneli olmalıdır.').regex(/^\d{4}$/, 'PIN 4 haneli olmalıdır.'),
 });
 
 const adminSchema = z.object({
   pin: z.string().refine((pin) => pin === 'kara90ke', {
-    message: 'Invalid admin PIN.',
+    message: 'Geçersiz yönetici PINi.',
   }),
 });
 
@@ -109,19 +109,19 @@ export function LoginDialog({
       await updateProfile(userCredential.user, {
         displayName: `${firstName} ${lastName}`,
       });
-      toast({ title: 'Account created!', description: 'Welcome! Your new account is ready.' });
+      toast({ title: 'Hesap oluşturuldu!', description: 'Hoş geldiniz! Yeni hesabınız hazır.' });
       router.push('/student');
     } catch (signUpError: any) {
       if (signUpError.code === 'auth/email-already-in-use') {
         toast({
           variant: 'destructive',
-          title: 'Sign-up failed',
-          description: 'An account with this name already exists. Please sign in.',
+          title: 'Kayıt başarısız',
+          description: 'Bu isimle bir hesap zaten mevcut. Lütfen giriş yapın.',
         });
       } else {
         toast({
           variant: 'destructive',
-          title: 'Sign-up failed',
+          title: 'Kayıt başarısız',
           description: signUpError.message,
         });
       }
@@ -140,25 +140,25 @@ export function LoginDialog({
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Welcome back!' });
+      toast({ title: 'Tekrar hoş geldiniz!' });
       router.push('/student');
     } catch (signInError: any) {
       if (signInError.code === 'auth/user-not-found') {
         toast({
           variant: 'destructive',
-          title: 'Login failed',
-          description: 'No account found with this name. Please sign up first.',
+          title: 'Giriş başarısız',
+          description: 'Bu isimle bir hesap bulunamadı. Lütfen önce kaydolun.',
         });
       } else if (signInError.code === 'auth/invalid-credential') {
         toast({
           variant: 'destructive',
-          title: 'Login failed',
-          description: 'Invalid PIN. Please try again.',
+          title: 'Giriş başarısız',
+          description: 'Geçersiz PIN. Lütfen tekrar deneyin.',
         });
       } else {
         toast({
           variant: 'destructive',
-          title: 'Login failed',
+          title: 'Giriş başarısız',
           description: signInError.message,
         });
       }
@@ -185,10 +185,10 @@ export function LoginDialog({
            await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
           router.push('/admin');
         } catch (creationError: any) {
-           toast({ variant: 'destructive', title: 'Admin setup failed', description: creationError.message });
+           toast({ variant: 'destructive', title: 'Yönetici kurulumu başarısız', description: creationError.message });
         }
       } else {
-        toast({ variant: 'destructive', title: 'Admin login failed', description: error.message });
+        toast({ variant: 'destructive', title: 'Yönetici girişi başarısız', description: error.message });
       }
     } finally {
       setIsLoading(false);
@@ -199,26 +199,26 @@ export function LoginDialog({
   const getDialogContent = () => {
     if (role === 'admin') {
       return {
-        title: 'Admin Login',
-        description: 'Enter the admin PIN to access the dashboard.',
+        title: 'Yönetici Girişi',
+        description: 'Panele erişmek için yönetici PIN\'ini girin.',
         handler: handleAdminLogin,
-        buttonText: 'Login'
+        buttonText: 'Giriş Yap'
       };
     }
     if (role === 'student') {
       if (authAction === 'signup') {
         return {
-          title: 'Create Student Account',
-          description: 'Enter your name and a 4-digit PIN to create an account.',
+          title: 'Öğrenci Hesabı Oluştur',
+          description: 'Hesap oluşturmak için adınızı ve 4 haneli bir PIN girin.',
           handler: handleStudentSignUp,
-          buttonText: 'Sign Up'
+          buttonText: 'Kayıt Ol'
         };
       }
       return {
-        title: 'Student Login',
-        description: 'Enter your name and PIN to access your song list.',
+        title: 'Öğrenci Girişi',
+        description: 'Şarkı listenize erişmek için adınızı ve PIN\'inizi girin.',
         handler: handleStudentSignIn,
-        buttonText: 'Sign In'
+        buttonText: 'Giriş Yap'
       };
     }
     return { title: '', description: '', handler: async () => {}, buttonText: '' };
@@ -242,9 +242,9 @@ export function LoginDialog({
                   name="firstName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel>İsim</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Jane" {...field} />
+                        <Input placeholder="ör., Jane" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -255,9 +255,9 @@ export function LoginDialog({
                   name="lastName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Soyisim</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Doe" {...field} />
+                        <Input placeholder="ör., Doe" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -270,7 +270,7 @@ export function LoginDialog({
               name="pin"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{role === 'student' ? '4-Digit PIN' : 'Admin PIN'}</FormLabel>
+                  <FormLabel>{role === 'student' ? '4 Haneli PIN' : 'Yönetici PIN\'i'}</FormLabel>
                   <FormControl>
                     <Input type="password" maxLength={role === 'student' ? 4 : undefined} {...field} />
                   </FormControl>

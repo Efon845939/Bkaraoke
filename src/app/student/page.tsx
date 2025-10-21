@@ -80,7 +80,7 @@ export default function StudentPage() {
     try {
       await batch.commit();
     } catch (e) {
-      console.error("Error adding song:", e);
+      console.error("Şarkı eklenirken hata oluştu:", e);
     }
   };
 
@@ -121,7 +121,7 @@ export default function StudentPage() {
   if (isUserLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Loading...</p>
+        <p>Yükleniyor...</p>
       </div>
     );
   }

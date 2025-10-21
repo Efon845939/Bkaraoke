@@ -38,13 +38,13 @@ export default function LoginPage() {
         <CardHeader className="items-center text-center">
           <Logo />
           <p className="pt-2 text-muted-foreground">
-            Your 90s-themed karaoke companion
+            90'lar temalı karaoke yardımcınız
           </p>
         </CardHeader>
         <Separator />
         <CardContent className="flex flex-col gap-4 p-6">
           <h2 className="text-center font-body text-lg font-bold uppercase tracking-widest text-primary/80">
-            Select Role
+            Rol Seçin
           </h2>
           <div className="grid grid-cols-2 gap-4">
              <Button
@@ -52,7 +52,7 @@ export default function LoginPage() {
                 size="lg"
                 onClick={() => handleRoleSelect('student', 'signup')}
               >
-                Student Sign Up
+                Öğrenci Kaydı
               </Button>
               <Button
                 className="w-full"
@@ -60,7 +60,7 @@ export default function LoginPage() {
                 variant="secondary"
                 onClick={() => handleRoleSelect('student', 'login')}
               >
-                Student Sign In
+                Öğrenci Girişi
               </Button>
           </div>
            <Button
@@ -69,7 +69,7 @@ export default function LoginPage() {
             size="lg"
             onClick={() => handleRoleSelect('admin')}
           >
-            Enter as Admin
+            Yönetici Olarak Gir
           </Button>
 
         </CardContent>

@@ -23,7 +23,7 @@ export function PageHeader() {
       </Link>
       <Button variant="ghost" onClick={handleLogout}>
         <LogOut className="mr-2 h-4 w-4" />
-        Logout
+        Çıkış Yap
       </Button>
     </header>
   );

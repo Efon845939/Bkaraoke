@@ -53,14 +53,14 @@ export default function AdminPage() {
   const handleSongAdd = (newSong: { title: string; url: string; name?: string }) => {
     if (!firestore || !user) return;
 
-    const requesterName = newSong.name || 'Admin';
+    const requesterName = newSong.name || 'Yönetici';
     const studentId = user.uid;
 
     const studentDocRef = doc(firestore, 'students', studentId);
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
 
     const batch = writeBatch(firestore);
-    batch.set(studentDocRef, { id: studentId, name: 'Admin User' }, { merge: true });
+    batch.set(studentDocRef, { id: studentId, name: 'Yönetici Kullanıcısı' }, { merge: true });
     batch.set(songRequestDocRef, {
       title: newSong.title,
       karaokeUrl: newSong.url,
@@ -72,7 +72,7 @@ export default function AdminPage() {
       order: songList?.length ?? 0,
     });
 
-    batch.commit().catch(e => console.error("Error adding song:", e));
+    batch.commit().catch(e => console.error("Şarkı eklenirken hata oluştu:", e));
   };
   
   const handleSongUpdate = (songId: string, updatedData: { title: string; url: string }) => {
@@ -98,7 +98,7 @@ export default function AdminPage() {
     });
 
     batch.commit().catch(e => {
-        console.error("Error reordering songs:", e)
+        console.error("Şarkılar yeniden sıralanırken hata oluştu:", e)
         // If the commit fails, revert to the original list from the hook
         if(songsFromHook) {
             setSongList(songsFromHook);
@@ -109,7 +109,7 @@ export default function AdminPage() {
   if (isUserLoading || !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Loading & Verifying Admin Access...</p>
+        <p>Yönetici Erişimi Yükleniyor ve Doğrulanıyor...</p>
       </div>
     );
   }
@@ -120,10 +120,10 @@ export default function AdminPage() {
       <main className="space-y-8">
         <SongSubmissionForm
           onSongAdd={handleSongAdd}
-          studentName="Admin"
+          studentName="Yönetici"
           showNameInput={true}
         />
-        <h2 className="mb-4 text-3xl tracking-wider">Admin Dashboard</h2>
+        <h2 className="mb-4 text-3xl tracking-wider">Yönetici Paneli</h2>
         <SongQueue
           role="admin"
           songs={songList}

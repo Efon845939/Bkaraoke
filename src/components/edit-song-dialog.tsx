@@ -28,8 +28,8 @@ import type { Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
-  title: z.string().min(2, 'Title must be at least 2 characters.'),
-  url: z.string().url('Please enter a valid YouTube, Vimeo, etc. URL.'),
+  title: z.string().min(2, 'Başlık en az 2 karakter olmalıdır.'),
+  url: z.string().url('Lütfen geçerli bir YouTube, Vimeo vb. URL\'si girin.'),
 });
 
 type EditSongFormValues = z.infer<typeof formSchema>;
@@ -69,8 +69,8 @@ export function EditSongDialog({
   function onSubmit(values: EditSongFormValues) {
     onSongUpdate(song.id, values);
     toast({
-      title: 'Song Updated!',
-      description: `"${values.title}" has been updated.`,
+      title: 'Şarkı Güncellendi!',
+      description: `"${values.title}" güncellendi.`,
     });
     onOpenChange(false);
   }
@@ -79,9 +79,9 @@ export function EditSongDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Song Request</DialogTitle>
+          <DialogTitle>Şarkı İsteğini Düzenle</DialogTitle>
           <DialogDescription>
-            Update the details for your song request.
+            Şarkı isteğinizin detaylarını güncelleyin.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -91,11 +91,11 @@ export function EditSongDialog({
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Song Title</FormLabel>
+                  <FormLabel>Şarkı Başlığı</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Mic className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="e.g., Bohemian Rhapsody" {...field} className="pl-10" />
+                      <Input placeholder="ör., Bohemian Rhapsody" {...field} className="pl-10" />
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -107,7 +107,7 @@ export function EditSongDialog({
               name="url"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Karaoke Video Link</FormLabel>
+                  <FormLabel>Karaoke Video Bağlantısı</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -123,7 +123,7 @@ export function EditSongDialog({
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  'Save Changes'
+                  'Değişiklikleri Kaydet'
                 )}
               </Button>
             </DialogFooter>

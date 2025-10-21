@@ -28,12 +28,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const baseSchema = z.object({
-  title: z.string().min(2, 'Title must be at least 2 characters.'),
-  url: z.string().url('Please enter a valid YouTube, Vimeo, etc. URL.'),
+  title: z.string().min(2, 'Başlık en az 2 karakter olmalıdır.'),
+  url: z.string().url('Lütfen geçerli bir YouTube, Vimeo vb. URL\'si girin.'),
 });
 
 const formSchemaWithAdmin = baseSchema.extend({
-  name: z.string().min(2, "Name must be at least 2 characters.").optional(),
+  name: z.string().min(2, "İsim en az 2 karakter olmalıdır.").optional(),
 });
 
 type SongFormValuesWithAdmin = z.infer<typeof formSchemaWithAdmin>;
@@ -52,7 +52,7 @@ export function SongSubmissionForm({
   const { toast } = useToast();
   
   const finalSchema = showNameInput ? formSchemaWithAdmin.refine(data => !showNameInput || (data.name && data.name.length >= 2), {
-    message: "Name must be at least 2 characters.",
+    message: "İsim en az 2 karakter olmalıdır.",
     path: ["name"],
   }) : baseSchema;
 
@@ -80,8 +80,8 @@ export function SongSubmissionForm({
     };
     onSongAdd(submissionValues);
     toast({
-      title: 'Request Submitted!',
-      description: `"${values.title}" has been added to the queue.`,
+      title: 'İstek Gönderildi!',
+      description: `"${values.title}" sıraya eklendi.`,
     });
     form.reset();
   }
@@ -91,9 +91,9 @@ export function SongSubmissionForm({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardHeader>
-            <CardTitle>Request a Song{showNameInput ? '' : `, ${studentName}`}!</CardTitle>
+            <CardTitle>Bir Şarkı İste{showNameInput ? '' : `, ${studentName}`}!</CardTitle>
             <CardDescription>
-              Add your favorite karaoke track to the list.
+              Favori karaoke parçanızı listeye ekleyin.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -103,11 +103,11 @@ export function SongSubmissionForm({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Your Name</FormLabel>
+                    <FormLabel>Adınız</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="e.g., DJ Jazzy Jeff" {...field} className="pl-10" />
+                        <Input placeholder="ör., DJ Jazzy Jeff" {...field} className="pl-10" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -120,11 +120,11 @@ export function SongSubmissionForm({
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Song Title</FormLabel>
+                  <FormLabel>Şarkı Başlığı</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Mic className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="e.g., Bohemian Rhapsody" {...field} className="pl-10" />
+                      <Input placeholder="ör., Bohemian Rhapsody" {...field} className="pl-10" />
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -136,7 +136,7 @@ export function SongSubmissionForm({
               name="url"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Karaoke Video Link</FormLabel>
+                  <FormLabel>Karaoke Video Bağlantısı</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -150,7 +150,7 @@ export function SongSubmissionForm({
           </CardContent>
           <CardFooter>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              Add to Queue
+              Sıraya Ekle
             </Button>
           </CardFooter>
         </form>
