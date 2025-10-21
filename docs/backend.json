@@ -12,7 +12,11 @@
         },
         "studentId": {
           "type": "string",
-          "description": "Reference to the Student who submitted the request. (Relationship: Student 1:N SongRequest)"
+          "description": "Reference to the Student who submitted the request."
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Denormalized name of the student for easy display."
         },
         "title": {
           "type": "string",
@@ -25,16 +29,23 @@
         },
         "submissionDate": {
           "type": "string",
-          "description": "Date and time when the song request was submitted.",
+          "description": "Date and time when the song request was submitted (server timestamp).",
           "format": "date-time"
+        },
+        "status": {
+            "type": "string",
+            "description": "Current status of the song request.",
+            "enum": ["queued", "playing", "played"]
         }
       },
       "required": [
         "id",
         "studentId",
+        "studentName",
         "title",
         "karaokeUrl",
-        "submissionDate"
+        "submissionDate",
+        "status"
       ]
     },
     "Student": {
@@ -45,7 +56,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the student."
+          "description": "Unique identifier for the student (matches Firebase Auth UID)."
         },
         "name": {
           "type": "string",
@@ -60,49 +71,21 @@
   },
   "auth": {
     "providers": [
-      "password",
       "anonymous"
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/students/{studentId}",
-        "definition": {
-          "entityName": "Student",
-          "schema": {
-            "$ref": "#/backend/entities/Student"
-          },
-          "description": "Stores student profiles. Each document represents a student who can submit song requests.",
-          "params": [
-            {
-              "name": "studentId",
-              "description": "Unique identifier for the student."
-            }
-          ]
-        }
+    "/students/{studentId}": {
+      "schema": {
+        "$ref": "#/entities/Student"
       },
-      {
-        "path": "/students/{studentId}/song_requests/{songRequestId}",
-        "definition": {
-          "entityName": "SongRequest",
-          "schema": {
-            "$ref": "#/backend/entities/SongRequest"
-          },
-          "description": "Stores song requests submitted by students. Nested under the students collection to establish ownership. Includes denormalized 'studentId' to simplify rules.",
-          "params": [
-            {
-              "name": "studentId",
-              "description": "Unique identifier for the student."
-            },
-            {
-              "name": "songRequestId",
-              "description": "Unique identifier for the song request."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure is designed to manage song requests submitted by students in a Karaoke Queue application. It prioritizes authorization independence and efficient data retrieval while adhering to the specified design principles. Since authentication includes anonymous users, a simplified path-based ownership model is used where song requests are created under the user's document.\n\n1.  **Authorization Independence**: Each `SongRequest` document is stored under the student's document (`/students/{studentId}/song_requests/{songRequestId}`). This structure enforces path-based ownership, ensuring that only the student can create, update, or delete their song requests without needing to check parent document data.\n2.  **Structural Segregation**: Song requests are segregated by student under the `/students/{studentId}/song_requests` collection, ensuring homogeneous security requirements for each request within a student's context.\n3.  **Access Modeling**: Path-based ownership (`/students/{studentId}/song_requests/{songRequestId}`) is used.  Admins can bypass these rules, if necessary, by using separate collections (not shown here).\n4. **QAPs (Rules are not Filters):**\n    *   Students can `list` song requests under their document. This design allows for secure `list` operations based on the user id.\n    *   Admin `list` operations are possible by bypassing ownership rules. (not shown here)."
+      "description": "Stores student profiles. Each document represents a student who can submit song requests."
+    },
+    "/song_requests/{songRequestId}": {
+        "schema": {
+            "$ref": "#/entities/SongRequest"
+        },
+        "description": "Stores all song requests in a single collection for easier querying and sorting by admins."
+    }
   }
 }

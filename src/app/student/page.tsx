@@ -5,28 +5,100 @@ import * as React from 'react';
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
-import { getSongs } from '@/lib/data';
 import type { Song } from '@/types';
+import {
+  useFirestore,
+  useCollection,
+  useMemoFirebase,
+  useUser,
+} from '@/firebase';
+import {
+  collection,
+  serverTimestamp,
+  doc,
+  writeBatch,
+} from 'firebase/firestore';
+import { initiateAnonymousSignIn, useAuth } from '@/firebase';
 
 export default function StudentPage() {
-  const [songs, setSongs] = React.useState<Song[]>(() => getSongs());
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  const handleSongAdd = (newSong: { title: string; url: string }) => {
-    const song: Song = {
+  React.useEffect(() => {
+    if (!isUserLoading && !user) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
+
+  const songsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'song_requests');
+  }, [firestore]);
+
+  const { data: songs, isLoading } = useCollection<Song>(songsQuery);
+
+  const handleSongAdd = async (newSong: { title: string; url: string }) => {
+    if (!firestore || !user) return;
+
+    // In a real app, you'd have a proper student profile creation flow.
+    // For this demo, we'll create a student document if one doesn't exist.
+    const studentId = user.uid;
+    const studentName = user.isAnonymous ? 'Anonymous User' : user.displayName || 'Anonymous User';
+    const studentDocRef = doc(firestore, 'students', studentId);
+
+    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
+
+    const batch = writeBatch(firestore);
+
+    // Create student if it's a new user.
+    batch.set(studentDocRef, { id: studentId, name: studentName }, { merge: true });
+
+    // Create the new song request
+    batch.set(songRequestDocRef, {
       ...newSong,
-      id: Date.now().toString(),
-      requestedBy: 'You', // In a real app, this would get the user's name from the session
+      id: songRequestDocRef.id,
+      studentId: studentId,
+      studentName: studentName, // Denormalized name for easier display
+      karaokeUrl: newSong.url,
+      submissionDate: serverTimestamp(),
       status: 'queued',
-    };
-    setSongs((prev) => [song, ...prev]);
+    });
+
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.error("Error adding song:", e);
+    }
   };
+
+  const sortedSongs = React.useMemo(() => {
+    if (!songs) return [];
+    // Convert Firestore Timestamps to JS Dates and sort
+    return songs
+      .map(song => ({
+        ...song,
+        submissionDate: (song.submissionDate as any)?.toDate ? (song.submissionDate as any).toDate() : new Date(),
+      }))
+      .sort((a, b) => {
+        const statusOrder = { playing: 0, queued: 1, played: 2 };
+        if (statusOrder[a.status] !== statusOrder[b.status]) {
+          return statusOrder[a.status] - statusOrder[b.status];
+        }
+        return a.submissionDate.getTime() - b.submissionDate.getTime();
+      });
+  }, [songs]);
 
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} />
-        <SongQueue role="student" songs={songs} setSongs={setSongs} />
+        <SongQueue
+          role="student"
+          songs={sortedSongs}
+          isLoading={isLoading || isUserLoading}
+        />
       </main>
     </div>
   );
