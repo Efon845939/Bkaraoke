@@ -14,10 +14,11 @@ export default function AdminPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const isAdmin = user?.uid === 'admin-account';
+  // Check for admin status by email, which is stable.
+  const isAdmin = user?.email === 'admin@karaoke.app';
 
   React.useEffect(() => {
-    // If not loading and not an admin, redirect to home
+    // If auth is no longer loading and the user is not an admin, redirect.
     if (!isUserLoading && !isAdmin) {
       router.push('/');
     }
