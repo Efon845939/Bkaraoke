@@ -32,19 +32,23 @@ export default function AdminPage() {
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
-  const handleSongAdd = async (newSong: { title: string; url: string }) => {
+  const handleSongAdd = async (newSong: { title: string; url: string; name?: string }) => {
     if (!firestore || !user) return;
 
-    const studentId = user.uid;
-    const studentName = 'Admin'; // Admin submits as "Admin"
-    const studentDocRef = doc(firestore, 'students', studentId);
+    // Use the name from the form, or default to "Admin" if not provided
+    const requesterName = newSong.name || 'Admin';
 
+    // The studentId for all admin-added songs will be the admin user's UID
+    const studentId = user.uid;
+
+    const studentDocRef = doc(firestore, 'students', studentId);
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
 
     const batch = writeBatch(firestore);
 
     // Set a student document for the admin user if it doesn't exist.
-    batch.set(studentDocRef, { id: studentId, name: studentName }, { merge: true });
+    // The name here is a fallback; the important one is on the song request.
+    batch.set(studentDocRef, { id: studentId, name: 'Admin User' }, { merge: true });
 
     // Create the new song request
     batch.set(songRequestDocRef, {
@@ -52,7 +56,7 @@ export default function AdminPage() {
       karaokeUrl: newSong.url,
       id: songRequestDocRef.id,
       studentId: studentId,
-      studentName: studentName,
+      studentName: requesterName, // Use the name from the form
       submissionDate: serverTimestamp(),
       status: 'queued',
     });
@@ -94,7 +98,11 @@ export default function AdminPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
-        <SongSubmissionForm onSongAdd={handleSongAdd} studentName="Admin" />
+        <SongSubmissionForm
+          onSongAdd={handleSongAdd}
+          studentName="Admin"
+          showNameInput={true}
+        />
         <h2 className="mb-4 text-3xl tracking-wider">Admin Dashboard</h2>
         <SongQueue role="admin" songs={sortedSongs} isLoading={isLoading || isUserLoading} />
       </main>

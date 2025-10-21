@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mic, Youtube } from 'lucide-react';
+import { Mic, User, Youtube } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -26,29 +26,43 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 
-const formSchema = z.object({
+const baseSchema = z.object({
   title: z.string().min(2, 'Title must be at least 2 characters.'),
   url: z.string().url('Please enter a valid YouTube, Vimeo, etc. URL.'),
 });
 
-type SongFormValues = z.infer<typeof formSchema>;
+const formSchemaWithAdmin = baseSchema.extend({
+  name: z.string().min(2, "Name must be at least 2 characters."),
+});
+
+type SongFormValues = z.infer<typeof baseSchema>;
+type SongFormValuesWithAdmin = z.infer<typeof formSchemaWithAdmin>;
 
 interface SongSubmissionFormProps {
-  onSongAdd: (song: Omit<SongFormValues, 'name'>) => void;
+  onSongAdd: (song: SongFormValuesWithAdmin) => void;
   studentName: string;
+  showNameInput?: boolean;
 }
 
-export function SongSubmissionForm({ onSongAdd, studentName }: SongSubmissionFormProps) {
+export function SongSubmissionForm({
+  onSongAdd,
+  studentName,
+  showNameInput = false,
+}: SongSubmissionFormProps) {
   const { toast } = useToast();
-  const form = useForm<SongFormValues>({
-    resolver: zodResolver(formSchema),
+  
+  const finalSchema = showNameInput ? formSchemaWithAdmin : baseSchema;
+
+  const form = useForm<SongFormValuesWithAdmin>({
+    resolver: zodResolver(finalSchema),
     defaultValues: {
+      name: '',
       title: '',
       url: '',
     },
   });
 
-  function onSubmit(values: SongFormValues) {
+  function onSubmit(values: SongFormValuesWithAdmin) {
     onSongAdd(values);
     toast({
       title: 'Request Submitted!',
@@ -62,12 +76,30 @@ export function SongSubmissionForm({ onSongAdd, studentName }: SongSubmissionFor
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardHeader>
-            <CardTitle>Request a Song, {studentName}!</CardTitle>
+            <CardTitle>Request a Song{showNameInput ? '' : `, ${studentName}`}!</CardTitle>
             <CardDescription>
               Add your favorite karaoke track to the list.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {showNameInput && (
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Name</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input placeholder="e.g., DJ Jazzy Jeff" {...field} className="pl-10" />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <FormField
               control={form.control}
               name="title"
