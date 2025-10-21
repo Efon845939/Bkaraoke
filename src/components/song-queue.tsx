@@ -21,6 +21,7 @@ import {
   Youtube,
   Play,
   Check,
+  Pencil,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -62,9 +63,10 @@ type SongQueueProps = {
   songs: Song[];
   isLoading: boolean;
   currentUserId?: string;
+  onEditSong: (song: Song) => void;
 };
 
-export function SongQueue({ role, songs, isLoading, currentUserId }: SongQueueProps) {
+export function SongQueue({ role, songs, isLoading, currentUserId, onEditSong }: SongQueueProps) {
   const { toast } = useToast();
   const firestore = useFirestore();
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -155,6 +157,10 @@ export function SongQueue({ role, songs, isLoading, currentUserId }: SongQueuePr
                       <Youtube className="mr-2 h-4 w-4" />
                       <span>Open Link</span>
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onEditSong(song)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>Edit</span>
+                    </DropdownMenuItem>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger>
                         <Pen className="mr-2 h-4 w-4" />
@@ -214,6 +220,10 @@ export function SongQueue({ role, songs, isLoading, currentUserId }: SongQueuePr
                       <Youtube className="mr-2 h-4 w-4" />
                       <span>Open Link</span>
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onEditSong(song)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      <span>Edit</span>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => deleteSong(song.id)}
@@ -232,7 +242,7 @@ export function SongQueue({ role, songs, isLoading, currentUserId }: SongQueuePr
         },
       },
     ],
-    [role, firestore, toast, currentUserId]
+    [role, firestore, toast, currentUserId, onEditSong]
   );
 
   const table = useReactTable({

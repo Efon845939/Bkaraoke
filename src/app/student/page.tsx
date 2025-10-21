@@ -12,8 +12,7 @@ import {
   useCollection,
   useMemoFirebase,
   useUser,
-  setDocumentNonBlocking,
-  addDocumentNonBlocking,
+  updateDocumentNonBlocking,
 } from '@/firebase';
 import {
   collection,
@@ -23,11 +22,14 @@ import {
   query,
   where,
 } from 'firebase/firestore';
+import { EditSongDialog } from '@/components/edit-song-dialog';
 
 export default function StudentPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+
+  const [editingSong, setEditingSong] = React.useState<Song | null>(null);
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
@@ -45,11 +47,11 @@ export default function StudentPage() {
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
-  const handleSongAdd = async (newSong: { title: string; url: string }) => {
+  const handleSongAdd = async (newSong: { title: string; url: string, name?: string }) => {
     if (!firestore || !user?.displayName) return;
 
     const studentId = user.uid;
-    const studentName = user.displayName;
+    const studentName = newSong.name || user.displayName;
     const studentDocRef = doc(firestore, 'students', studentId);
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
@@ -75,6 +77,16 @@ export default function StudentPage() {
     } catch (e) {
       console.error("Error adding song:", e);
     }
+  };
+
+  const handleSongUpdate = (songId: string, updatedData: { title: string; url: string }) => {
+    if (!firestore) return;
+    const songDocRef = doc(firestore, 'song_requests', songId);
+    updateDocumentNonBlocking(songDocRef, {
+      title: updatedData.title,
+      karaokeUrl: updatedData.url,
+    });
+    setEditingSong(null);
   };
 
   const sortedSongs = React.useMemo(() => {
@@ -106,14 +118,23 @@ export default function StudentPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
-        <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} />
+        <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} showNameInput={true} />
         <SongQueue
           role="student"
           songs={sortedSongs}
           isLoading={isLoading || isUserLoading}
           currentUserId={user?.uid}
+          onEditSong={setEditingSong}
         />
       </main>
+      {editingSong && (
+        <EditSongDialog
+          song={editingSong}
+          isOpen={!!editingSong}
+          onOpenChange={(isOpen) => !isOpen && setEditingSong(null)}
+          onSongUpdate={handleSongUpdate}
+        />
+      )}
     </div>
   );
 }
