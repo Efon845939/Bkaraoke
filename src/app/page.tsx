@@ -71,15 +71,6 @@ export default function LoginPage() {
           >
             Yönetici Olarak Gir
           </Button>
-          <Button
-            variant="ghost"
-            className="w-full"
-            size="lg"
-            onClick={() => handleRoleSelect('owner')}
-          >
-            Sistem Sahibi Girişi
-          </Button>
-
         </CardContent>
       </Card>
       <LoginDialog

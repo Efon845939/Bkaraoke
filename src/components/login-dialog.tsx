@@ -52,7 +52,7 @@ const studentSchema = z.object({
 });
 
 const adminSchema = z.object({
-  pin: z.string().refine((pin) => pin === 'kara90ke', {
+  pin: z.string().refine((pin) => pin === 'kara90ke' || pin === 'gizli_kara90ke', {
     message: 'Geçersiz yönetici PINi.',
   }),
 });
@@ -183,69 +183,61 @@ export function LoginDialog({
   const handleAdminLogin = async (values: z.infer<typeof adminSchema>) => {
     if (!auth) return;
     setIsLoading(true);
-    const adminEmail = 'admin@karaoke.app';
-    const adminPassword = 'supersecretadminpassword';
-
-    try {
-      await signOut(auth);
-      await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      router.push('/admin');
-    } catch (error: any) {
-       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-        try {
-           await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
-           await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-          router.push('/admin');
-        } catch (creationError: any) {
-           toast({ variant: 'destructive', title: 'Yönetici kurulumu başarısız', description: creationError.message, duration: 3000 });
-        }
-      } else {
-        toast({ variant: 'destructive', title: 'Yönetici girişi başarısız', description: error.message, duration: 3000 });
-      }
-    } finally {
-      setIsLoading(false);
-      onOpenChange(false);
-    }
-  };
-
-  const handleOwnerLogin = async (values: z.infer<typeof ownerSchema>) => {
-    if (!auth) return;
-    setIsLoading(true);
-    const ownerEmail = 'owner@karaoke.app';
-    const ownerPassword = 'theownerthebest';
-
-    try {
+  
+    const { pin } = values;
+  
+    if (pin === 'gizli_kara90ke') {
+      // Owner login logic
+      const ownerEmail = 'owner@karaoke.app';
+      const ownerPassword = 'theownerthebest';
+      try {
         await signOut(auth);
         await signInWithEmailAndPassword(auth, ownerEmail, ownerPassword);
         router.push('/owner');
-    } catch (error: any) {
+      } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            try {
-                await createUserWithEmailAndPassword(auth, ownerEmail, ownerPassword);
-                await signInWithEmailAndPassword(auth, ownerEmail, ownerPassword);
-                router.push('/owner');
-            } catch (creationError: any) {
-                toast({ variant: 'destructive', title: 'Sahip hesabı kurulumu başarısız', description: creationError.message, duration: 3000 });
-            }
+          try {
+            await createUserWithEmailAndPassword(auth, ownerEmail, ownerPassword);
+            await signInWithEmailAndPassword(auth, ownerEmail, ownerPassword);
+            router.push('/owner');
+          } catch (creationError: any) {
+            toast({ variant: 'destructive', title: 'Sahip hesabı kurulumu başarısız', description: creationError.message, duration: 3000 });
+          }
         } else {
-            toast({ variant: 'destructive', title: 'Sahip girişi başarısız', description: error.message, duration: 3000 });
+          toast({ variant: 'destructive', title: 'Sahip girişi başarısız', description: error.message, duration: 3000 });
         }
-    } finally {
+      } finally {
         setIsLoading(false);
         onOpenChange(false);
+      }
+    } else if (pin === 'kara90ke') {
+      // Admin login logic
+      const adminEmail = 'admin@karaoke.app';
+      const adminPassword = 'supersecretadminpassword';
+      try {
+        await signOut(auth);
+        await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+        router.push('/admin');
+      } catch (error: any) {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+          try {
+            await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
+            await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+            router.push('/admin');
+          } catch (creationError: any) {
+            toast({ variant: 'destructive', title: 'Yönetici kurulumu başarısız', description: creationError.message, duration: 3000 });
+          }
+        } else {
+          toast({ variant: 'destructive', title: 'Yönetici girişi başarısız', description: error.message, duration: 3000 });
+        }
+      } finally {
+        setIsLoading(false);
+        onOpenChange(false);
+      }
     }
   };
 
-
   const getDialogContent = () => {
-    if (role === 'owner') {
-      return {
-        title: 'Sistem Sahibi Girişi',
-        description: 'Genel bakış paneline erişmek için sahip şifresini girin.',
-        handler: handleOwnerLogin,
-        buttonText: 'Giriş Yap'
-      };
-    }
     if (role === 'admin') {
       return {
         title: 'Yönetici Girişi',
@@ -333,19 +325,6 @@ export function LoginDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Yönetici PIN'i</FormLabel>
-                  <FormControl>
-                    <Input type="password" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />}
-            {role === 'owner' && <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sahip Şifresi</FormLabel>
                   <FormControl>
                     <Input type="password" {...field} />
                   </FormControl>
