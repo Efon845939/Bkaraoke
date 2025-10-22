@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
 import type { Song, Student, AuditLog } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,10 +47,12 @@ export default function OwnerDashboardPage() {
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
   const [editingStudent, setEditingStudent] = React.useState<Student | null>(null);
   const [songList, setSongList] = React.useState<Song[]>([]);
+  const [studentToDelete, setStudentToDelete] = React.useState<Student | null>(null);
 
   // Corrected client-side isOwner check using regex
   const isOwner = React.useMemo(() => {
     if (!user?.email) return false;
+    // Use case-insensitive regex for the check
     return /@karaoke\.owner\.app$/i.test(user.email);
   }, [user]);
 
@@ -197,6 +199,36 @@ export default function OwnerDashboardPage() {
     setEditingStudent(null);
 };
 
+const handleDeleteStudent = async () => {
+    if (!firestore || !studentToDelete) return;
+    const { id: studentId, name: studentName } = studentToDelete;
+
+    try {
+      await runTransaction(firestore, async (transaction) => {
+        // 1. Delete student document
+        const studentDocRef = doc(firestore, 'students', studentId);
+        transaction.delete(studentDocRef);
+
+        // 2. Find and delete all song requests by this student
+        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
+        const songRequestsSnapshot = await getDocs(songRequestsQuery);
+        songRequestsSnapshot.forEach((songDoc) => {
+          transaction.delete(songDoc.ref);
+        });
+      });
+      
+      // Note: Deleting the Firebase Auth user is a privileged server-side action
+      // and cannot be done directly from the client. The user will no longer be
+      // able to log in as their profile data is gone.
+      createAuditLog('USER_DELETED', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
+      toast({ title: 'Kullanıcı Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri silindi.` });
+    } catch (error) {
+        console.error("Kullanıcı silinirken hata oluştu:", error);
+        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı silinirken bir sorun oluştu.' });
+    }
+    setStudentToDelete(null);
+  };
+
 
   // --- Memoized Filters ---
   const filteredStudents = React.useMemo(() => {
@@ -254,7 +286,7 @@ export default function OwnerDashboardPage() {
                                 <TableRow>
                                     <TableHead>İsim</TableHead>
                                     <TableHead>Rol</TableHead>
-                                    <TableHead>Eylemler</TableHead>
+                                    <TableHead className="text-right">Eylemler</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -263,7 +295,10 @@ export default function OwnerDashboardPage() {
                                         <TableRow key={i}>
                                             <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
                                             <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
-                                            <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                                            <TableCell className="flex justify-end gap-2">
+                                                <Skeleton className="h-8 w-8" />
+                                                <Skeleton className="h-8 w-8" />
+                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : filteredStudents.length > 0 ? (
@@ -271,10 +306,36 @@ export default function OwnerDashboardPage() {
                                         <TableRow key={student.id}>
                                             <TableCell className="font-medium">{student.name}</TableCell>
                                             <TableCell className="text-muted-foreground capitalize">{student.role}</TableCell>
-                                            <TableCell>
+                                            <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => setEditingStudent(student)}>
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setStudentToDelete(student)}>
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    {studentToDelete && studentToDelete.id === student.id && (
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Bu eylem geri alınamaz. Bu, "{student.name}" adlı kullanıcının profilini ve tüm şarkı isteklerini kalıcı olarak silecektir.
+                                                        </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                        <AlertDialogCancel onClick={() => setStudentToDelete(null)}>İptal</AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            onClick={handleDeleteStudent}
+                                                            className="bg-destructive hover:bg-destructive/90"
+                                                        >
+                                                            Evet, Sil
+                                                        </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                    )}
+                                                </AlertDialog>
                                             </TableCell>
                                         </TableRow>
                                     ))
