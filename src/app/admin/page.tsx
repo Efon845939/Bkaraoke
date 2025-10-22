@@ -57,7 +57,7 @@ export default function AdminPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
-        <h2 className="mb-4 text-3xl font-headline tracking-wider">Yönetici Paneli - Şarkı Sırası (Salt Okunur)</h2>
+        <h2 className="mb-4 text-3xl font-headline tracking-wider">Yönetici Paneli - Şarkı Sırası</h2>
         <SongQueue
           role="admin"
           songs={songList}

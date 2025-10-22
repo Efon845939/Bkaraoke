@@ -117,7 +117,7 @@ export function SongQueue({
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <ListMusic />
-            {role === 'admin' ? 'Mevcut Sıra (Salt Okunur)' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
+            {role === 'admin' ? 'Mevcut Sıra' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
           </CardTitle>
           <CardDescription>
             {role === 'admin' ? "Sırada ne olduğunu görün." : "İstediğiniz şarkılar burada."}
@@ -175,7 +175,7 @@ export function SongQueue({
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <ListMusic />
-           {role === 'admin' ? 'Mevcut Sıra (Salt Okunur)' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
+           {role === 'admin' ? 'Mevcut Sıra' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
         </CardTitle>
         <CardDescription>
           Şarkıları arayın veya sırada ne olduğunu görün.
