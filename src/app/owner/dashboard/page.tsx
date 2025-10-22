@@ -56,7 +56,7 @@ export default function OwnerDashboardPage() {
 
   React.useEffect(() => {
     if (!isUserLoading && !isOwner) {
-      router.replace('/owner');
+      router.replace('/');
     }
   }, [user, isUserLoading, router, isOwner]);
 
@@ -226,11 +226,20 @@ const handleDeleteStudent = async () => {
     );
   }, [students, studentFilter]);
 
-  if (isUserLoading || !isOwner) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Sistem Sahibi Erişimi Yükleniyor ve Doğrulanıyor...</p>
       </div>
+    );
+  }
+
+  // Early return if not owner after loading, to avoid rendering the dashboard
+  if (!isOwner) {
+    return (
+        <div className="flex min-h-screen items-center justify-center">
+            <p>Erişim reddedildi. Yönlendiriliyor...</p>
+        </div>
     );
   }
 
@@ -414,5 +423,3 @@ const handleDeleteStudent = async () => {
     </div>
   );
 }
-
-    
