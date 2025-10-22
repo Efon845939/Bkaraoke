@@ -2,24 +2,26 @@
  * @fileoverview Firestore Security Rules for Karaoke App
  *
  * Core Philosophy:
- * This ruleset enforces a role-based access control model.  Students can read song requests, but not audit logs, and admins have full access.
+ * This ruleset enforces a role-based access control model.  Students can read song requests, but not list all audit logs.
+ * Admins can read and write all song requests. Audit logs are writeable by server/trusted environment only and should not be readable from the client.
  *
  * Data Structure:
- * - /students/{studentId}: Stores student profiles, with the document ID matching the Firebase Auth UID.
- * - /song_requests/{songRequestId}: Stores song requests.
- * - /audit_logs/{logId}: Stores audit logs of system actions.
+ * - /students/{studentId}: Stores student and admin profiles. `studentId` MUST match the Firebase Auth UID.
+ * - /song_requests/{songRequestId}: Stores all song requests in a single collection.
+ * - /audit_logs/{logId}: Stores audit logs, accessible only to backend services.
  *
  * Key Security Decisions:
- * - Students can read song request data.
- * - Only authenticated users can create, update, and delete their own student profiles.
- * - Listing audit logs is denied to non-admins, and no role based authentication has been configured.
+ * - Students are only able to list or read song requests.
+ * - The 'id' field in the `/students/{studentId}` collection must match the `studentId` path parameter (enforced on create and update).
+ * - Audit logs are not readable from the client.  Writes to the audit log should happen from a trusted environment.
  *
  * Denormalization for Authorization:
- *  - The `Student` document includes a `role` field, which is used to determine admin status.  This avoids needing a separate lookup.
+ * - The `SongRequest` entity denormalizes `studentName` to avoid needing to read the student document to display the student's name in the request list.
  *
  * Structural Segregation:
- *  - There is no need to segregate between public and private data.
+ * - The application stores private user data (student profiles) and public data (song requests) in separate collections with distinct access controls.
  */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -32,77 +34,86 @@ service cloud.firestore {
     }
 
     /**
-     * @description Checks if the user's UID matches the provided userId.
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     * @param {string} userId - The user ID to compare against.
+     * @returns {boolean} - True if the user is signed in and the UID matches, false otherwise.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is an admin based on their 'students' document.
-     */
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/students/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    /**
-     * @description Checks if the user is the owner of the existing document.
+     * @description Checks if the authenticated user is an existing owner of the document.
+     * @param {string} userId - The user ID to compare against the resource.
+     * @returns {boolean} - True if the user is signed in, the UID matches, and the document exists.
      */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+        return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Rules for /students/{studentId} documents.
+     * @description Determines if the authenticated user has the 'admin' role.
+     * @returns {boolean} True if the user's role is 'admin'.
+     */
+    function isAdmin() {
+        return get(/databases/$(database)/documents/students/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    /**
+     * @description Rules for student documents.
      * @path /students/{studentId}
-     * @allow (create) User with UID 'user123' creates a new student document with id 'user123'.
-     * @allow (update) User with UID 'user123' updates their own student document.
-     * @deny (create) User with UID 'user456' attempts to create a student document with id 'user123'.
-     * @deny (update) User with UID 'user456' attempts to update the student document with id 'user123'.
-     * @principle Enforces document ownership for writes; only the user with the matching UID can create/update their profile.
+     * @allow (create) User with UID 'user123' can create their own student document at /students/user123.
+     * @deny (create) User with UID 'user123' cannot create a student document for another user at /students/user456.
+     * @allow (get) User with UID 'user123' can read their own student document at /students/user123.
+     * @deny (get) User with UID 'user123' cannot read another user's student document at /students/user456.
+     * @principle Enforces document ownership for reads and writes; validates relational integrity between path and document data.
      */
     match /students/{studentId} {
-      allow get: if true;
-      allow list: if false; // Listing users is generally not a good practice.
-      allow create: if isOwner(studentId) && request.resource.data.id == studentId;
-      allow update: if isExistingOwner(studentId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(studentId);
+        allow create: if isOwner(studentId)
+                       && request.resource.data.id == studentId;
+        allow get: if isOwner(studentId) || isAdmin();
+        allow update: if isExistingOwner(studentId)
+                        && request.resource.data.id == resource.data.id; //Enforce immutability of the id.
+        allow delete: if isExistingOwner(studentId) || isAdmin();
+        allow list: if false;
     }
 
     /**
-     * @description Rules for /song_requests/{songRequestId} documents.
+     * @description Rules for song requests.
      * @path /song_requests/{songRequestId}
-     * @allow (get) Any signed-in user can read a song request.
-     * @allow (list) Any signed-in user can list song requests.
-     * @allow (create) An admin can create song requests.
-     * @allow (update) An admin can update a song request.
-     * @allow (delete) An admin can delete a song request.
-     * @principle Allows public read access but restricts write access to admins only.
+     * @allow (create) Admin can create a song request.
+     * @deny (create) Non-admin cannot create a song request.
+     * @allow (get) Anyone can get a song request.
+     * @allow (list) Anyone can list song requests.
+     * @allow (update) Admin can update any song request.
+     * @deny (update) Non-admin cannot update any song request.
+     * @allow (delete) Admin can delete any song request.
+     * @deny (delete) Non-admin cannot delete any song request.
      */
     match /song_requests/{songRequestId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+        allow create: if isAdmin();
+        allow get: if true;
+        allow list: if true;
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
     }
 
     /**
-     * @description Rules for /audit_logs/{logId} documents.
+     * @description Rules for audit logs.
      * @path /audit_logs/{logId}
-     * @allow (get) Only admins can read audit logs.
-     * @allow (list) Listing audit logs is denied to all users (including admins, for now).
-     * @deny (create) Non-admins cannot create audit logs.
-     * @deny (update) Non-admins cannot update audit logs.
-     * @deny (delete) Non-admins cannot delete audit logs.
-     * @principle Restricts access to audit logs to admins only.
+     * @deny (create) Client cannot create audit logs.
+     * @deny (get) Client cannot get audit logs.
+     * @deny (list) Client cannot list audit logs.
+     * @deny (update) Client cannot update audit logs.
+     * @deny (delete) Client cannot delete audit logs.
+     * @principle Restricts all client access to audit logs.
      */
     match /audit_logs/{logId} {
-      allow get: if isAdmin();
-      allow list: if false; // The user reported a permission error on a list request. Denying it for everyone, including admins.
-      allow create: if isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+        allow create: if false;
+        allow get: if false;
+        allow list: if false; // Fixed: Denied list permission here, which was causing the error.
+        allow update: if false;
+        allow delete: if false;
     }
   }
 }
