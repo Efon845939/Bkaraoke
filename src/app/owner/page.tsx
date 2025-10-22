@@ -74,7 +74,7 @@ export default function OwnerLoginPage() {
     }
   };
 
-  if (isUserLoading || user) {
+  if (isUserLoading || (user && user.email?.endsWith('@karaoke.owner.app'))) {
       return (
           <div className="flex min-h-screen items-center justify-center">
             <p>Yönlendiriliyor...</p>

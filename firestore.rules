@@ -2,112 +2,142 @@
  * @fileoverview Firestore Security Rules for the Karaoke App.
  *
  * Core Philosophy:
- * This ruleset prioritizes secure access control based on user roles (student, admin) and data ownership.
- * It enforces strict access control for write operations while allowing flexible read permissions where appropriate.
+ * This ruleset enforces role-based access control, with owners, admins, and students having different levels of access.
+ * Owners have full access, admins have read-only access to most data, and students can only access their own data.
  *
  * Data Structure:
- * - /students/{studentId}: Stores user profiles, with 'studentId' matching the Firebase Auth UID.
- * - /song_requests/{songRequestId}: Stores all song requests in a flat collection.
- * - /audit_logs/{logId}: Stores audit logs of actions performed in the system.
+ * - /students/{studentId}: Stores student and admin profiles, where {studentId} matches the Firebase Auth UID.
+ * - /song_requests/{songRequestId}: Stores song requests. Each document contains a studentId field indicating the requester.
+ * - /audit_logs/{logId}: Stores audit logs, accessible only to owners for reading and all signed-in users for creating.
  *
  * Key Security Decisions:
- * - Students can only read and modify their own profile data.
- * - Only authenticated users can create song requests.
- * - Public read access is granted for song requests.
- * - Audit logs are only writeable, not readable via the API.
+ * - Owners and admins can read all student profiles, while students can only read/update their own profile.
+ * - Song requests can be read/modified by owners, read by admins, and read/modified by the requesting student.
+ * - Audit logs can only be read by owners but any logged in user can create them.
+ * - Listing is allowed for students and song_requests for the appropriate roles.
+ * - No schema validation is performed in this prototype.
  *
  * Denormalization for Authorization:
- * - The `SongRequest` entity denormalizes the `studentName` to avoid requiring a lookup to the `students` collection during display.
+ * - The `song_requests` documents denormalize the `studentId` to allow security rules to quickly check ownership without additional reads.
+ *
+ * Structural Segregation:
+ * - Separate collections are used for students, song requests, and audit logs to simplify access control and querying.
  */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Safety: email alanı yoksa patlama
+    function hasEmail() {
+      return isSignedIn() && request.auth.token.email != null;
+    }
+
+    // Use REGEX, not endsWith
+    function emailEndsWithOwner() {
+      return hasEmail() && request.auth.token.email.lower().matches('.*@karaoke\\.owner\\.app$');
+    }
+
+    function emailEndsWithAdmin() {
+      return hasEmail() && request.auth.token.email.lower().matches('.*@karaoke\\.admin\\.app$');
+    }
+
+    function emailEndsWithStudent() {
+      return hasEmail() && request.auth.token.email.lower().matches('.*@karaoke\\.app$');
+    }
+
+    // İstersen aç: e-posta doğrulaması zorunlu olsun
+    function emailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Rollerin nihai hali
+    function isOwner()  { return emailEndsWithOwner(); }      // || emailVerified() eklemek istersen buraya koyma.
+    function isAdmin()  { return emailEndsWithAdmin(); }
+    function isStudent(){ return emailEndsWithStudent(); }
+
+    function isOwnerOfDoc(doc) {
+      // song_requests belgelerinde { studentId: <uid> } olmalı
+      return isSignedIn() && request.auth.uid == doc.studentId;
+    }
+
+    function isExistingOwnerOfDoc() {
+      // song_requests belgelerinde { studentId: <uid> } olmalı
+      return isSignedIn() && request.auth.uid == resource.data.studentId;
+    }
+
     /**
-     * @description Manages student profiles.
+     * @description Rules for the /students collection.
      * @path /students/{studentId}
-     * @allow (create) Authenticated user can create their own profile.
-     * @allow (get, list, update) Owner can read and update their own profile.
-     * @deny (create, update, delete) Non-owners cannot modify student profiles.
-     * @principle Enforces document ownership.
+     * @allow (read) User with email efe.küçükvardar@karaoke.owner.app can read any student profile.
+     * @allow (read) User with role admin can read any student profile.
+     * @allow (read) Signed-in user with UID matching studentId can read their own profile.
+     * @deny (read) Unauthenticated user cannot read any student profile.
+     * @allow (create) Signed-in user can create a student profile.
+     * @allow (update) User with email efe.küçükvardar@karaoke.owner.app can update any student profile.
+     * @allow (update) Signed-in user with UID matching studentId can update their own profile.
+     * @deny (update) Unauthenticated user cannot update any student profile.
+     * @deny (delete) No one can delete student profiles.
+     * @principle Enforces role-based access control and self-ownership for student profiles.
      */
     match /students/{studentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(studentId) {
-        return request.auth != null && request.auth.uid == studentId;
-      }
-      function isExistingOwner(studentId) {
-        return isOwner(studentId) && resource != null;
-      }
-
-      // Allow user to create their own profile if the ID matches their auth UID
+      allow get: if isOwner() || isAdmin() || (isSignedIn() && request.auth.uid == studentId);
+      allow list: if isOwner() || isAdmin();
       allow create: if isSignedIn() && request.auth.uid == studentId;
-
-      // Allow the owner to read their own profile
-      allow get: if isOwner(studentId);
-      allow list: if isOwner(studentId);
-
-      // Allow the owner to update their own profile
-      allow update: if isExistingOwner(studentId);
-
-      // Prevent anyone from deleting a profile
+      allow update: if isOwner() || (isSignedIn() && request.auth.uid == studentId);
       allow delete: if false;
     }
 
     /**
-     * @description Manages song requests. Publicly readable, owner-writeable.
+     * @description Rules for the /song_requests collection.
      * @path /song_requests/{songRequestId}
-     * @allow (get, list) Anyone can read song requests.
-     * @allow (create) Authenticated user can create a song request, referencing their studentId.
-     * @allow (update, delete) Only the student who created the request can update or delete it.
-     * @principle Allows public read access, enforces owner-only writes, validates relational integrity.
+     * @allow (read) User with email efe.küçükvardar@karaoke.owner.app can read any song request.
+     * @allow (read) User with role admin can read any song request.
+     * @allow (read) Signed-in user with UID matching the song request's studentId can read the request.
+     * @deny (read) Unauthenticated user cannot read any song request.
+     * @allow (create) Signed-in user can create a song request.
+     * @allow (update) User with email efe.küçükvardar@karaoke.owner.app can update any song request.
+     * @allow (update) Signed-in user with UID matching the song request's studentId can update the request.
+     * @allow (delete) User with email efe.küçükvardar@karaoke.owner.app can delete any song request.
+     * @allow (delete) Signed-in user with UID matching the song request's studentId can delete the request.
+     * @principle Enforces role-based access control and self-ownership for song requests.
      */
     match /song_requests/{songRequestId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner() {
-        return request.auth != null && resource.data.studentId == request.auth.uid;
-      }
-      function isExistingOwner() {
-        return isOwner() && resource != null;
-      }
-
-      // Allow anyone to read song requests
-      allow get: if true;
-      allow list: if true;
-
-      // Allow an authenticated user to create a song request, matching their student ID
+      allow get: if isOwner() || isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow list: if isOwner() || isAdmin();
       allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
-
-      // Only the owner can update or delete
-      allow update: if isExistingOwner();
-      allow delete: if isExistingOwner();
+      allow update: if isOwner() || isExistingOwnerOfDoc();
+      allow delete: if isOwner() || isExistingOwnerOfDoc();
     }
 
     /**
-     * @description Manages audit logs.  Write-only.
+     * @description Rules for the /audit_logs collection.
      * @path /audit_logs/{logId}
-     * @allow (create) Any authenticated user can create an audit log entry.
-     * @deny (get, list, update, delete) No one can read, update, or delete audit logs.
-     * @principle Restricts access to write-only.
+     * @allow (read) User with email efe.küçükvardar@karaoke.owner.app can read any audit log.
+     * @deny (read) User with role admin cannot read audit log.
+     * @deny (read) Signed-in user cannot read audit log.
+     * @deny (read) Unauthenticated user cannot read audit log.
+     * @allow (create) Signed-in user can create an audit log.
+     * @deny (update) No one can update audit logs.
+     * @deny (delete) No one can delete audit logs.
+     * @principle Enforces that only owners can read audit logs, but any signed-in user can create them.
      */
     match /audit_logs/{logId} {
-        function isSignedIn() {
-            return request.auth != null;
-        }
-        allow create: if isSignedIn();
-        allow get: if false;
-        allow list: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow get: if isOwner();
+      allow list: if false;
+      allow create: if isSignedIn();
+      allow update: if false;
+      allow delete: if false;
     }
 
-    // Block any other reads/writes
+    // Default deny
     match /{document=**} {
-      allow read, write: if false;
+      allow get, list, create, update, delete: if false;
     }
   }
 }
