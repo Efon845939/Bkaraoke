@@ -49,10 +49,8 @@ export default function OwnerDashboardPage() {
   const [songList, setSongList] = React.useState<Song[]>([]);
   const [studentToDelete, setStudentToDelete] = React.useState<Student | null>(null);
 
-  // Corrected client-side isOwner check using regex
   const isOwner = React.useMemo(() => {
     if (!user?.email) return false;
-    // Use case-insensitive regex for the check
     return /@karaoke\.owner\.app$/i.test(user.email);
   }, [user]);
 
@@ -416,3 +414,5 @@ const handleDeleteStudent = async () => {
     </div>
   );
 }
+
+    

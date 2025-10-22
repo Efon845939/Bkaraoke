@@ -9,7 +9,10 @@ export default function OwnerRedirectPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  const isOwner = user?.email?.endsWith('@karaoke.owner.app');
+  const isOwner = React.useMemo(() => {
+    if (!user?.email) return false;
+    return /@karaoke\.owner\.app$/i.test(user.email);
+  }, [user]);
 
   React.useEffect(() => {
     if (isUserLoading) {
@@ -28,3 +31,5 @@ export default function OwnerRedirectPage() {
     </div>
   );
 }
+
+    
