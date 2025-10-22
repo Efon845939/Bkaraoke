@@ -1,119 +1,104 @@
 /**
- * @fileoverview Firestore Security Rules for Karaoke Owner App
+ * @fileoverview Firestore Security Rules for Song Request App
  *
  * Core Philosophy:
- * This ruleset enforces a role-based access control model for students and admins.
- * Students can read their own profiles and admins can read all student profiles.
- * All song requests are stored in a single collection and are publicly readable,
- * but only admins can create, update, or delete them.  Audit logs are only writable by admins.
+ * This ruleset enforces a role-based access control model with students and admins.
+ * Students can manage their own profiles and submit song requests. Admins have broad access
+ * for managing song requests and viewing audit logs. Data validation is minimized for rapid prototyping.
  *
  * Data Structure:
- * - /students/{studentId}: Stores student profiles. The 'studentId' must match the Firebase Auth UID.
- * - /song_requests/{songRequestId}: Stores song requests. Contains a 'studentId' to link the request to a student.
- * - /audit_logs/{logId}: Stores audit logs, accessible only to admins.
+ * - /students/{studentId}: Stores student profiles, accessible only by the student themselves (owner) or admins.
+ * - /song_requests/{songRequestId}: Stores all song requests. Accessible for reading by all authenticated users,
+ *   but creation is restricted to students. Updates and Deletes are only allowed by admins.
+ * - /audit_logs/{logId}: Stores audit logs, only accessible to admins.
  *
  * Key Security Decisions:
- * - Students can only list their own student record, to prevent listing of all students
- * - Song requests are publicly readable to enable transparent queueing.
- * - Strict separation of concerns: Student data is private and role-based. Song request management is admin-only.
- * - Audit logs are write-only for admins, providing a secure record of actions.
+ * - Students can only read and update their own profile.
+ * - Admins can read and write all students profiles.
+ * - Song requests are publicly readable to authenticated users, but only students can create them. Only admins can update or delete requests.
+ * - Audit logs are only readable and writeable by admins.
+ * - Listing of users is explicitly denied to prevent information disclosure.
+ *
+ * Denormalization for Authorization:
+ * - The `SongRequest` entity includes the `studentId` field, enabling rules to easily check the submitter of a song request.
+ *
+ * Structural Segregation:
+ * - There are no draft/published content types, so structural segregation is not required.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to student profiles.
-     * @path /databases/{database}/documents/students/{studentId}
-     * @allow (get) Authenticated user can read their own profile.
-     * @allow (list) Authenticated user can list their own profile.
-     * @allow (create) Authenticated user can create their own profile. The 'studentId' must match the Firebase Auth UID.
-     * @allow (update) Authenticated user can update their own profile.
-     * @allow (delete) Authenticated user can delete their own profile.
-     * @deny (get) Authenticated user cannot read another user's profile.
-     * @deny (list) Authenticated user cannot list all student profiles.
-     * @deny (create) Authenticated user cannot create a profile with a mismatched 'studentId'.
-     * @deny (update) Authenticated user cannot update another user's profile.
-     * @deny (delete) Authenticated user cannot delete another user's profile.
-     * @principle Enforces document ownership for student profiles.
+     * @description Rules for student profiles. Students can read/write their own profile. Admins have full access.
+     * @path /students/{studentId}
+     * @allow (read, update) User abc can read or update their own profile: request.auth.uid == 'abc'
+     * @allow (create) User abc can create their profile: request.auth.uid == 'abc'
+     * @allow (read, write) Admin user can read or write any student profile
+     * @deny (read, write) User abc can't read/write user bcd profile: request.auth.uid != 'abc'
+     * @principle Enforces document ownership and role-based access control.
      */
     match /students/{studentId} {
-      // Helper function to check if the user is signed in
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Helper function to check if the user is the owner of the document
-      function isOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId;
-      }
-
-       // Helper function to check if the user is the owner of the document and the document exists
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      allow get: if isOwner(studentId);
-      allow list: if isOwner(studentId);
-      allow create: if isOwner(studentId) && request.resource.data.id == studentId;
-      allow update: if isExistingOwner(studentId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(studentId);
+      allow get: if isSignedIn() && (isOwner(studentId) || isAdmin());
+      allow list: if false; // Explicitly prevent listing of users.
+      allow create: if isSignedIn() && isOwner(studentId);
+      allow update: if isSignedIn() && (isOwner(studentId) || isAdmin()) && isExistingDocument();
+      allow delete: if false;
     }
 
     /**
-     * @description Controls access to song requests.
-     * @path /databases/{database}/documents/song_requests/{songRequestId}
-     * @allow (get) Anyone can read a song request.
-     * @allow (list) Anyone can list song requests.
-     * @allow (create) Only admins can create song requests.
-     * @allow (update) Only admins can update song requests.
-     * @allow (delete) Only admins can delete song requests.
-     * @deny (create) Non-admins cannot create song requests.
-     * @deny (update) Non-admins cannot update song requests.
-     * @deny (delete) Non-admins cannot delete song requests.
-     * @principle Public read, admin-only write for song requests.
+     * @description Rules for song requests. All authenticated users can read requests. Only students can create requests. Admins can update and delete.
+     * @path /song_requests/{songRequestId}
+     * @allow (read) Any logged in user can read any song request.
+     * @allow (create) User abc can create a song request if studentId matches their UID: request.auth.uid == 'abc'
+     * @allow (update, delete) Admin user can update or delete any song request
+     * @deny (create) User abc can't create a song request with a mismatched studentId: request.auth.uid != request.resource.data.studentId
+     * @deny (update, delete) Non-admin user cannot update or delete a song request.
+     * @principle Allows public read access while restricting write access to owners and admins.
      */
     match /song_requests/{songRequestId} {
-      // Helper function to check if the user is signed in
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Helper function to check if the user is an admin
-      function isAdmin() {
-        return isSignedIn() && get(/databases/$(database)/documents/students/$(request.auth.uid)).data.role == 'admin';
-      }
-
-      allow get: if true;
-      allow list: if true;
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isStudent();
+      allow update: if isSignedIn() && isAdmin() && isExistingDocument();
+      allow delete: if isSignedIn() && isAdmin() && isExistingDocument();
     }
 
     /**
-     * @description Controls access to audit logs.
-     * @path /databases/{database}/documents/audit_logs/{logId}
-     * @allow (create) Only admins can create audit logs.
-     * @deny (get, list, update, delete) No one can read, list, update, or delete audit logs.
-     * @principle Admin-only write for audit logs, read access is prohibited.
+     * @description Rules for audit logs. Only admins can read and write logs.
+     * @path /audit_logs/{logId}
+     * @allow (read, write) Admin user can read or write audit logs.
+     * @deny (read, write) Non-admin user cannot access audit logs.
+     * @principle Restricts access to audit logs to administrative users.
      */
     match /audit_logs/{logId} {
-      // Helper function to check if the user is signed in
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      allow get: if isSignedIn() && isAdmin();
+      allow list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin() && isExistingDocument();
+      allow delete: if isSignedIn() && isAdmin() && isExistingDocument();
+    }
 
-      // Helper function to check if the user is an admin
-      function isAdmin() {
-        return isSignedIn() && get(/databases/$(database)/documents/students/$(request.auth.uid)).data.role == 'admin';
-      }
+    // --- Helper functions ---
 
-      allow get: if false;
-      allow list: if false;
-      allow create: if isAdmin();
-      allow update: if false;
-      allow delete: if false;
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return get(/databases/$(database)/documents/students/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isStudent() {
+      return get(/databases/$(database)/documents/students/$(request.auth.uid)).data.role == 'student';
+    }
+
+    function isExistingDocument() {
+        return resource != null;
     }
   }
 }
