@@ -12,7 +12,6 @@ import {
   useCollection,
   useMemoFirebase,
   useUser,
-  updateDocumentNonBlocking,
   addDocumentNonBlocking,
   useAuth,
 } from '@/firebase';
@@ -25,11 +24,18 @@ import {
   where,
   getDocs,
   runTransaction,
+  updateDoc,
+  orderBy
 } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
+
+// A non-blocking wrapper for updateDoc
+const updateDocumentNonBlocking = (ref: any, data: any) => {
+    updateDoc(ref, data).catch(e => console.error("Failed to update document non-blocking", e));
+}
 
 export default function StudentPage() {
   const { user, isUserLoading } = useUser();
@@ -49,9 +55,11 @@ export default function StudentPage() {
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // Query is now filtered by the current user's ID
     return query(
       collection(firestore, 'song_requests'),
-      where('studentId', '==', user.uid)
+      where('studentId', '==', user.uid),
+      orderBy('order', 'asc') // Keep sorting by order
     );
   }, [firestore, user]);
 
@@ -154,21 +162,6 @@ export default function StudentPage() {
     setEditProfileOpen(false);
   };
 
-  const sortedSongs = React.useMemo(() => {
-    if (!songs) return [];
-    const songsWithDates = songs.map(song => ({
-        ...song,
-        submissionDate: (song.submissionDate as any)?.toDate ? (song.submissionDate as any).toDate() : new Date(),
-    }));
-
-    return songsWithDates.sort((a, b) => {
-        if (a.order !== b.order) {
-            return (a.order ?? 999) - (b.order ?? 999);
-        }
-        return a.submissionDate.getTime() - b.submissionDate.getTime();
-    });
-  }, [songs]);
-
   if (isUserLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -184,7 +177,7 @@ export default function StudentPage() {
         <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} showNameInput={!user.displayName} />
         <SongQueue
           role="student"
-          songs={sortedSongs}
+          songs={songs || []}
           isLoading={isLoading || isUserLoading}
           currentUserId={user?.uid}
           onEditSong={setEditingSong}
