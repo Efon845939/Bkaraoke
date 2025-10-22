@@ -90,7 +90,6 @@ export default function StudentPage() {
       studentId: studentId,
       studentName: studentName,
       submissionDate: serverTimestamp(),
-      status: 'queued',
       order: totalSongs,
     });
 
@@ -163,10 +162,6 @@ export default function StudentPage() {
     }));
 
     return songsWithDates.sort((a, b) => {
-        if (a.status === 'playing') return -1;
-        if (b.status === 'playing') return 1;
-        if (a.status === 'played' && b.status !== 'played') return 1;
-        if (b.status === 'played' && a.status !== 'played') return -1;
         if (a.order !== b.order) {
             return (a.order ?? 999) - (b.order ?? 999);
         }

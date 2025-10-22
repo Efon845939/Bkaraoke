@@ -33,13 +33,7 @@ export default function AdminPage() {
 
   React.useEffect(() => {
     if (songsFromHook) {
-      const sorted = [...songsFromHook].sort((a, b) => {
-        if (a.status === 'playing' && b.status !== 'playing') return -1;
-        if (b.status === 'playing' && a.status !== 'playing') return 1;
-        if (a.status === 'played' && b.status !== 'played') return 1;
-        if (b.status === 'played' && a.status !== 'played') return -1;
-        return (a.order ?? Infinity) - (b.order ?? Infinity);
-      });
+      const sorted = [...songsFromHook].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
       setSongList(sorted);
     }
   }, [songsFromHook]);

@@ -6,11 +6,8 @@ import type { Song } from '@/types';
 import {
   ListMusic,
   MoreHorizontal,
-  Pen,
   Trash2,
   Youtube,
-  Play,
-  Check,
   Pencil,
   GripVertical,
 } from 'lucide-react';
@@ -39,10 +36,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
@@ -53,7 +46,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -62,7 +54,7 @@ import {
   CardDescription,
 } from './ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, deleteDocumentNonBlocking, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, deleteDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
 import { doc, collection, serverTimestamp } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
 
@@ -141,7 +133,6 @@ export function SongQueue({
       <TableHeader>
         <TableRow>
           {canDrag && <TableHead className="w-12"></TableHead>}
-          <TableHead>Durum</TableHead>
           <TableHead>Şarkı Başlığı</TableHead>
           {(role === 'admin' || role === 'owner') && <TableHead>İsteyen</TableHead>}
           <TableHead className="text-right">Eylemler</TableHead>
@@ -161,7 +152,7 @@ export function SongQueue({
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={(role === 'admin' || role === 'owner') ? (canDrag ? 5: 4) : 3} className="h-24 text-center">
+            <TableCell colSpan={(role === 'admin' || role === 'owner') ? (canDrag ? 4: 3) : 2} className="h-24 text-center">
               {role === 'student' ? "Henüz bir şarkı istemediniz." : 'Sıra boş.'}
             </TableCell>
           </TableRow>
@@ -262,34 +253,9 @@ const SortableSongRow = ({
     });
   };
 
-  const updateSongStatus = (id: string, status: Song['status'], title: string) => {
-    if (!firestore) return;
-    const translatedStatus = status === 'playing' ? 'çalınıyor' : status === 'played' ? 'çalındı' : 'sırada';
-    updateDocumentNonBlocking(doc(firestore, 'song_requests', id), { status });
-    createAuditLog('STATUS_CHANGED', `Şarkı: "${title}", Yeni Durum: ${status.toUpperCase()}`);
-    toast({
-      title: 'Durum Güncellendi',
-      description: `"${title}" durumuna "${translatedStatus}" olarak güncellendi.`,
-      duration: 3000,
-    });
-  };
-
-  const status = song.status;
-  const badgeVariant: 'default' | 'secondary' | 'outline' =
-    status === 'playing'
-      ? 'default'
-      : status === 'queued'
-      ? 'secondary'
-      : 'outline';
   const isOwnerOfSong = song.studentId === currentUserId;
   const canModify = role === 'owner' || (role === 'student' && isOwnerOfSong);
   
-  const statusTranslations = {
-      queued: 'Sırada',
-      playing: 'Çalınıyor',
-      played: 'Çalındı'
-  }
-
   return (
     <TableRow ref={setNodeRef} style={style}>
       {canDrag && (
@@ -297,11 +263,6 @@ const SortableSongRow = ({
           <GripVertical className="h-5 w-5 text-muted-foreground" />
         </TableCell>
       )}
-      <TableCell>
-        <Badge variant={badgeVariant} className="w-20 justify-center capitalize shadow-sm">
-          {statusTranslations[status]}
-        </Badge>
-      </TableCell>
       <TableCell className="font-medium">{song.title}</TableCell>
       {(role === 'admin' || role === 'owner') && <TableCell>{song.studentName}</TableCell>}
       <TableCell className="text-right">
@@ -323,36 +284,10 @@ const SortableSongRow = ({
                 <span>Düzenle</span>
               </DropdownMenuItem>
             )}
-            {role === 'owner' && (
-              <>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Pen className="mr-2 h-4 w-4" />
-                    <span>Durumu Değiştir</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'playing', song.title)}>
-                        <Play className="mr-2 h-4 w-4" />
-                        Çalınıyor
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'played', song.title)}>
-                        <Check className="mr-2 h-4 w-4" />
-                        Çalındı
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => updateSongStatus(song.id, 'queued', song.title)}>
-                        <ListMusic className="mr-2 h-4 w-4" />
-                        Sırada
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-              </>
-            )}
+            
             {canModify && (
               <>
-               {role !== 'owner' && <DropdownMenuSeparator />}
+               {(role === 'owner' || role === 'student') && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   onClick={() => deleteSong(song.id, song.title)}
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"

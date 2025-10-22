@@ -33,11 +33,6 @@
           "description": "Date and time when the song request was submitted (server timestamp).",
           "format": "date-time"
         },
-        "status": {
-            "type": "string",
-            "description": "Current status of the song request.",
-            "enum": ["queued", "playing", "played"]
-        },
         "order": {
             "type": "number",
             "description": "The order of the song in the queue."
@@ -50,7 +45,6 @@
         "title",
         "karaokeUrl",
         "submissionDate",
-        "status",
         "order"
       ]
     },

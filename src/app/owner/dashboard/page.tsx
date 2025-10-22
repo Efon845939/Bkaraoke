@@ -85,13 +85,7 @@ export default function OwnerDashboardPage() {
   // --- Effects ---
   React.useEffect(() => {
     if (songsFromHook) {
-      const sorted = [...songsFromHook].sort((a, b) => {
-        if (a.status === 'playing' && b.status !== 'playing') return -1;
-        if (b.status === 'playing' && a.status !== 'playing') return 1;
-        if (a.status === 'played' && b.status !== 'played') return 1;
-        if (b.status === 'played' && a.status !== 'played') return -1;
-        return (a.order ?? Infinity) - (b.order ?? Infinity);
-      });
+      const sorted = [...songsFromHook].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
       setSongList(sorted);
     }
   }, [songsFromHook]);
@@ -127,7 +121,6 @@ export default function OwnerDashboardPage() {
       studentId: studentId,
       studentName: requesterName,
       submissionDate: serverTimestamp(),
-      status: 'queued',
       order: songList?.length ?? 0,
     });
   
@@ -217,9 +210,6 @@ const handleDeleteStudent = async () => {
         });
       });
       
-      // Note: Deleting the Firebase Auth user is a privileged server-side action
-      // and cannot be done directly from the client. The user will no longer be
-      // able to log in as their profile data is gone.
       createAuditLog('USER_DELETED', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
       toast({ title: 'Kullanıcı Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri silindi.` });
     } catch (error) {
@@ -305,7 +295,11 @@ const handleDeleteStudent = async () => {
                                     filteredStudents.map(student => (
                                         <TableRow key={student.id}>
                                             <TableCell className="font-medium">{student.name}</TableCell>
-                                            <TableCell className="text-muted-foreground capitalize">{student.role}</TableCell>
+                                            <TableCell>
+                                              <Badge variant={student.role === 'owner' ? 'default' : student.role === 'admin' ? 'secondary' : 'outline' } className="capitalize">
+                                                {student.role}
+                                              </Badge>
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => setEditingStudent(student)}>
                                                     <Pencil className="h-4 w-4" />
