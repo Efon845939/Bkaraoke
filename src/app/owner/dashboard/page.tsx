@@ -48,7 +48,11 @@ export default function OwnerDashboardPage() {
   const [editingStudent, setEditingStudent] = React.useState<Student | null>(null);
   const [songList, setSongList] = React.useState<Song[]>([]);
 
-  const isOwner = user?.email?.endsWith('@karaoke.owner.app');
+  // Corrected client-side isOwner check using regex
+  const isOwner = React.useMemo(() => {
+    if (!user?.email) return false;
+    return /@karaoke\.owner\.app$/i.test(user.email);
+  }, [user]);
 
   React.useEffect(() => {
     if (!isUserLoading && !isOwner) {
