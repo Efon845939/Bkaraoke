@@ -14,30 +14,25 @@ export default function AdminPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const [songList, setSongList] = React.useState<Song[]>([]);
-
-  const isAdmin = user?.email?.endsWith('@karaoke.admin.app');
+  const isAdmin = React.useMemo(() => {
+    if (!user?.email) return false;
+    return /@karaoke\.admin\.app$/i.test(user.email);
+  }, [user]);
 
   React.useEffect(() => {
-    if (!isUserLoading && !isAdmin) {
+    if (!isUserLoading && !user) {
       router.push('/');
+    } else if (!isUserLoading && user && !isAdmin) {
+      router.push('/participant'); // Redirect non-admins to participant page
     }
   }, [user, isUserLoading, router, isAdmin]);
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore || !isAdmin) return null;
-    return query(collection(firestore, 'song_requests'), orderBy('order'));
+    return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
   }, [firestore, isAdmin]);
 
-  const { data: songsFromHook, isLoading } = useCollection<Song>(songsQuery);
-
-  React.useEffect(() => {
-    if (songsFromHook) {
-      const sorted = [...songsFromHook].sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity));
-      setSongList(sorted);
-    }
-  }, [songsFromHook]);
-
+  const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
   if (isUserLoading || !isAdmin) {
     return (
@@ -54,8 +49,8 @@ export default function AdminPage() {
         <h2 className="mb-4 text-3xl font-headline tracking-wider">Yönetici Paneli - Şarkı Sırası</h2>
         <SongQueue
           role="admin"
-          songs={songList}
-          isLoading={isLoading && songList.length === 0}
+          songs={songs || []}
+          isLoading={isLoading && (!songs || songs.length === 0)}
           onEditSong={() => {}} // Admins can't edit
         />
       </main>

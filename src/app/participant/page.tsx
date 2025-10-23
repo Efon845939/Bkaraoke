@@ -27,7 +27,8 @@ import {
   runTransaction,
   updateDoc,
   orderBy,
-  addDoc
+  addDoc,
+  deleteDoc
 } from 'firebase/firestore';
 import { updateProfile, deleteUser as deleteAuthUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -217,10 +218,13 @@ export default function ParticipantPage() {
     const participantName = userToDelete.displayName || "Bilinmeyen Kullanıcı";
 
     try {
+        // 1. Transaction to delete Firestore data
         await runTransaction(firestore, async (transaction) => {
+            // Delete participant profile
             const participantDocRef = doc(firestore, 'students', participantId);
             transaction.delete(participantDocRef);
 
+            // Query and delete all song requests by this participant
             const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
             const songRequestsSnapshot = await getDocs(songRequestsQuery);
             songRequestsSnapshot.forEach((songDoc) => {
@@ -228,9 +232,11 @@ export default function ParticipantPage() {
             });
         });
 
-        await deleteAuthUser(userToDelete);
+        // 2. Log the action
+        createAuditLog('USER_DELETED_SELF', `Katılımcı kendi hesabını sildi: "${participantName}" (ID: ${participantId})`);
         
-        createAuditLog('USER_DELETED_SELF', `Kullanıcı kendi hesabını sildi: "${participantName}" (ID: ${participantId})`);
+        // 3. Delete Auth user - This must be last
+        await deleteAuthUser(userToDelete);
         
         toast({ title: 'Hesap Silindi', description: 'Hesabınız ve tüm verileriniz başarıyla silindi. Yönlendiriliyorsunuz.' });
         router.push('/');
@@ -245,6 +251,7 @@ export default function ParticipantPage() {
                 : 'Hesabınızı silerken bir hata oluştu. Lütfen tekrar deneyin.'
         });
 
+        // Emit a detailed error if it seems like a permissions issue with the transaction
         if (error.code !== 'auth/requires-recent-login') {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: `students/${participantId} and related song_requests`,
@@ -256,6 +263,7 @@ export default function ParticipantPage() {
         setDeleteAccountAlertOpen(false);
     }
   };
+
 
   if (isUserLoading || !user) {
     return (
