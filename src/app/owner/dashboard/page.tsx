@@ -325,7 +325,7 @@ const handleDeleteStudent = async () => {
                                         <TableRow key={student.id}>
                                             <TableCell className="font-medium">{student.name}</TableCell>
                                             <TableCell>
-                                              <Badge variant={student.role === 'owner' ? 'default' : student.role === 'admin' ? 'secondary' : 'outline' } className="capitalize">
+                                              <Badge variant={student.role === 'owner' ? 'default' : student.role === 'admin' ? 'secondary' : 'outline' }>
                                                 {roleTranslations[student.role] || student.role}
                                               </Badge>
                                             </TableCell>
@@ -451,3 +451,5 @@ const handleDeleteStudent = async () => {
     </div>
   );
 }
+
+    
