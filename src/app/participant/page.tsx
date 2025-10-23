@@ -63,7 +63,7 @@ export default function ParticipantPage() {
   }, [user, isUserLoading, router]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null; // Wait for user and firestore
+    if (!firestore || !user) return null;
     return query(
       collection(firestore, 'song_requests'),
       where('participantId', '==', user.uid),
@@ -91,7 +91,7 @@ export default function ParticipantPage() {
     });
   };
 
-  const handleSongAdd = async (newSong: { title: string; url: string, name?: string }) => {
+  const handleSongAdd = async (newSong: { title: string; url: string; name?: string }) => {
     if (!firestore || !user) return;
 
     const participantId = user.uid;
@@ -327,5 +327,3 @@ export default function ParticipantPage() {
     </div>
   );
 }
-
-    
