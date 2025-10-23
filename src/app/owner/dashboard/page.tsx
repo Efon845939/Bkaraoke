@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ListMusic, Users, History, Trash2, Pencil, Bot } from 'lucide-react';
+import { ListMusic, Users, History, Trash2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { SongQueue } from '@/components/song-queue';
@@ -31,7 +31,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
-import { diag } from '@/firebase/diag'; // Import diagnostic tool
+
+const roleTranslations: Record<string, string> = {
+  student: 'Katılımcı',
+  admin: 'Yönetici',
+  owner: 'Sahip',
+};
 
 export default function OwnerDashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -123,8 +128,6 @@ export default function OwnerDashboardPage() {
   
     addDoc(collection(firestore, 'song_requests'), songData).then(docRef => {
         createAuditLog('SONG_ADDED_BY_OWNER', `Şarkı: "${newSong.title}", Ekleyen: ${requesterName}`);
-        // Add id to the object after creation for local state consistency if needed
-        // This part is tricky without awaiting, but for UI it might not be immediately necessary
     }).catch(e => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'song_requests',
@@ -169,12 +172,12 @@ export default function OwnerDashboardPage() {
     batch.commit().then(() => {
         createAuditLog('QUEUE_REORDERED', `Şarkı sırası yeniden düzenlendi.`);
     }).catch(e => {
+        setSongList(originalSongs); // Revert UI on error
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'song_requests',
             operation: 'write', // Batch writes are generic 'write'
             requestResourceData: { info: 'Batch update for reordering songs.' }
         }));
-        if(songsFromHook) setSongList(originalSongs); // Revert UI on error
     });
   };
 
@@ -197,12 +200,12 @@ export default function OwnerDashboardPage() {
         createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${studentId})`);
         toast({ title: 'Profil Güncellendi', description: 'Kullanıcının adı başarıyla güncellendi.' });
     }).catch((error) => {
+        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: `students/${studentId} and related song_requests`,
             operation: 'write', // Transaction is a generic 'write'
             requestResourceData: { info: `Updating user name to ${newDisplayName}` }
         }));
-        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
     });
     setEditingStudent(null);
 };
@@ -224,12 +227,12 @@ const handleDeleteStudent = async () => {
         createAuditLog('USER_DELETED', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
         toast({ title: 'Kullanıcı Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri silindi.` });
     }).catch((error) => {
+        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı silinirken bir sorun oluştu.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: `students/${studentId} and related song_requests`,
             operation: 'delete',
             requestResourceData: { info: `Deleting user ${studentName}` }
         }));
-        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı silinirken bir sorun oluştu.' });
     });
     setStudentToDelete(null);
   };
@@ -265,9 +268,6 @@ const handleDeleteStudent = async () => {
       <PageHeader />
       <div className="flex justify-between items-center">
         <h1 className="text-4xl font-headline tracking-wider">Sistem Sahibi Paneli</h1>
-        <Button onClick={diag} variant="outline">
-          <Bot className="mr-2" /> Teşhis Aracını Çalıştır
-        </Button>
       </div>
       
       <SongSubmissionForm
@@ -326,7 +326,7 @@ const handleDeleteStudent = async () => {
                                             <TableCell className="font-medium">{student.name}</TableCell>
                                             <TableCell>
                                               <Badge variant={student.role === 'owner' ? 'default' : student.role === 'admin' ? 'secondary' : 'outline' } className="capitalize">
-                                                {student.role}
+                                                {roleTranslations[student.role] || student.role}
                                               </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -335,7 +335,13 @@ const handleDeleteStudent = async () => {
                                                 </Button>
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setStudentToDelete(student)}>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="text-destructive hover:text-destructive" 
+                                                            onClick={() => setStudentToDelete(student)}
+                                                            disabled={student.id === user.uid}
+                                                        >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </AlertDialogTrigger>
@@ -445,5 +451,3 @@ const handleDeleteStudent = async () => {
     </div>
   );
 }
-
-    
