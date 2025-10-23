@@ -54,8 +54,8 @@ import {
   CardDescription,
 } from './ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, deleteDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
-import { doc, collection, serverTimestamp } from 'firebase/firestore';
+import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { doc, collection, serverTimestamp, addDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
 
 type SongQueueProps = {
@@ -233,23 +233,37 @@ const SortableSongRow = ({
   
   const createAuditLog = (action: string, details: string) => {
     if (!firestore || !user) return;
-    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+    const logData = {
       timestamp: serverTimestamp(),
       actorId: user.uid,
       actorName: user.displayName || user.email,
       action,
       details
+    };
+    addDoc(collection(firestore, 'audit_logs'), logData).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'audit_logs',
+            operation: 'create',
+            requestResourceData: logData
+        }));
     });
   };
 
   const deleteSong = (id: string, title: string) => {
     if (!firestore) return;
-    deleteDocumentNonBlocking(doc(firestore, 'song_requests', id));
-    createAuditLog('SONG_DELETED', `Şarkı: "${title}" (ID: ${id})`);
-    toast({
-      title: 'Şarkı Kaldırıldı',
-      description: `"${title}" sıradan kaldırıldı.`,
-      duration: 3000,
+    const songDocRef = doc(firestore, 'song_requests', id);
+    deleteDoc(songDocRef).then(() => {
+        createAuditLog('SONG_DELETED', `Şarkı: "${title}" (ID: ${id})`);
+        toast({
+          title: 'Şarkı Kaldırıldı',
+          description: `"${title}" sıradan kaldırıldı.`,
+          duration: 3000,
+        });
+    }).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: songDocRef.path,
+            operation: 'delete'
+        }));
     });
   };
 
@@ -303,3 +317,5 @@ const SortableSongRow = ({
     </TableRow>
   );
 };
+
+    

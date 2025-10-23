@@ -3,8 +3,8 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc, deleteDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
+import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import type { Song, Student, AuditLog } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,11 +32,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { diag } from '@/firebase/diag'; // Import diagnostic tool
-
-// A non-blocking wrapper for addDoc
-const addDocumentNonBlocking = (ref: any, data: any) => {
-    addDoc(ref, data).catch(e => console.error("Failed to add document non-blocking", e));
-}
 
 export default function OwnerDashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -92,12 +87,19 @@ export default function OwnerDashboardPage() {
   // --- Helper Functions ---
   const createAuditLog = (action: string, details: string) => {
     if (!firestore || !user) return;
-    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+    const logData = {
       timestamp: serverTimestamp(),
       actorId: user.uid,
       actorName: user.displayName || user.email || 'Bilinmeyen Sahip',
       action,
       details
+    };
+    addDoc(collection(firestore, 'audit_logs'), logData).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'audit_logs',
+            operation: 'create',
+            requestResourceData: logData,
+        }));
     });
   };
 
@@ -110,44 +112,52 @@ export default function OwnerDashboardPage() {
       : 'Sahip';
     const studentId = 'owner-added';
   
-    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
-  
-    const batch = writeBatch(firestore);
-    batch.set(songRequestDocRef, {
+    const songData = {
       title: newSong.title,
       karaokeUrl: newSong.url,
-      id: songRequestDocRef.id,
       studentId: studentId,
       studentName: requesterName,
       submissionDate: serverTimestamp(),
       order: songList?.length ?? 0,
-    });
+    };
   
-    batch.commit().then(() => {
+    addDoc(collection(firestore, 'song_requests'), songData).then(docRef => {
         createAuditLog('SONG_ADDED_BY_OWNER', `Şarkı: "${newSong.title}", Ekleyen: ${requesterName}`);
-    }).catch(e => console.error("Şarkı eklenirken hata oluştu:", e));
+        // Add id to the object after creation for local state consistency if needed
+        // This part is tricky without awaiting, but for UI it might not be immediately necessary
+    }).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'song_requests',
+            operation: 'create',
+            requestResourceData: songData
+        }));
+    });
   };
   
   const handleSongUpdate = (songId: string, updatedData: { title: string; url: string }) => {
     if (!firestore) return;
     const songDocRef = doc(firestore, 'song_requests', songId);
     
-    const songToUpdate = songList.find(s => s.id === songId);
-    if (songToUpdate) {
-        const batch = writeBatch(firestore);
-        batch.update(songDocRef, {
-            title: updatedData.title,
-            karaokeUrl: updatedData.url,
-        });
-        batch.commit().then(() => {
-            createAuditLog('SONG_UPDATED', `Şarkı ID: ${songId}, Yeni Başlık: "${updatedData.title}"`);
-        }).catch(e => console.error("Şarkı güncellenirken hata oluştu:", e));
-    }
+    const songData = {
+        title: updatedData.title,
+        karaokeUrl: updatedData.url,
+    };
+
+    updateDoc(songDocRef, songData).then(() => {
+        createAuditLog('SONG_UPDATED', `Şarkı ID: ${songId}, Yeni Başlık: "${updatedData.title}"`);
+    }).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: songDocRef.path,
+            operation: 'update',
+            requestResourceData: songData
+        }));
+    });
     setEditingSong(null);
   };
 
   const handleReorder = (reorderedSongs: Song[]) => {
     if (!firestore) return;
+    const originalSongs = [...songList]; // Keep a copy to revert on failure
     setSongList(reorderedSongs);
 
     const batch = writeBatch(firestore);
@@ -159,8 +169,12 @@ export default function OwnerDashboardPage() {
     batch.commit().then(() => {
         createAuditLog('QUEUE_REORDERED', `Şarkı sırası yeniden düzenlendi.`);
     }).catch(e => {
-        console.error("Şarkılar yeniden sıralanırken hata oluştu:", e)
-        if(songsFromHook) setSongList(songsFromHook);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'song_requests',
+            operation: 'write', // Batch writes are generic 'write'
+            requestResourceData: { info: 'Batch update for reordering songs.' }
+        }));
+        if(songsFromHook) setSongList(originalSongs); // Revert UI on error
     });
   };
 
@@ -170,24 +184,26 @@ export default function OwnerDashboardPage() {
     const oldName = editingStudent.name;
     const newDisplayName = `${values.firstName} ${values.lastName}`;
     
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const studentDocRef = doc(firestore, 'students', studentId);
-            transaction.update(studentDocRef, { name: newDisplayName });
+    runTransaction(firestore, async (transaction) => {
+        const studentDocRef = doc(firestore, 'students', studentId);
+        transaction.update(studentDocRef, { name: newDisplayName });
 
-            const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
-            const songRequestsSnapshot = await getDocs(songRequestsQuery);
-            songRequestsSnapshot.forEach((songDoc) => {
-                transaction.update(songDoc.ref, { studentName: newDisplayName });
-            });
+        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
+        const songRequestsSnapshot = await getDocs(songRequestsQuery);
+        songRequestsSnapshot.forEach((songDoc) => {
+            transaction.update(songDoc.ref, { studentName: newDisplayName });
         });
-
+    }).then(() => {
         createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${studentId})`);
         toast({ title: 'Profil Güncellendi', description: 'Kullanıcının adı başarıyla güncellendi.' });
-    } catch (error) {
-        console.error('Profil güncellenirken hata oluştu:', error);
+    }).catch((error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: `students/${studentId} and related song_requests`,
+            operation: 'write', // Transaction is a generic 'write'
+            requestResourceData: { info: `Updating user name to ${newDisplayName}` }
+        }));
         toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
-    }
+    });
     setEditingStudent(null);
 };
 
@@ -195,26 +211,26 @@ const handleDeleteStudent = async () => {
     if (!firestore || !studentToDelete) return;
     const { id: studentId, name: studentName } = studentToDelete;
 
-    try {
-      await runTransaction(firestore, async (transaction) => {
-        // 1. Delete student document
+    runTransaction(firestore, async (transaction) => {
         const studentDocRef = doc(firestore, 'students', studentId);
         transaction.delete(studentDocRef);
 
-        // 2. Find and delete all song requests by this student
         const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
         const songRequestsSnapshot = await getDocs(songRequestsQuery);
         songRequestsSnapshot.forEach((songDoc) => {
           transaction.delete(songDoc.ref);
         });
-      });
-      
-      createAuditLog('USER_DELETED', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
-      toast({ title: 'Kullanıcı Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri silindi.` });
-    } catch (error) {
-        console.error("Kullanıcı silinirken hata oluştu:", error);
+    }).then(() => {
+        createAuditLog('USER_DELETED', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
+        toast({ title: 'Kullanıcı Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri silindi.` });
+    }).catch((error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: `students/${studentId} and related song_requests`,
+            operation: 'delete',
+            requestResourceData: { info: `Deleting user ${studentName}` }
+        }));
         toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı silinirken bir sorun oluştu.' });
-    }
+    });
     setStudentToDelete(null);
   };
 

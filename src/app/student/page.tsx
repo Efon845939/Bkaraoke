@@ -12,8 +12,9 @@ import {
   useCollection,
   useMemoFirebase,
   useUser,
-  addDocumentNonBlocking,
   useAuth,
+  errorEmitter,
+  FirestorePermissionError
 } from '@/firebase';
 import {
   collection,
@@ -25,17 +26,13 @@ import {
   getDocs,
   runTransaction,
   updateDoc,
-  orderBy
+  orderBy,
+  addDoc
 } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
-
-// A non-blocking wrapper for updateDoc
-const updateDocumentNonBlocking = (ref: any, data: any) => {
-    updateDoc(ref, data).catch(e => console.error("Failed to update document non-blocking", e));
-}
 
 export default function StudentPage() {
   const { user, isUserLoading } = useUser();
@@ -55,11 +52,10 @@ export default function StudentPage() {
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // Query is now filtered by the current user's ID
     return query(
       collection(firestore, 'song_requests'),
       where('studentId', '==', user.uid),
-      orderBy('order', 'asc') // Keep sorting by order
+      orderBy('order', 'asc')
     );
   }, [firestore, user]);
 
@@ -67,12 +63,19 @@ export default function StudentPage() {
 
   const createAuditLog = (action: string, details: string) => {
     if (!firestore || !user) return;
-    addDocumentNonBlocking(collection(firestore, 'audit_logs'), {
+    const logData = {
       timestamp: serverTimestamp(),
       actorId: user.uid,
       actorName: user.displayName || user.email,
       action,
       details
+    };
+    addDoc(collection(firestore, 'audit_logs'), logData).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'audit_logs',
+            operation: 'create',
+            requestResourceData: logData
+        }));
     });
   };
 
@@ -82,8 +85,7 @@ export default function StudentPage() {
     const studentId = user.uid;
     const studentName = newSong.name || user.displayName;
     const studentDocRef = doc(firestore, 'students', studentId);
-    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
-
+    
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
     const totalSongs = totalSongsSnapshot.size;
 
@@ -91,32 +93,48 @@ export default function StudentPage() {
 
     batch.set(studentDocRef, { id: studentId, name: studentName, role: 'student' }, { merge: true });
 
-    batch.set(songRequestDocRef, {
+    const songData = {
       title: newSong.title,
       karaokeUrl: newSong.url,
-      id: songRequestDocRef.id,
       studentId: studentId,
       studentName: studentName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
-    });
+    };
+    
+    // Create a new doc ref for the song in the batch
+    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
+    batch.set(songRequestDocRef, { ...songData, id: songRequestDocRef.id });
 
-    try {
-      await batch.commit();
+    batch.commit().then(() => {
       createAuditLog('SONG_ADDED', `Şarkı: "${newSong.title}"`);
-    } catch (e) {
-      console.error("Şarkı eklenirken hata oluştu:", e);
-    }
+    }).catch(e => {
+       errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'song_requests and students', // Path is simplified for batch
+            operation: 'write',
+            requestResourceData: { info: "Batch write for new song and student profile update."}
+       }));
+    });
   };
 
   const handleSongUpdate = (songId: string, updatedData: { title: string; url: string }) => {
     if (!firestore || !user) return;
     const songDocRef = doc(firestore, 'song_requests', songId);
-    updateDocumentNonBlocking(songDocRef, {
+    
+    const songData = {
       title: updatedData.title,
       karaokeUrl: updatedData.url,
+    };
+
+    updateDoc(songDocRef, songData).then(() => {
+        createAuditLog('SONG_UPDATED', `Şarkı ID: ${songId}, Yeni Başlık: "${updatedData.title}"`);
+    }).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: songDocRef.path,
+            operation: 'update',
+            requestResourceData: songData
+        }));
     });
-    createAuditLog('SONG_UPDATED', `Şarkı ID: ${songId}, Yeni Başlık: "${updatedData.title}"`);
     setEditingSong(null);
   };
 
@@ -128,9 +146,9 @@ export default function StudentPage() {
     const studentId = auth.currentUser.uid;
 
     try {
-      await runTransaction(firestore, async (transaction) => {
-        await updateProfile(auth.currentUser!, { displayName: newDisplayName });
-
+      await updateProfile(auth.currentUser!, { displayName: newDisplayName });
+      
+      runTransaction(firestore, async (transaction) => {
         const studentDocRef = doc(firestore, 'students', studentId);
         transaction.update(studentDocRef, { name: newDisplayName });
 
@@ -142,20 +160,29 @@ export default function StudentPage() {
         songRequestsSnapshot.forEach((songDoc) => {
           transaction.update(songDoc.ref, { studentName: newDisplayName });
         });
+      }).then(() => {
+          createAuditLog('PROFILE_UPDATED', `Kullanıcı: "${oldDisplayName}" -> "${newDisplayName}"`);
+          toast({
+            title: 'Profil Güncellendi',
+            description: 'Adınız başarıyla güncellendi.',
+            duration: 3000,
+          });
+      }).catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: `students/${studentId} and related song_requests`,
+              operation: 'write',
+              requestResourceData: { info: `Updating user name to ${newDisplayName}`}
+          }));
+          // Revert profile update on auth object if firestore fails
+          if(oldDisplayName) updateProfile(auth.currentUser!, { displayName: oldDisplayName });
       });
 
-      createAuditLog('PROFILE_UPDATED', `Kullanıcı: "${oldDisplayName}" -> "${newDisplayName}"`);
-      toast({
-        title: 'Profil Güncellendi',
-        description: 'Adınız başarıyla güncellendi.',
-        duration: 3000,
-      });
     } catch (error) {
-      console.error('Profil güncellenirken hata oluştu:', error);
-      toast({
+      console.error('Auth profil güncellenirken hata oluştu:', error);
+       toast({
         variant: 'destructive',
         title: 'Hata',
-        description: 'Profiliniz güncellenirken bir sorun oluştu.',
+        description: 'Profiliniz güncellenirken bir sorun oluştu (Auth).',
         duration: 3000,
       });
     }
@@ -202,3 +229,5 @@ export default function StudentPage() {
     </div>
   );
 }
+
+    
