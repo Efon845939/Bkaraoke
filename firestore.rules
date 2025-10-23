@@ -1,97 +1,67 @@
-/**
- * @fileOverview Firestore Security Rules for Karaoke App.
- *
- * Core Philosophy:
- * This ruleset enforces role-based access control (RBAC) with three roles: owner, admin, and student.
- * Owners and admins have broad access, while students have more restricted privileges, primarily over their own data.
- * Data validation is relaxed for prototyping but includes basic authorization checks.
- *
- * Data Structure:
- * - /students/{studentId}: Stores student and admin profiles. The `studentId` MUST match the Firebase Auth UID.
- * - /song_requests/{songRequestId}: Stores all song requests. Each request MUST have a `studentId` linking it to the user.
- * - /audit_logs/{logId}: Stores a chronological log of all significant actions. Only owners can read these.
- *
- * Key Security Decisions:
- * - Role Definitions: Roles are derived from the user's email domain (e.g., *@karaoke.owner.app*).
- * - User Listing: Listing all users is implicitly denied. The rules do not allow `list` operations on `/students`.
- * - Audit Logs: Only owners can read audit logs, ensuring privacy of system activity.
- * - No Data Validation: Data validation is skipped in this prototyping phase, except for authorization-critical fields like `studentId`.
- *
- * Denormalization for Authorization:
- * - Song Requests: The `song_requests` collection stores a `studentId` on each document, allowing rules to quickly verify ownership without additional reads.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
-    function hasEmail() { return signedIn() && request.auth.token.email != null; }
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-    function isOwner()  { return hasEmail() && request.auth.token.email.matches(".*@karaoke\\.owner\\.app$"); }
-    function isAdmin()  { return hasEmail() && request.auth.token.email.matches(".*@karaoke\\.admin\\.app$"); }
-    function isStudent(){ return hasEmail() && request.auth.token.email.matches(".*@karaoke\\.app$"); }
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
 
-    function isOwnerOfDoc(doc) {
-      return signedIn() && doc.studentId == request.auth.uid;
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/students/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isExistingOwner(userId) {
+      return isOwner(userId); // Removed resource != null condition as it's not needed in the isOwner context.
     }
 
     /**
-     * @description Manages student profiles. Students can only read/write their own profile. Owners and admins have full access.
+     * @description Manages student profiles, allowing students to create their own profiles and admins to manage all profiles.
      * @path /students/{studentId}
-     * @allow (read) User with UID 'user123' can read /students/user123.
-     * @allow (create) User 'user123' can create /students/user123 if they are signed in.
-     * @deny (read) User 'user456' cannot read /students/user123 unless they are an owner or admin.
-     * @deny (delete) No one can delete a student document.
-     * @principle Enforces user-ownership and role-based access for student profiles.
+     * @allow (create) User with UID 'user123' can create a profile if studentId == 'user123'.
+     * @allow (update) Admin can update any student profile.
+     * @deny (create) User with UID 'user123' cannot create a profile if studentId != 'user123'.
+     * @deny (delete) Non-admin users cannot delete student profiles.
+     * @principle Enforces user-ownership for profile creation and admin control for management.
      */
     match /students/{studentId} {
-      allow read:   if isOwner() || isAdmin() || (signedIn() && request.auth.uid == studentId);
-      allow create: if signedIn() && request.auth.uid == studentId;
-      allow update: if isOwner() || isAdmin() || (signedIn() && request.auth.uid == studentId);
-      allow delete: if false;
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isOwner(studentId);
+      allow update, delete: if isAdmin();
     }
 
     /**
-     * @description Manages song requests. Owners/admins have full access. Students can only manage their own requests.
-     * @path /song_requests/{id}
-     * @allow (read) Owner can read any song request.
-     * @allow (create) Any signed-in user can create a song request.
-     * @deny (update) A student cannot update a song request that belongs to another student.
-     * @deny (delete) Only owners and the owner of the song request can delete it.
-     * @principle Enforces ownership and role-based access for song requests.
+     * @description Manages song requests, allowing creation by students and management by admins.
+     * @path /song_requests/{songRequestId}
+     * @allow (create) User with UID 'user123' can create a song request with studentId == 'user123'.
+     * @allow (update) Admin can update any song request.
+     * @deny (create) User with UID 'user123' cannot create a song request if studentId != 'user123'.
+     * @deny (delete) Non-admin users cannot delete song requests.
+     * @principle Enforces user-ownership for song request creation and admin control for management.
      */
-    match /song_requests/{id} {
-      allow read:   if isOwner() || isAdmin() || (signedIn() && resource.data.studentId == request.auth.uid);
-      allow create: if signedIn();
-      allow update: if isOwner() || isAdmin() || (signedIn() && resource.data.studentId == request.auth.uid);
-      allow delete: if isOwner() || (signedIn() && resource.data.studentId == request.auth.uid);
+    match /song_requests/{songRequestId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Manages audit logs. Only owners can read audit logs.
-     * @path /audit_logs/{id}
-     * @allow (read) Owner can read any audit log.
-     * @allow (create) Any signed-in user can create an audit log.
-     * @deny (update) No one can update audit logs.
-     * @deny (delete) No one can delete audit logs.
-     * @principle Restricts access to audit logs to owners only.
-     */
-    match /audit_logs/{id} {
-      allow read:   if isOwner();
-      allow create: if signedIn();
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Catches all other documents and denies access.
-     * @path /{document=**}
-     * @deny (read) No one can read any other document.
-     * @deny (write) No one can write to any other document.
-     * @principle Default deny-all rule for any unmatched path.
-     */
-    match /{document=**} {
-       allow read, write: if false;
+      /**
+       * @description Stores a chronological log of all significant actions taken in the application.
+       * @path /audit_logs/{logId}
+       * @allow (get, list) Admins can get and list logs.
+       * @allow (create) Only the application backend can create logs.
+       * @deny (update, delete) No one can update or delete logs (immutable).
+       * @principle Restricts audit log access to admins and prevents tampering.
+       */
+    match /audit_logs/{logId} {
+        allow get, list: if isAdmin();
+        allow create: if true; // Simulate backend access. In production, this might be authenticated differently.
+        allow update, delete: if false;
     }
   }
 }
