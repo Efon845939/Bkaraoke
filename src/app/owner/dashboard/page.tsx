@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -453,5 +454,3 @@ const handleDeleteStudent = async () => {
     </div>
   );
 }
-
-    

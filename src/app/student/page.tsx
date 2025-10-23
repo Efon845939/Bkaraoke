@@ -66,7 +66,7 @@ export default function StudentPage() {
     return query(
       collection(firestore, 'song_requests'),
       where('studentId', '==', user.uid),
-      orderBy('order', 'asc')
+      orderBy('submissionDate', 'desc')
     );
   }, [firestore, user]);
 
@@ -316,5 +316,3 @@ export default function StudentPage() {
     </div>
   );
 }
-
-    
