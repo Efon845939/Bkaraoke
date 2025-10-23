@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ListMusic, Users, History, Trash2, Pencil } from 'lucide-react';
+import { ListMusic, Users, History, Trash2, Pencil, Bot } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { SongQueue } from '@/components/song-queue';
@@ -31,6 +31,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
+import { diag } from '@/firebase/diag'; // Import diagnostic tool
 
 // A non-blocking wrapper for addDoc
 const addDocumentNonBlocking = (ref: any, data: any) => {
@@ -246,7 +247,12 @@ const handleDeleteStudent = async () => {
   return (
     <div className="container mx-auto max-w-7xl space-y-8 p-4 md:p-8">
       <PageHeader />
-      <h1 className="text-4xl font-headline tracking-wider">Sistem Sahibi Paneli</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-4xl font-headline tracking-wider">Sistem Sahibi Paneli</h1>
+        <Button onClick={diag} variant="outline">
+          <Bot className="mr-2" /> Teşhis Aracını Çalıştır
+        </Button>
+      </div>
       
       <SongSubmissionForm
         onSongAdd={handleSongAdd}
@@ -423,3 +429,5 @@ const handleDeleteStudent = async () => {
     </div>
   );
 }
+
+    
