@@ -27,10 +27,9 @@ import {
   runTransaction,
   updateDoc,
   orderBy,
-  addDoc,
-  deleteUser as deleteAuthUser
+  addDoc
 } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, deleteUser as deleteAuthUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
@@ -92,10 +91,17 @@ export default function ParticipantPage() {
   };
 
   const handleSongAdd = async (newSong: { title: string; url: string, name?: string }) => {
-    if (!firestore || !user?.displayName) return;
+    if (!firestore || !user) return;
 
     const participantId = user.uid;
-    const participantName = newSong.name || user.displayName;
+    // If the user's display name is not set, use the one from the form.
+    const participantName = user.displayName || newSong.name || 'Bilinmeyen Katılımcı';
+    
+    // Ensure display name is set for future requests if it wasn't already
+    if (!user.displayName && newSong.name && auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: newSong.name });
+    }
+
     const participantDocRef = doc(firestore, 'students', participantId);
     
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
@@ -103,6 +109,7 @@ export default function ParticipantPage() {
 
     const batch = writeBatch(firestore);
 
+    // Use the determined participant name
     batch.set(participantDocRef, { id: participantId, name: participantName, role: 'participant' }, { merge: true });
 
     const songData = {
@@ -184,7 +191,7 @@ export default function ParticipantPage() {
               operation: 'write',
               requestResourceData: { info: `Updating user name to ${newDisplayName}`}
           }));
-          if(oldDisplayName) updateProfile(auth.currentUser!, { displayName: oldDisplayName });
+          if(oldDisplayName && auth.currentUser) updateProfile(auth.currentUser, { displayName: oldDisplayName });
       });
 
     } catch (error) {
