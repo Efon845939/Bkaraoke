@@ -284,7 +284,7 @@ export default function ParticipantPage() {
         <SongQueue
           role="participant"
           songs={songs || []}
-          isLoading={isLoading || isUserLoading}
+          isLoading={isLoading && (!songs || songs.length === 0)}
           currentUserId={user?.uid}
           onEditSong={setEditingSong}
         />
@@ -327,3 +327,5 @@ export default function ParticipantPage() {
     </div>
   );
 }
+
+    
