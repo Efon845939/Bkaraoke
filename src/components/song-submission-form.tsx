@@ -43,13 +43,13 @@ type SongFormValuesWithAdmin = z.infer<typeof formSchemaWithAdmin>;
 
 interface SongSubmissionFormProps {
   onSongAdd: (song: SongFormValuesWithAdmin) => void;
-  studentName: string;
+  participantName: string;
   showNameInput?: boolean;
 }
 
 export function SongSubmissionForm({
   onSongAdd,
-  studentName,
+  participantName,
   showNameInput = false,
 }: SongSubmissionFormProps) {
   const { toast } = useToast();
@@ -77,7 +77,7 @@ export function SongSubmissionForm({
     } else {
         form.reset({ title: '', url: ''});
     }
-  }, [showNameInput, studentName, form]);
+  }, [showNameInput, participantName, form]);
 
   function onSubmit(values: SongFormValuesWithAdmin) {
     const submissionValues = {
@@ -97,7 +97,7 @@ export function SongSubmissionForm({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <CardHeader>
-            <CardTitle>Bir Şarkı İste{showNameInput ? '' : `, ${studentName}`}!</CardTitle>
+            <CardTitle>Bir Şarkı İste{showNameInput ? '' : `, ${participantName}`}!</CardTitle>
             <CardDescription>
               Favori karaoke parçanızı listeye ekleyin.
             </CardDescription>

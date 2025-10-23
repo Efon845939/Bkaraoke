@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import type { Song, Student, AuditLog } from '@/types';
+import type { Song, Participant, AuditLog } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -44,11 +44,11 @@ export default function OwnerDashboardPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [studentFilter, setStudentFilter] = React.useState('');
+  const [participantFilter, setParticipantFilter] = React.useState('');
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
-  const [editingStudent, setEditingStudent] = React.useState<Student | null>(null);
+  const [editingParticipant, setEditingParticipant] = React.useState<Participant | null>(null);
   const [songList, setSongList] = React.useState<Song[]>([]);
-  const [studentToDelete, setStudentToDelete] = React.useState<Student | null>(null);
+  const [participantToDelete, setParticipantToDelete] = React.useState<Participant | null>(null);
 
   const isOwner = React.useMemo(() => {
     if (!user?.email) return false;
@@ -62,7 +62,7 @@ export default function OwnerDashboardPage() {
   }, [user, isUserLoading, router, isOwner]);
 
   // --- Firestore Queries ---
-  const studentsQuery = useMemoFirebase(() => {
+  const participantsQuery = useMemoFirebase(() => {
     if (!firestore || !isOwner) return null;
     return collection(firestore, 'students');
   }, [firestore, isOwner]);
@@ -77,7 +77,7 @@ export default function OwnerDashboardPage() {
       return query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'));
   }, [firestore, isOwner]);
 
-  const { data: students, isLoading: studentsLoading } = useCollection<Student>(studentsQuery);
+  const { data: participants, isLoading: participantsLoading } = useCollection<Participant>(participantsQuery);
   const { data: songsFromHook, isLoading: songsLoading } = useCollection<Song>(songsQuery);
   const { data: auditLogs, isLoading: auditLogsLoading } = useCollection<AuditLog>(auditLogsQuery);
   
@@ -115,13 +115,13 @@ export default function OwnerDashboardPage() {
     const requesterName = newSong.firstName && newSong.lastName 
       ? `${newSong.firstName} ${newSong.lastName}`
       : 'Sahip';
-    const studentId = 'owner-added';
+    const participantId = 'owner-added';
   
     const songData = {
       title: newSong.title,
       karaokeUrl: newSong.url,
-      studentId: studentId,
-      studentName: requesterName,
+      participantId: participantId,
+      participantName: requesterName,
       submissionDate: serverTimestamp(),
       order: songList?.length ?? 0,
     };
@@ -182,72 +182,72 @@ export default function OwnerDashboardPage() {
   };
 
   const handleProfileUpdate = async (values: { firstName: string, lastName: string }) => {
-    if (!firestore || !editingStudent) return;
-    const studentId = editingStudent.id;
-    const oldName = editingStudent.name;
+    if (!firestore || !editingParticipant) return;
+    const participantId = editingParticipant.id;
+    const oldName = editingParticipant.name;
     const newDisplayName = `${values.firstName} ${values.lastName}`;
     
     runTransaction(firestore, async (transaction) => {
-        const studentDocRef = doc(firestore, 'students', studentId);
-        transaction.update(studentDocRef, { name: newDisplayName });
+        const participantDocRef = doc(firestore, 'students', participantId);
+        transaction.update(participantDocRef, { name: newDisplayName });
 
-        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
+        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
         const songRequestsSnapshot = await getDocs(songRequestsQuery);
         songRequestsSnapshot.forEach((songDoc) => {
-            transaction.update(songDoc.ref, { studentName: newDisplayName });
+            transaction.update(songDoc.ref, { participantName: newDisplayName });
         });
     }).then(() => {
-        createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${studentId})`);
+        createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${participantId})`);
         toast({ title: 'Profil Güncellendi', description: 'Kullanıcının adı başarıyla güncellendi.' });
     }).catch((error) => {
         toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `students/${studentId} and related song_requests`,
+            path: `students/${participantId} and related song_requests`,
             operation: 'write', // Transaction is a generic 'write'
             requestResourceData: { info: `Updating user name to ${newDisplayName}` }
         }));
     });
-    setEditingStudent(null);
+    setEditingParticipant(null);
 };
 
-const handleDeleteStudent = async () => {
-    if (!firestore || !studentToDelete) return;
-    const { id: studentId, name: studentName } = studentToDelete;
+const handleDeleteParticipant = async () => {
+    if (!firestore || !participantToDelete) return;
+    const { id: participantId, name: participantName } = participantToDelete;
 
     // Note: This function does NOT delete the user's Auth record.
     // That requires a Cloud Function with Admin SDK privileges.
     // This only deletes their Firestore data (profile and song requests).
     runTransaction(firestore, async (transaction) => {
-        const studentDocRef = doc(firestore, 'students', studentId);
-        transaction.delete(studentDocRef);
+        const participantDocRef = doc(firestore, 'students', participantId);
+        transaction.delete(participantDocRef);
 
-        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
+        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
         const songRequestsSnapshot = await getDocs(songRequestsQuery);
         songRequestsSnapshot.forEach((songDoc) => {
           transaction.delete(songDoc.ref);
         });
     }).then(() => {
-        createAuditLog('USER_DELETED_BY_OWNER', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
-        toast({ title: 'Kullanıcı Verileri Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri veritabanından silindi.` });
+        createAuditLog('USER_DELETED_BY_OWNER', `Kullanıcı Verileri Silindi: "${participantName}" (ID: ${participantId})`);
+        toast({ title: 'Kullanıcı Verileri Silindi', description: `${participantName} adlı kullanıcının profili ve şarkı istekleri veritabanından silindi.` });
     }).catch((error) => {
         toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı silinirken bir sorun oluştu.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `students/${studentId} and related song_requests`,
+            path: `students/${participantId} and related song_requests`,
             operation: 'delete',
-            requestResourceData: { info: `Deleting user ${studentName}` }
+            requestResourceData: { info: `Deleting user ${participantName}` }
         }));
     });
-    setStudentToDelete(null);
+    setParticipantToDelete(null);
   };
 
 
   // --- Memoized Filters ---
-  const filteredStudents = React.useMemo(() => {
-    if (!students) return [];
-    return students.filter(student =>
-      student.name.toLowerCase().includes(studentFilter.toLowerCase())
+  const filteredParticipants = React.useMemo(() => {
+    if (!participants) return [];
+    return participants.filter(participant =>
+      participant.name.toLowerCase().includes(participantFilter.toLowerCase())
     );
-  }, [students, studentFilter]);
+  }, [participants, participantFilter]);
 
   if (isUserLoading || !user) {
     return (
@@ -275,7 +275,7 @@ const handleDeleteStudent = async () => {
       
       <SongSubmissionForm
         onSongAdd={handleSongAdd}
-        studentName="Sahip"
+        participantName="Sahip"
         showNameInput={true}
        />
 
@@ -295,8 +295,8 @@ const handleDeleteStudent = async () => {
                      <div className="pt-4">
                         <Input
                             placeholder="Kullanıcı ara..."
-                            value={studentFilter}
-                            onChange={(e) => setStudentFilter(e.target.value)}
+                            value={participantFilter}
+                            onChange={(e) => setParticipantFilter(e.target.value)}
                             className="w-full"
                         />
                     </div>
@@ -312,7 +312,7 @@ const handleDeleteStudent = async () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {studentsLoading ? (
+                                {participantsLoading ? (
                                     Array.from({ length: 5 }).map((_, i) => (
                                         <TableRow key={i}>
                                             <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
@@ -323,17 +323,17 @@ const handleDeleteStudent = async () => {
                                             </TableCell>
                                         </TableRow>
                                     ))
-                                ) : filteredStudents.length > 0 ? (
-                                    filteredStudents.map(student => (
-                                        <TableRow key={student.id}>
-                                            <TableCell className="font-medium">{student.name}</TableCell>
+                                ) : filteredParticipants.length > 0 ? (
+                                    filteredParticipants.map(participant => (
+                                        <TableRow key={participant.id}>
+                                            <TableCell className="font-medium">{participant.name}</TableCell>
                                             <TableCell>
-                                              <Badge variant={student.role === 'owner' ? 'default' : student.role === 'admin' ? 'secondary' : 'outline'}>
-                                                {roleTranslations[student.role] || student.role}
+                                              <Badge variant={participant.role === 'owner' ? 'default' : participant.role === 'admin' ? 'secondary' : 'outline'}>
+                                                {roleTranslations[participant.role] || participant.role}
                                               </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => setEditingStudent(student)}>
+                                                <Button variant="ghost" size="icon" onClick={() => setEditingParticipant(participant)}>
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                                 <AlertDialog>
@@ -342,24 +342,24 @@ const handleDeleteStudent = async () => {
                                                             variant="ghost" 
                                                             size="icon" 
                                                             className="text-destructive hover:text-destructive" 
-                                                            onClick={() => setStudentToDelete(student)}
-                                                            disabled={student.id === user.uid}
+                                                            onClick={() => setParticipantToDelete(participant)}
+                                                            disabled={participant.id === user.uid}
                                                         >
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </AlertDialogTrigger>
-                                                    {studentToDelete && studentToDelete.id === student.id && (
+                                                    {participantToDelete && participantToDelete.id === participant.id && (
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
                                                         <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Bu eylem geri alınamaz. Bu, "{student.name}" adlı kullanıcının profilini ve tüm şarkı isteklerini veritabanından kalıcı olarak silecektir. Bu işlem kullanıcının giriş hesabını silmez.
+                                                            Bu eylem geri alınamaz. Bu, "{participant.name}" adlı kullanıcının profilini ve tüm şarkı isteklerini veritabanından kalıcı olarak silecektir. Bu işlem kullanıcının giriş hesabını silmez.
                                                         </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
-                                                        <AlertDialogCancel onClick={() => setStudentToDelete(null)}>İptal</AlertDialogCancel>
+                                                        <AlertDialogCancel onClick={() => setParticipantToDelete(null)}>İptal</AlertDialogCancel>
                                                         <AlertDialogAction
-                                                            onClick={handleDeleteStudent}
+                                                            onClick={handleDeleteParticipant}
                                                             className="bg-destructive hover:bg-destructive/90"
                                                         >
                                                             Evet, Verileri Sil
@@ -441,11 +441,11 @@ const handleDeleteStudent = async () => {
             onSongUpdate={handleSongUpdate}
             />
         )}
-        {editingStudent && (
+        {editingParticipant && (
             <EditProfileDialog
-                user={{ displayName: editingStudent.name } as any} // Simplified for dialog
-                isOpen={!!editingStudent}
-                onOpenChange={(isOpen) => !isOpen && setEditingStudent(null)}
+                user={{ displayName: editingParticipant.name } as any} // Simplified for dialog
+                isOpen={!!editingParticipant}
+                onOpenChange={(isOpen) => !isOpen && setEditingParticipant(null)}
                 onProfileUpdate={handleProfileUpdate}
                 dialogTitle="Kullanıcı Adını Düzenle"
                 dialogDescription="Kullanıcının görünen adını güncelleyin."

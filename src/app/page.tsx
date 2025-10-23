@@ -10,11 +10,11 @@ import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [loginRole, setLoginRole] = React.useState<'student' | 'admin' | null>(
+  const [loginRole, setLoginRole] = React.useState<'participant' | 'admin' | null>(
     null
   );
 
-  const handleRoleSelect = (role: 'student' | 'admin') => {
+  const handleRoleSelect = (role: 'participant' | 'admin') => {
     setLoginRole(role);
     setDialogOpen(true);
   };
@@ -48,7 +48,7 @@ export default function LoginPage() {
              <Button
                 className="w-full"
                 size="lg"
-                onClick={() => handleRoleSelect('student')}
+                onClick={() => handleRoleSelect('participant')}
               >
                 Katılımcı
               </Button>

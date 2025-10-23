@@ -11,13 +11,13 @@
           "type": "string",
           "description": "Unique identifier for the song request."
         },
-        "studentId": {
+        "participantId": {
           "type": "string",
-          "description": "Reference to the Student who submitted the request."
+          "description": "Reference to the Participant who submitted the request."
         },
-        "studentName": {
+        "participantName": {
           "type": "string",
-          "description": "Denormalized name of the student for easy display."
+          "description": "Denormalized name of the participant for easy display."
         },
         "title": {
           "type": "string",
@@ -40,19 +40,19 @@
       },
       "required": [
         "id",
-        "studentId",
-        "studentName",
+        "participantId",
+        "participantName",
         "title",
         "karaokeUrl",
         "submissionDate",
         "order"
       ]
     },
-    "Student": {
+    "Participant": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Student",
+      "title": "Participant",
       "type": "object",
-      "description": "Represents a student or admin who can submit song requests.",
+      "description": "Represents a participant or admin who can submit song requests.",
       "properties": {
         "id": {
           "type": "string",
@@ -96,11 +96,11 @@
     ]
   },
   "firestore": {
-    "/students/{studentId}": {
+    "/students/{participantId}": {
       "schema": {
-        "$ref": "#/entities/Student"
+        "$ref": "#/entities/Participant"
       },
-      "description": "Stores student and admin profiles. Each document represents a user."
+      "description": "Stores participant and admin profiles. Each document represents a user."
     },
     "/song_requests/{songRequestId}": {
         "schema": {
@@ -116,4 +116,3 @@
     }
   }
 }
-

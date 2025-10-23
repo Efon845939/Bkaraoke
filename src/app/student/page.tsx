@@ -44,7 +44,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-export default function StudentPage() {
+export default function ParticipantPage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const firestore = useFirestore();
@@ -65,7 +65,7 @@ export default function StudentPage() {
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'song_requests'),
-      where('studentId', '==', user.uid),
+      where('participantId', '==', user.uid),
       orderBy('submissionDate', 'desc')
     );
   }, [firestore, user]);
@@ -93,22 +93,22 @@ export default function StudentPage() {
   const handleSongAdd = async (newSong: { title: string; url: string, name?: string }) => {
     if (!firestore || !user?.displayName) return;
 
-    const studentId = user.uid;
-    const studentName = newSong.name || user.displayName;
-    const studentDocRef = doc(firestore, 'students', studentId);
+    const participantId = user.uid;
+    const participantName = newSong.name || user.displayName;
+    const participantDocRef = doc(firestore, 'students', participantId);
     
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
     const totalSongs = totalSongsSnapshot.size;
 
     const batch = writeBatch(firestore);
 
-    batch.set(studentDocRef, { id: studentId, name: studentName, role: 'student' }, { merge: true });
+    batch.set(participantDocRef, { id: participantId, name: participantName, role: 'student' }, { merge: true });
 
     const songData = {
       title: newSong.title,
       karaokeUrl: newSong.url,
-      studentId: studentId,
-      studentName: studentName,
+      participantId: participantId,
+      participantName: participantName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
     };
@@ -123,7 +123,7 @@ export default function StudentPage() {
        errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'song_requests and students', // Path is simplified for batch
             operation: 'write',
-            requestResourceData: { info: "Batch write for new song and student profile update."}
+            requestResourceData: { info: "Batch write for new song and participant profile update."}
        }));
     });
   };
@@ -154,22 +154,22 @@ export default function StudentPage() {
 
     const oldDisplayName = auth.currentUser.displayName;
     const newDisplayName = `${values.firstName} ${values.lastName}`;
-    const studentId = auth.currentUser.uid;
+    const participantId = auth.currentUser.uid;
 
     try {
       await updateProfile(auth.currentUser!, { displayName: newDisplayName });
       
       runTransaction(firestore, async (transaction) => {
-        const studentDocRef = doc(firestore, 'students', studentId);
-        transaction.update(studentDocRef, { name: newDisplayName });
+        const participantDocRef = doc(firestore, 'students', participantId);
+        transaction.update(participantDocRef, { name: newDisplayName });
 
         const songRequestsQuery = query(
           collection(firestore, 'song_requests'),
-          where('studentId', '==', studentId)
+          where('participantId', '==', participantId)
         );
         const songRequestsSnapshot = await getDocs(songRequestsQuery);
         songRequestsSnapshot.forEach((songDoc) => {
-          transaction.update(songDoc.ref, { studentName: newDisplayName });
+          transaction.update(songDoc.ref, { participantName: newDisplayName });
         });
       }).then(() => {
           createAuditLog('PROFILE_UPDATED', `Kullanıcı: "${oldDisplayName}" -> "${newDisplayName}"`);
@@ -180,7 +180,7 @@ export default function StudentPage() {
           });
       }).catch(error => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: `students/${studentId} and related song_requests`,
+              path: `students/${participantId} and related song_requests`,
               operation: 'write',
               requestResourceData: { info: `Updating user name to ${newDisplayName}`}
           }));
@@ -204,19 +204,19 @@ export default function StudentPage() {
     if (!firestore || !auth.currentUser) {
       toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı oturumu bulunamadı.'});
       return;
-    };
+    }
     
     const userToDelete = auth.currentUser;
-    const studentId = userToDelete.uid;
-    const studentName = userToDelete.displayName || "Bilinmeyen Kullanıcı";
+    const participantId = userToDelete.uid;
+    const participantName = userToDelete.displayName || "Bilinmeyen Kullanıcı";
 
     try {
         // 1. Delete Firestore data in a transaction
         await runTransaction(firestore, async (transaction) => {
-            const studentDocRef = doc(firestore, 'students', studentId);
-            transaction.delete(studentDocRef);
+            const participantDocRef = doc(firestore, 'students', participantId);
+            transaction.delete(participantDocRef);
 
-            const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
+            const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
             const songRequestsSnapshot = await getDocs(songRequestsQuery);
             songRequestsSnapshot.forEach((songDoc) => {
               transaction.delete(songDoc.ref);
@@ -226,7 +226,7 @@ export default function StudentPage() {
         // 2. Delete Auth user
         await deleteUser(userToDelete);
         
-        createAuditLog('USER_DELETED_SELF', `Kullanıcı kendi hesabını sildi: "${studentName}" (ID: ${studentId})`);
+        createAuditLog('USER_DELETED_SELF', `Kullanıcı kendi hesabını sildi: "${participantName}" (ID: ${participantId})`);
         
         toast({ title: 'Hesap Silindi', description: 'Hesabınız ve tüm verileriniz başarıyla silindi. Yönlendiriliyorsunuz.' });
         router.push('/'); // Redirect to login page
@@ -244,9 +244,9 @@ export default function StudentPage() {
         // Emit a detailed error if it seems like a permissions issue with the transaction
         if (error.code !== 'auth/requires-recent-login') {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: `students/${studentId} and related song_requests`,
+                path: `students/${participantId} and related song_requests`,
                 operation: 'delete',
-                requestResourceData: { info: `Self-deleting account for user ${studentName}` }
+                requestResourceData: { info: `Self-deleting account for user ${participantName}` }
             }));
         }
     } finally {
@@ -269,9 +269,9 @@ export default function StudentPage() {
         onDeleteAccount={() => setDeleteAccountAlertOpen(true)} 
       />
       <main className="space-y-8">
-        <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} showNameInput={!user.displayName} />
+        <SongSubmissionForm onSongAdd={handleSongAdd} participantName={user.displayName || ''} showNameInput={!user.displayName} />
         <SongQueue
-          role="student"
+          role="participant"
           songs={songs || []}
           isLoading={isLoading || isUserLoading}
           currentUserId={user?.uid}

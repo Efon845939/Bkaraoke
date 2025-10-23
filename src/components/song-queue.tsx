@@ -59,7 +59,7 @@ import { doc, collection, serverTimestamp, addDoc, deleteDoc } from 'firebase/fi
 import { Skeleton } from './ui/skeleton';
 
 type SongQueueProps = {
-  role: 'student' | 'admin' | 'owner';
+  role: 'participant' | 'admin' | 'owner';
   songs: Song[];
   isLoading: boolean;
   currentUserId?: string;
@@ -99,7 +99,7 @@ export function SongQueue({
     return songs.filter(
       (song) =>
         song.title.toLowerCase().includes(globalFilter.toLowerCase()) ||
-        song.studentName.toLowerCase().includes(globalFilter.toLowerCase())
+        song.participantName.toLowerCase().includes(globalFilter.toLowerCase())
     );
   }, [songs, globalFilter]);
 
@@ -153,7 +153,7 @@ export function SongQueue({
         ) : (
           <TableRow>
             <TableCell colSpan={(role === 'admin' || role === 'owner') ? (canDrag ? 4: 3) : 2} className="h-24 text-center">
-              {role === 'student' ? "Henüz bir şarkı istemediniz." : 'Sıra boş.'}
+              {role === 'participant' ? "Henüz bir şarkı istemediniz." : 'Sıra boş.'}
             </TableCell>
           </TableRow>
         )}
@@ -206,7 +206,7 @@ const SortableSongRow = ({
   canDrag
 }: {
   song: Song;
-  role: 'admin' | 'student' | 'owner';
+  role: 'admin' | 'participant' | 'owner';
   currentUserId?: string;
   onEditSong: (song: Song) => void;
   canDrag: boolean;
@@ -267,8 +267,8 @@ const SortableSongRow = ({
     });
   };
 
-  const isOwnerOfSong = song.studentId === currentUserId;
-  const canModify = role === 'owner' || (role === 'student' && isOwnerOfSong);
+  const isOwnerOfSong = song.participantId === currentUserId;
+  const canModify = role === 'owner' || (role === 'participant' && isOwnerOfSong);
   
   return (
     <TableRow ref={setNodeRef} style={style}>
@@ -278,7 +278,7 @@ const SortableSongRow = ({
         </TableCell>
       )}
       <TableCell className="font-medium">{song.title}</TableCell>
-      {(role === 'admin' || role === 'owner') && <TableCell>{song.studentName}</TableCell>}
+      {(role === 'admin' || role === 'owner') && <TableCell>{song.participantName}</TableCell>}
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -301,7 +301,7 @@ const SortableSongRow = ({
             
             {canModify && (
               <>
-               {(role === 'owner' || role === 'student') && <DropdownMenuSeparator />}
+               {(role === 'owner' || role === 'participant') && <DropdownMenuSeparator />}
                 <DropdownMenuItem
                   onClick={() => deleteSong(song.id, song.title)}
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive"
@@ -317,5 +317,3 @@ const SortableSongRow = ({
     </TableRow>
   );
 };
-
-    

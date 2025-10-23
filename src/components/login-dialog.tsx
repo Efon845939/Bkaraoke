@@ -11,7 +11,7 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, collection } from 'firebase/firestore';
+import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
 
 import { Button } from '@/components/ui/button';
@@ -34,23 +34,22 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { serverTimestamp } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const studentSchema = z.object({
+const participantSchema = z.object({
   firstName: z.string().min(1, 'İsim gerekli').transform(name => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()),
   lastName: z.string().min(1, 'Soyisim gerekli').transform(name => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()),
   pin: z.string().length(4, 'PIN 4 haneli olmalıdır.').regex(/^\d{4}$/, 'PIN sadece rakamlardan oluşmalıdır.'),
 });
 
-const adminSchema = studentSchema.extend({
+const adminSchema = participantSchema.extend({
   adminPin: z.string().refine((pin) => pin === 'kara90ke' || pin === 'gizli_kara90ke', {
     message: 'Geçersiz yönetici/sahip PINi.',
   }),
 });
 
 type LoginDialogProps = {
-  role: 'student' | 'admin' | null;
+  role: 'participant' | 'admin' | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -67,7 +66,7 @@ export function LoginDialog({
   const [isLoading, setIsLoading] = React.useState(false);
   const [authAction, setAuthAction] = React.useState<'login' | 'signup'>('login');
 
-  const formSchema = role === 'admin' ? adminSchema : studentSchema;
+  const formSchema = role === 'admin' ? adminSchema : participantSchema;
   type FormValues = z.infer<typeof formSchema>;
 
   const form = useForm<FormValues>({
@@ -118,7 +117,7 @@ export function LoginDialog({
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(userCredential.user, { displayName });
             
-            const userRole = isOwnerLogin ? 'owner' : isAdmin ? 'admin' : 'student';
+            const userRole = isOwnerLogin ? 'owner' : isAdmin ? 'admin' : 'student'; // 'student' for participants
             await setDoc(doc(firestore, 'students', userCredential.user.uid), {
                 id: userCredential.user.uid,
                 name: displayName,
@@ -136,7 +135,7 @@ export function LoginDialog({
         } else if (isAdmin) {
             router.push('/admin');
         } else {
-            router.push('/student');
+            router.push('/participant');
         }
 
     } catch (error: any) {
@@ -167,7 +166,7 @@ export function LoginDialog({
         description: 'Panele erişmek için yönetici bilgilerinizi girin.',
       };
     }
-    if (role === 'student') {
+    if (role === 'participant') {
       return {
         title: 'Katılımcı Alanı',
         description: 'Şarkı istemek için giriş yapın veya yeni hesap oluşturun.',
