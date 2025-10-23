@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -214,6 +213,9 @@ const handleDeleteStudent = async () => {
     if (!firestore || !studentToDelete) return;
     const { id: studentId, name: studentName } = studentToDelete;
 
+    // Note: This function does NOT delete the user's Auth record.
+    // That requires a Cloud Function with Admin SDK privileges.
+    // This only deletes their Firestore data (profile and song requests).
     runTransaction(firestore, async (transaction) => {
         const studentDocRef = doc(firestore, 'students', studentId);
         transaction.delete(studentDocRef);
@@ -224,8 +226,8 @@ const handleDeleteStudent = async () => {
           transaction.delete(songDoc.ref);
         });
     }).then(() => {
-        createAuditLog('USER_DELETED', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
-        toast({ title: 'Kullanıcı Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri silindi.` });
+        createAuditLog('USER_DELETED_BY_OWNER', `Kullanıcı Verileri Silindi: "${studentName}" (ID: ${studentId})`);
+        toast({ title: 'Kullanıcı Verileri Silindi', description: `${studentName} adlı kullanıcının profili ve şarkı istekleri veritabanından silindi.` });
     }).catch((error) => {
         toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı silinirken bir sorun oluştu.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -350,7 +352,7 @@ const handleDeleteStudent = async () => {
                                                         <AlertDialogHeader>
                                                         <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Bu eylem geri alınamaz. Bu, "{student.name}" adlı kullanıcının profilini ve tüm şarkı isteklerini kalıcı olarak silecektir.
+                                                            Bu eylem geri alınamaz. Bu, "{student.name}" adlı kullanıcının profilini ve tüm şarkı isteklerini veritabanından kalıcı olarak silecektir. Bu işlem kullanıcının giriş hesabını silmez.
                                                         </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
@@ -359,7 +361,7 @@ const handleDeleteStudent = async () => {
                                                             onClick={handleDeleteStudent}
                                                             className="bg-destructive hover:bg-destructive/90"
                                                         >
-                                                            Evet, Sil
+                                                            Evet, Verileri Sil
                                                         </AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>
@@ -451,5 +453,3 @@ const handleDeleteStudent = async () => {
     </div>
   );
 }
-
-    

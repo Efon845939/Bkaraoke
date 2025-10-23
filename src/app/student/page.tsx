@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -29,10 +28,20 @@ import {
   orderBy,
   addDoc
 } from 'firebase/firestore';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, deleteUser } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export default function StudentPage() {
   const { user, isUserLoading } = useUser();
@@ -43,6 +52,7 @@ export default function StudentPage() {
 
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
   const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
+  const [isDeleteAccountAlertOpen, setDeleteAccountAlertOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!isUserLoading && !user) {
@@ -189,6 +199,60 @@ export default function StudentPage() {
     setEditProfileOpen(false);
   };
 
+  const handleDeleteAccount = async () => {
+    if (!firestore || !auth.currentUser) {
+      toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı oturumu bulunamadı.'});
+      return;
+    };
+    
+    const userToDelete = auth.currentUser;
+    const studentId = userToDelete.uid;
+    const studentName = userToDelete.displayName || "Bilinmeyen Kullanıcı";
+
+    try {
+        // 1. Delete Firestore data in a transaction
+        await runTransaction(firestore, async (transaction) => {
+            const studentDocRef = doc(firestore, 'students', studentId);
+            transaction.delete(studentDocRef);
+
+            const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
+            const songRequestsSnapshot = await getDocs(songRequestsQuery);
+            songRequestsSnapshot.forEach((songDoc) => {
+              transaction.delete(songDoc.ref);
+            });
+        });
+
+        // 2. Delete Auth user
+        await deleteUser(userToDelete);
+        
+        createAuditLog('USER_DELETED_SELF', `Kullanıcı kendi hesabını sildi: "${studentName}" (ID: ${studentId})`);
+        
+        toast({ title: 'Hesap Silindi', description: 'Hesabınız ve tüm verileriniz başarıyla silindi. Yönlendiriliyorsunuz.' });
+        router.push('/'); // Redirect to login page
+
+    } catch (error: any) {
+        console.error("Hesap silinirken hata oluştu:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Hesap Silinemedi',
+            description: error.code === 'auth/requires-recent-login'
+                ? 'Bu hassas bir işlemdir. Lütfen tekrar giriş yapıp tekrar deneyin.'
+                : 'Hesabınızı silerken bir hata oluştu. Lütfen tekrar deneyin.'
+        });
+
+        // Emit a detailed error if it seems like a permissions issue with the transaction
+        if (error.code !== 'auth/requires-recent-login') {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: `students/${studentId} and related song_requests`,
+                operation: 'delete',
+                requestResourceData: { info: `Self-deleting account for user ${studentName}` }
+            }));
+        }
+    } finally {
+        setDeleteAccountAlertOpen(false);
+    }
+  };
+
   if (isUserLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -199,7 +263,10 @@ export default function StudentPage() {
 
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
-      <PageHeader onEditProfile={() => setEditProfileOpen(true)} />
+      <PageHeader 
+        onEditProfile={() => setEditProfileOpen(true)}
+        onDeleteAccount={() => setDeleteAccountAlertOpen(true)} 
+      />
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} studentName={user.displayName || ''} showNameInput={!user.displayName} />
         <SongQueue
@@ -226,8 +293,25 @@ export default function StudentPage() {
           onProfileUpdate={handleProfileUpdate}
         />
       )}
+      <AlertDialog open={isDeleteAccountAlertOpen} onOpenChange={setDeleteAccountAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hesabınızı Silmek Üzere misiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu eylem geri alınamaz. Profiliniz ve tüm şarkı istekleriniz kalıcı olarak silinecektir. Devam etmek istediğinizden emin misiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Evet, Hesabımı Sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-    
