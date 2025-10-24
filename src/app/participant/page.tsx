@@ -63,6 +63,7 @@ export default function ParticipantPage() {
   }, [user, isUserLoading, router]);
 
   const songsQuery = useMemoFirebase(() => {
+    // CRITICAL: Ensure both firestore and user are available before creating the query.
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'song_requests'),
@@ -95,10 +96,8 @@ export default function ParticipantPage() {
     if (!firestore || !user) return;
 
     const participantId = user.uid;
-    // If the user's display name is not set, use the one from the form.
     const participantName = user.displayName || newSong.name || 'Bilinmeyen Katılımcı';
     
-    // Ensure display name is set for future requests if it wasn't already
     if (!user.displayName && newSong.name && auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: newSong.name });
     }
@@ -110,10 +109,11 @@ export default function ParticipantPage() {
 
     const batch = writeBatch(firestore);
 
-    // Use the determined participant name
     batch.set(participantDocRef, { id: participantId, name: participantName, role: 'participant' }, { merge: true });
 
+    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
     const songData = {
+      id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
       participantId: participantId,
@@ -122,8 +122,7 @@ export default function ParticipantPage() {
       order: totalSongs,
     };
     
-    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
-    batch.set(songRequestDocRef, { ...songData, id: songRequestDocRef.id });
+    batch.set(songRequestDocRef, songData);
 
     batch.commit().then(() => {
       createAuditLog('SONG_ADDED', `Şarkı: "${newSong.title}"`);
@@ -218,13 +217,10 @@ export default function ParticipantPage() {
     const participantName = userToDelete.displayName || "Bilinmeyen Kullanıcı";
 
     try {
-        // 1. Transaction to delete Firestore data
         await runTransaction(firestore, async (transaction) => {
-            // Delete participant profile
             const participantDocRef = doc(firestore, 'students', participantId);
             transaction.delete(participantDocRef);
 
-            // Query and delete all song requests by this participant
             const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
             const songRequestsSnapshot = await getDocs(songRequestsQuery);
             songRequestsSnapshot.forEach((songDoc) => {
@@ -232,10 +228,8 @@ export default function ParticipantPage() {
             });
         });
 
-        // 2. Log the action
         createAuditLog('USER_DELETED_SELF', `Katılımcı kendi hesabını sildi: "${participantName}" (ID: ${participantId})`);
         
-        // 3. Delete Auth user - This must be last
         await deleteAuthUser(userToDelete);
         
         toast({ title: 'Hesap Silindi', description: 'Hesabınız ve tüm verileriniz başarıyla silindi. Yönlendiriliyorsunuz.' });
@@ -251,7 +245,6 @@ export default function ParticipantPage() {
                 : 'Hesabınızı silerken bir hata oluştu. Lütfen tekrar deneyin.'
         });
 
-        // Emit a detailed error if it seems like a permissions issue with the transaction
         if (error.code !== 'auth/requires-recent-login') {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: `students/${participantId} and related song_requests`,
