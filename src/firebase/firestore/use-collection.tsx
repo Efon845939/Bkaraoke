@@ -69,7 +69,7 @@ export function useCollection<T = any>(
       setData(null);
       setIsLoading(false); // Set loading to false as there's nothing to load
       setError(null);
-      return;
+      return; // Explicitly return to stop the effect.
     }
     
     // Set loading to true whenever a new query is provided.
