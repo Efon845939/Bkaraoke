@@ -28,7 +28,7 @@ export default function AdminPage() {
     if (isUserLoading) return;
     if (!user) {
       router.replace('/');
-    } else if (!roles.isAdmin && !roles.isOwner) { // Ownerlar da admin paneline girebilir
+    } else if (!roles.isAdmin && !roles.isOwner) { // Owner'lar da admin paneline girebilir
       router.replace('/participant'); // Admin veya Owner olmayanları yönlendir
     }
   }, [user, isUserLoading, router, roles]);
@@ -36,6 +36,10 @@ export default function AdminPage() {
   const songsQuery = useMemoFirebase(() => {
     // Merkezi guard fonksiyonu çağrılıyor.
     // Bu fonksiyon, roller ve kullanıcı durumu uygun değilse null döner.
+    // Sorgunun yalnızca admin veya owner rolüne sahip kullanıcılar için oluşturulduğundan emin olunur.
+    if (!firestore || !user || (!roles.isAdmin && !roles.isOwner)) {
+      return null;
+    }
     return buildSongRequestsQuery(firestore, user, roles);
   }, [firestore, user, roles]);
 
