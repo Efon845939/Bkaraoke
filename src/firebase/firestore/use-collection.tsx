@@ -72,7 +72,8 @@ export function useCollection<T = any>(
       return;
     }
     
-    if(!isLoading) setIsLoading(true);
+    // Set loading to true whenever a new query is provided.
+    setIsLoading(true);
     setError(null);
 
     const unsubscribe = onSnapshot(
@@ -108,7 +109,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery, isLoading]);
+  }, [memoizedTargetRefOrQuery]);
   
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     // This check is disabled in production to avoid unnecessary errors for the end-user.
