@@ -131,6 +131,7 @@ export function LoginDialog({
                 role: userRole
             };
 
+            // Use setDoc to create the document with a specific ID (the user's UID)
             setDoc(userDocRef, userProfileData).catch(e => {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({
                     path: userDocRef.path,

@@ -20,21 +20,23 @@ export default function AdminPage() {
   }, [user]);
 
   React.useEffect(() => {
-    if (!isUserLoading && !user) {
+    if (isUserLoading) return;
+    if (!user) {
       router.push('/');
-    } else if (!isUserLoading && user && !isAdmin) {
-      router.push('/participant'); // Redirect non-admins to participant page
+    } else if (!isAdmin) {
+      router.push('/participant'); // Redirect non-admins
     }
   }, [user, isUserLoading, router, isAdmin]);
 
   const songsQuery = useMemoFirebase(() => {
+    // Only create the query if we have a firestore instance AND the user is an admin.
     if (!firestore || !isAdmin) return null;
     return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
   }, [firestore, isAdmin]);
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
-  if (isUserLoading || !isAdmin) {
+  if (isUserLoading || !user || !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Yönetici Erişimi Yükleniyor ve Doğrulanıyor...</p>
@@ -50,7 +52,7 @@ export default function AdminPage() {
         <SongQueue
           role="admin"
           songs={songs || []}
-          isLoading={isLoading && (!songs || songs.length === 0)}
+          isLoading={isLoading}
           onEditSong={() => {}} // Admins can't edit
         />
       </main>

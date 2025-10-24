@@ -63,6 +63,8 @@ export default function ParticipantPage() {
   }, [user, isUserLoading, router]);
 
   const songsQuery = useMemoFirebase(() => {
+    // CRITICAL: Only create the query if the user and firestore objects are available.
+    // This prevents a query for the full collection from being made before the user is authenticated.
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'song_requests'),
@@ -115,7 +117,7 @@ export default function ParticipantPage() {
       id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId,
+      participantId: participantId, // Ensure this is set correctly
       participantName: participantName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
@@ -276,7 +278,7 @@ export default function ParticipantPage() {
         <SongQueue
           role="participant"
           songs={songs || []}
-          isLoading={isLoading && (!songs || songs.length === 0)}
+          isLoading={isLoading}
           currentUserId={user?.uid}
           onEditSong={setEditingSong}
         />

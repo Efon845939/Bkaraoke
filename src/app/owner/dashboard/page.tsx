@@ -56,7 +56,8 @@ export default function OwnerDashboardPage() {
   }, [user]);
 
   React.useEffect(() => {
-    if (!isUserLoading && !isOwner) {
+    if (isUserLoading) return;
+    if (!isOwner) {
       router.replace('/');
     }
   }, [user, isUserLoading, router, isOwner]);
@@ -115,13 +116,19 @@ export default function OwnerDashboardPage() {
     const requesterName = newSong.firstName && newSong.lastName 
       ? `${newSong.firstName} ${newSong.lastName}`
       : 'Sahip';
-    const participantId = 'owner-added';
+    
+    // The participantId for a song added by an owner should still reference a user,
+    // in this case the owner's own user.uid, to be consistent with security rules.
+    const participantId = user.uid;
   
+    // Firestore's addDoc will generate an ID, but we create a placeholder ref to get an ID for our object
+    const newSongRef = doc(collection(firestore, 'song_requests'));
+
     const songData = {
-      id: '', // Placeholder ID for schema validation
+      id: newSongRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId,
+      participantId: participantId, // Use the owner's UID
       participantName: requesterName,
       submissionDate: serverTimestamp(),
       order: songList?.length ?? 0,
@@ -250,20 +257,11 @@ const handleDeleteParticipant = async () => {
     );
   }, [participants, participantFilter]);
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || !isOwner) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Sistem Sahibi Erişimi Yükleniyor ve Doğrulanıyor...</p>
       </div>
-    );
-  }
-
-  // Early return if not owner after loading, to avoid rendering the dashboard
-  if (!isOwner) {
-    return (
-        <div className="flex min-h-screen items-center justify-center">
-            <p>Erişim reddedildi. Yönlendiriliyor...</p>
-        </div>
     );
   }
 
@@ -283,7 +281,7 @@ const handleDeleteParticipant = async () => {
       <SongQueue
         role="owner"
         songs={songList}
-        isLoading={songsLoading && songList.length === 0}
+        isLoading={songsLoading}
         onEditSong={setEditingSong}
         onReorder={handleReorder}
        />
@@ -455,5 +453,3 @@ const handleDeleteParticipant = async () => {
     </div>
   );
 }
-
-    
