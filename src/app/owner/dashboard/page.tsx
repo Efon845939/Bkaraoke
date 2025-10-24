@@ -31,6 +31,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
+import { buildSongRequestsQuery, type Roles } from '@/lib/firestore-guards';
 
 const roleTranslations: Record<string, string> = {
   student: 'Katılımcı',
@@ -50,33 +51,37 @@ export default function OwnerDashboardPage() {
   const [songList, setSongList] = React.useState<Song[]>([]);
   const [participantToDelete, setParticipantToDelete] = React.useState<Participant | null>(null);
 
-  const isOwner = React.useMemo(() => {
-    if (!user?.email) return false;
-    return /@karaoke\.owner\.app$/i.test(user.email);
+  const roles: Roles = React.useMemo(() => {
+    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
+    const email = user.email.toLowerCase();
+    return {
+        isOwner: /@karaoke\.owner\.app$/.test(email),
+        isAdmin: /@karaoke\.admin\.app$/.test(email),
+        isParticipant: /@karaoke\.app$/.test(email),
+    };
   }, [user]);
 
   React.useEffect(() => {
     if (isUserLoading) return;
-    if (!isOwner) {
+    if (!roles.isOwner) {
       router.replace('/');
     }
-  }, [user, isUserLoading, router, isOwner]);
+  }, [user, isUserLoading, router, roles]);
 
   // --- Firestore Queries ---
   const participantsQuery = useMemoFirebase(() => {
-    if (!firestore || !isOwner) return null;
+    if (!firestore || !roles.isOwner) return null;
     return collection(firestore, 'students');
-  }, [firestore, isOwner]);
+  }, [firestore, roles.isOwner]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore || !isOwner) return null;
-    return query(collection(firestore, 'song_requests'), orderBy('order'));
-  }, [firestore, isOwner]);
+    return buildSongRequestsQuery(firestore, user, roles);
+  }, [firestore, user, roles]);
   
   const auditLogsQuery = useMemoFirebase(() => {
-      if (!firestore || !isOwner) return null;
+      if (!firestore || !roles.isOwner) return null;
       return query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'));
-  }, [firestore, isOwner]);
+  }, [firestore, roles.isOwner]);
 
   const { data: participants, isLoading: participantsLoading } = useCollection<Participant>(participantsQuery);
   const { data: songsFromHook, isLoading: songsLoading } = useCollection<Song>(songsQuery);
@@ -117,28 +122,26 @@ export default function OwnerDashboardPage() {
       ? `${newSong.firstName} ${newSong.lastName}`
       : 'Sahip';
     
-    // The participantId for a song added by an owner should still reference a user,
-    // in this case the owner's own user.uid, to be consistent with security rules.
+    // KURAL UYUMLULUĞU: participantId, işlemi yapan kullanıcının UID'si olmalı
     const participantId = user.uid;
   
-    // Firestore's addDoc will generate an ID, but we create a placeholder ref to get an ID for our object
     const newSongRef = doc(collection(firestore, 'song_requests'));
 
     const songData = {
       id: newSongRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId, // Use the owner's UID
+      participantId: participantId, // isSelf kuralı için bu zorunlu
       participantName: requesterName,
       submissionDate: serverTimestamp(),
       order: songList?.length ?? 0,
     };
   
-    addDoc(collection(firestore, 'song_requests'), songData).then(docRef => {
+    setDoc(newSongRef, songData).then(() => { // addDoc yerine setDoc ile id'yi garanti et
         createAuditLog('SONG_ADDED_BY_OWNER', `Şarkı: "${newSong.title}", Ekleyen: ${requesterName}`);
     }).catch(e => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'song_requests',
+            path: `song_requests/${newSongRef.id}`,
             operation: 'create',
             requestResourceData: songData
         }));
@@ -257,7 +260,7 @@ const handleDeleteParticipant = async () => {
     );
   }, [participants, participantFilter]);
 
-  if (isUserLoading || !user || !isOwner) {
+  if (isUserLoading || !user || !roles.isOwner) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Sistem Sahibi Erişimi Yükleniyor ve Doğrulanıyor...</p>

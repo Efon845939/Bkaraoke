@@ -43,7 +43,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { buildSongRequestsQuery, type Roles } from '@/lib/firestore-guards';
+
 
 export default function ParticipantPage() {
   const { user, isUserLoading } = useUser();
@@ -56,29 +58,32 @@ export default function ParticipantPage() {
   const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
   const [isDeleteAccountAlertOpen, setDeleteAccountAlertOpen] = React.useState(false);
 
+  const roles: Roles = React.useMemo(() => {
+    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
+    const email = user.email.toLowerCase();
+    return {
+        isOwner: /@karaoke\.owner\.app$/.test(email),
+        isAdmin: /@karaoke\.admin\.app$/.test(email),
+        isParticipant: /@karaoke\.app$/.test(email),
+    };
+  }, [user]);
+
   React.useEffect(() => {
     if (isUserLoading) return;
     if (!user) {
       router.replace('/');
       return;
     }
-    // Redirect admins away from the participant page
-    const isAdmin = /@karaoke\.admin\.app$/i.test(user.email || '');
-    if (isAdmin) {
-      router.replace('/admin');
+    // Admin veya owner'ları bu sayfadan yönlendir
+    if (roles.isAdmin || roles.isOwner) {
+      router.replace(roles.isOwner ? '/owner' : '/admin');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, roles]);
 
   const songsQuery = useMemoFirebase(() => {
-    // CRITICAL: Only create the query if the user and firestore objects are available.
-    // This prevents a query for the full collection from being made before the user is authenticated.
-    if (!firestore || !user) return null;
-    return query(
-      collection(firestore, 'song_requests'),
-      where('participantId', '==', user.uid),
-      orderBy('submissionDate', 'desc')
-    );
-  }, [firestore, user]);
+    // Merkezi guard fonksiyonu, yalnızca katılımcı rolü için doğru sorguyu oluşturur.
+    return buildSongRequestsQuery(firestore, user, roles);
+  }, [firestore, user, roles]);
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
@@ -124,7 +129,7 @@ export default function ParticipantPage() {
       id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId, // Ensure this is set correctly
+      participantId: participantId, // KURAL UYUMLULUĞU: Bu alan zorunlu
       participantName: participantName,
       submissionDate: serverTimestamp(),
       order: totalSongs,

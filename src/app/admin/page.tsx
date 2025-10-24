@@ -7,39 +7,42 @@ import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import type { Song } from '@/types';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { buildSongRequestsQuery, type Roles } from '@/lib/firestore-guards';
 
 export default function AdminPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
 
-  const isAdmin = React.useMemo(() => {
-    if (!user?.email) return false;
-    return /@karaoke\.admin\.app$/i.test(user.email);
+  const roles: Roles = React.useMemo(() => {
+    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
+    const email = user.email.toLowerCase();
+    return {
+        isOwner: /@karaoke\.owner\.app$/.test(email),
+        isAdmin: /@karaoke\.admin\.app$/.test(email),
+        isParticipant: /@karaoke\.app$/.test(email),
+    };
   }, [user]);
 
   React.useEffect(() => {
     if (isUserLoading) return;
     if (!user) {
       router.replace('/');
-    } else if (!isAdmin) {
-      router.replace('/participant'); // Redirect non-admins
+    } else if (!roles.isAdmin && !roles.isOwner) { // Ownerlar da admin paneline girebilir
+      router.replace('/participant'); // Admin veya Owner olmayanları yönlendir
     }
-  }, [user, isUserLoading, router, isAdmin]);
+  }, [user, isUserLoading, router, roles]);
 
   const songsQuery = useMemoFirebase(() => {
-    // CRITICAL: Only create the query if we have a firestore instance AND the user is a confirmed admin.
-    // This prevents a non-admin user who lands on this page from attempting to fetch all songs.
-    if (!firestore || !isAdmin) return null;
-    return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
-  }, [firestore, isAdmin]);
+    // Merkezi guard fonksiyonu çağrılıyor.
+    // Bu fonksiyon, roller ve kullanıcı durumu uygun değilse null döner.
+    return buildSongRequestsQuery(firestore, user, roles);
+  }, [firestore, user, roles]);
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
-  // Render a loading/unauthorized state UNTIL the user is confirmed to be an admin.
-  // This prevents the SongQueue from being mounted with a null query while waiting for auth.
-  if (isUserLoading || !user || !isAdmin) {
+  // Auth durumu netleşene veya kullanıcı doğru role sahip olana kadar render etme.
+  if (isUserLoading || !user || (!roles.isAdmin && !roles.isOwner)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Yönetici Erişimi Yükleniyor ve Doğrulanıyor...</p>
@@ -47,7 +50,7 @@ export default function AdminPage() {
     );
   }
 
-  // By this point, we know the user is an admin, and the query can be safely executed.
+  // Bu noktada, kullanıcının admin veya owner olduğu ve sorgunun güvenli olduğu doğrulanmıştır.
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
