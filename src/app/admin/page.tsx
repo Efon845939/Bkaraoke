@@ -29,7 +29,8 @@ export default function AdminPage() {
   }, [user, isUserLoading, router, isAdmin]);
 
   const songsQuery = useMemoFirebase(() => {
-    // Only create the query if we have a firestore instance AND the user is an admin.
+    // CRITICAL: Only create the query if we have a firestore instance AND the user is a confirmed admin.
+    // This prevents a non-admin user who lands on this page from attempting to fetch all songs.
     if (!firestore || !isAdmin) return null;
     return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
   }, [firestore, isAdmin]);
