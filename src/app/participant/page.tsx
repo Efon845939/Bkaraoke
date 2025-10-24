@@ -63,7 +63,6 @@ export default function ParticipantPage() {
   }, [user, isUserLoading, router]);
 
   const songsQuery = useMemoFirebase(() => {
-    // CRITICAL: Ensure both firestore and user are available before creating the query.
     if (!firestore || !user) return null;
     return query(
       collection(firestore, 'song_requests'),
@@ -109,7 +108,7 @@ export default function ParticipantPage() {
 
     const batch = writeBatch(firestore);
 
-    batch.set(participantDocRef, { id: participantId, name: participantName, role: 'participant' }, { merge: true });
+    batch.set(participantDocRef, { id: participantId, name: participantName, role: 'student' }, { merge: true });
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
     const songData = {

@@ -11,8 +11,8 @@ import {
   signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { doc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { useAuth, useFirestore, errorEmitter, FirestorePermissionError } from '@/firebase';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -82,19 +82,25 @@ export function LoginDialog({
   React.useEffect(() => {
     if (open) {
       form.reset({ firstName: '', lastName: '', pin: '', adminPin: '' });
-      setAuthAction('login'); // Reset to login tab when dialog opens
+      setAuthAction('login');
     }
   }, [role, open, form]);
 
   const createAuditLog = (actorId: string, actorName: string, action: string, details: string) => {
     if (!firestore) return;
-    const auditLogsCollection = collection(firestore, 'audit_logs');
-    addDocumentNonBlocking(auditLogsCollection, {
-      timestamp: serverTimestamp(),
-      actorId,
-      actorName,
-      action,
-      details
+    const logData = {
+        timestamp: serverTimestamp(),
+        actorId,
+        actorName,
+        action,
+        details
+    };
+    addDoc(collection(firestore, 'audit_logs'), logData).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'audit_logs',
+            operation: 'create',
+            requestResourceData: logData
+        }));
     });
   };
 
@@ -117,12 +123,22 @@ export function LoginDialog({
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(userCredential.user, { displayName });
             
-            const userRole = isOwnerLogin ? 'owner' : isAdmin ? 'admin' : 'student'; // 'student' for participants
-            await setDoc(doc(firestore, 'students', userCredential.user.uid), {
+            const userRole = isOwnerLogin ? 'owner' : isAdmin ? 'admin' : 'student';
+            const userDocRef = doc(firestore, 'students', userCredential.user.uid);
+            const userProfileData = {
                 id: userCredential.user.uid,
                 name: displayName,
                 role: userRole
+            };
+
+            setDoc(userDocRef, userProfileData).catch(e => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'create',
+                    requestResourceData: userProfileData
+                }));
             });
+
             createAuditLog(userCredential.user.uid, displayName, 'USER_SIGNUP', `Rol: ${userRole}`);
             toast({ title: 'Hesap oluşturuldu!', description: 'Hoş geldiniz! Yeni hesabınız hazır.' });
         } else { // Login
