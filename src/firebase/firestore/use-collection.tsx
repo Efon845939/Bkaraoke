@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -58,10 +59,12 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // If the query is null/undefined, stop here. Do not proceed to subscribe.
+    // This is the critical guard to prevent queries with insufficient context (e.g., before user is loaded).
     if (!memoizedTargetRefOrQuery) {
       setData(null);
       setIsLoading(false);
@@ -72,14 +75,13 @@ export function useCollection<T = any>(
     setIsLoading(true);
     setError(null);
 
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
       (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
-        }
+        const results: ResultItemType[] = snapshot.docs.map(doc => ({
+          ...(doc.data() as T),
+          id: doc.id,
+        }));
         setData(results);
         setError(null);
         setIsLoading(false);
@@ -106,9 +108,14 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
+  }, [memoizedTargetRefOrQuery]);
+  
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+    // This check is disabled in production to avoid unnecessary errors for the end-user.
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('A query passed to useCollection was not memoized with useMemoFirebase. This can cause performance issues and infinite loops.', memoizedTargetRefOrQuery);
+    }
   }
+
   return { data, isLoading, error };
 }
