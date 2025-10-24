@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ListMusic, Users, History, Trash2, Pencil } from 'lucide-react';
+import { ListMusic, Users, History, UserX, UserCheck, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { SongQueue } from '@/components/song-queue';
@@ -49,7 +49,8 @@ export default function OwnerDashboardPage() {
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
   const [editingParticipant, setEditingParticipant] = React.useState<Participant | null>(null);
   const [songList, setSongList] = React.useState<Song[]>([]);
-  const [participantToDelete, setParticipantToDelete] = React.useState<Participant | null>(null);
+  const [participantToToggle, setParticipantToToggle] = React.useState<Participant | null>(null);
+  const [isToggling, setIsToggling] = React.useState(false);
 
   const roles: Roles = React.useMemo(() => {
     if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
@@ -123,7 +124,6 @@ export default function OwnerDashboardPage() {
       ? `${newSong.firstName} ${newSong.lastName}`
       : 'Sahip';
     
-    // RULE COMPLIANCE: participantId must be the UID of the user performing the action
     const participantId = user.uid;
   
     const newSongRef = doc(collection(firestore, 'song_requests'));
@@ -132,13 +132,13 @@ export default function OwnerDashboardPage() {
       id: newSongRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId, // This is required for the isSelf rule
+      participantId: participantId,
       participantName: requesterName,
       submissionDate: serverTimestamp(),
       order: songList?.length ?? 0,
     };
   
-    setDoc(newSongRef, songData).then(() => { // Use setDoc to guarantee ID
+    setDoc(newSongRef, songData).then(() => {
         createAuditLog('SONG_ADDED_BY_OWNER', `Şarkı: "${newSong.title}", Ekleyen: ${requesterName}`);
     }).catch(e => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -172,7 +172,7 @@ export default function OwnerDashboardPage() {
 
   const handleReorder = (reorderedSongs: Song[]) => {
     if (!firestore) return;
-    const originalSongs = [...songList]; // Keep a copy to revert on failure
+    const originalSongs = [...songList];
     setSongList(reorderedSongs);
 
     const batch = writeBatch(firestore);
@@ -184,10 +184,10 @@ export default function OwnerDashboardPage() {
     batch.commit().then(() => {
         createAuditLog('QUEUE_REORDERED', `Şarkı sırası yeniden düzenlendi.`);
     }).catch(e => {
-        setSongList(originalSongs); // Revert UI on error
+        setSongList(originalSongs);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: 'song_requests',
-            operation: 'write', // Batch writes are generic 'write'
+            operation: 'write',
             requestResourceData: { info: 'Batch update for reordering songs.' }
         }));
     });
@@ -215,42 +215,43 @@ export default function OwnerDashboardPage() {
         toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: `students/${participantId} and related song_requests`,
-            operation: 'write', // Transaction is a generic 'write'
+            operation: 'write',
             requestResourceData: { info: `Updating user name to ${newDisplayName}` }
         }));
     });
     setEditingParticipant(null);
 };
 
-const handleDeleteParticipant = async () => {
-    if (!firestore || !participantToDelete) return;
-    const { id: participantId, name: participantName } = participantToDelete;
+const handleToggleSuspend = async () => {
+    if (!firestore || !participantToToggle) return;
 
-    // Note: This function does NOT delete the user's Auth record.
-    // That requires a Cloud Function with Admin SDK privileges.
-    // This only deletes their Firestore data (profile and song requests).
-    runTransaction(firestore, async (transaction) => {
-        const participantDocRef = doc(firestore, 'students', participantId);
-        transaction.delete(participantDocRef);
+    setIsToggling(true);
+    const { id: participantId, name, disabled } = participantToToggle;
+    const newDisabledState = !disabled;
+    const action = newDisabledState ? 'USER_SUSPENDED' : 'USER_ENABLED';
+    const actionPastTense = newDisabledState ? 'askıya alındı' : 'tekrar etkinleştirildi';
+    const details = `Kullanıcı: "${name}" (ID: ${participantId})`;
 
-        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
-        const songRequestsSnapshot = await getDocs(songRequestsQuery);
-        songRequestsSnapshot.forEach((songDoc) => {
-          transaction.delete(songDoc.ref);
+    const participantRef = doc(firestore, 'students', participantId);
+    
+    updateDoc(participantRef, { disabled: newDisabledState }).then(() => {
+        createAuditLog(action, details);
+        toast({
+            title: `Kullanıcı ${actionPastTense}.`,
+            description: `${name} adlı kullanıcının hesabı başarıyla ${actionPastTense}.`
         });
-    }).then(() => {
-        createAuditLog('USER_DELETED_BY_OWNER', `Kullanıcı Verileri Silindi: "${participantName}" (ID: ${participantId})`);
-        toast({ title: 'Kullanıcı Verileri Silindi', description: `${participantName} adlı kullanıcının profili ve şarkı istekleri veritabanından silindi.` });
-    }).catch((error) => {
-        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı silinirken bir sorun oluştu.' });
+    }).catch(error => {
+        toast({ variant: 'destructive', title: 'Hata', description: `Kullanıcı durumu güncellenirken bir sorun oluştu.` });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `students/${participantId} and related song_requests`,
-            operation: 'delete',
-            requestResourceData: { info: `Deleting user ${participantName}` }
+            path: participantRef.path,
+            operation: 'update',
+            requestResourceData: { disabled: newDisabledState }
         }));
+    }).finally(() => {
+        setIsToggling(false);
+        setParticipantToToggle(null);
     });
-    setParticipantToDelete(null);
-  };
+};
 
 
   // --- Memoized Filters ---
@@ -328,15 +329,15 @@ const handleDeleteParticipant = async () => {
                                     ))
                                 ) : filteredParticipants.length > 0 ? (
                                     filteredParticipants.map(participant => (
-                                        <TableRow key={participant.id}>
-                                            <TableCell className="font-medium">{participant.name}</TableCell>
+                                        <TableRow key={participant.id} className={participant.disabled ? 'bg-muted/50' : ''}>
+                                            <TableCell className={`font-medium ${participant.disabled ? 'text-muted-foreground line-through' : ''}`}>{participant.name}</TableCell>
                                             <TableCell>
-                                              <Badge variant={participant.role === 'owner' ? 'default' : participant.role === 'admin' ? 'secondary' : 'outline'}>
-                                                {roleTranslations[participant.role] || participant.role}
+                                              <Badge variant={participant.disabled ? 'outline' : participant.role === 'owner' ? 'default' : participant.role === 'admin' ? 'secondary' : 'outline'}>
+                                                {participant.disabled ? 'Askıda' : roleTranslations[participant.role] || participant.role}
                                               </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => setEditingParticipant(participant)}>
+                                                <Button variant="ghost" size="icon" onClick={() => setEditingParticipant(participant)} disabled={participant.disabled}>
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                                 <AlertDialog>
@@ -344,28 +345,32 @@ const handleDeleteParticipant = async () => {
                                                         <Button 
                                                             variant="ghost" 
                                                             size="icon" 
-                                                            className="text-destructive hover:text-destructive" 
-                                                            onClick={() => setParticipantToDelete(participant)}
+                                                            className={participant.disabled ? 'text-green-600 hover:text-green-700' : 'text-destructive hover:text-destructive'}
+                                                            onClick={() => setParticipantToToggle(participant)}
                                                             disabled={participant.id === user.uid}
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
+                                                            {participant.disabled ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
                                                         </Button>
                                                     </AlertDialogTrigger>
-                                                    {participantToDelete && participantToDelete.id === participant.id && (
+                                                    {participantToToggle && participantToToggle.id === participant.id && (
                                                     <AlertDialogContent>
                                                         <AlertDialogHeader>
                                                         <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Bu eylem geri alınamaz. Bu, "{participant.name}" adlı kullanıcının profilini ve tüm şarkı isteklerini veritabanından kalıcı olarak silecektir. Bu işlem kullanıcının giriş hesabını silmez.
+                                                             {participant.disabled 
+                                                                ? `Bu eylem, "${participant.name}" adlı kullanıcının hesabını yeniden etkinleştirecektir.`
+                                                                : `Bu eylem, "${participant.name}" adlı kullanıcının hesabını askıya alacaktır. Kullanıcı artık giriş yapabilir ancak verilere erişemez.`
+                                                             }
                                                         </AlertDialogDescription>
                                                         </AlertDialogHeader>
                                                         <AlertDialogFooter>
-                                                        <AlertDialogCancel onClick={() => setParticipantToDelete(null)}>İptal</AlertDialogCancel>
+                                                        <AlertDialogCancel onClick={() => setParticipantToToggle(null)}>İptal</AlertDialogCancel>
                                                         <AlertDialogAction
-                                                            onClick={handleDeleteParticipant}
-                                                            className="bg-destructive hover:bg-destructive/90"
+                                                            onClick={handleToggleSuspend}
+                                                            className={participant.disabled ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'}
+                                                            disabled={isToggling}
                                                         >
-                                                            Evet, Verileri Sil
+                                                            {isToggling ? 'İşleniyor...' : (participant.disabled ? 'Evet, Etkinleştir' : 'Evet, Askıya Al')}
                                                         </AlertDialogAction>
                                                         </AlertDialogFooter>
                                                     </AlertDialogContent>

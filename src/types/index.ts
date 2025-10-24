@@ -13,6 +13,7 @@ export type Participant = {
   id: string;
   name: string;
   role: 'student' | 'admin' | 'owner';
+  disabled?: boolean;
 };
 
 export type AuditLog = {

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
-import type { Song } from '@/types';
+import type { Song, Participant } from '@/types';
 import {
   useFirestore,
   useCollection,
@@ -14,7 +14,8 @@ import {
   useUser,
   useAuth,
   errorEmitter,
-  FirestorePermissionError
+  FirestorePermissionError,
+  useDoc
 } from '@/firebase';
 import {
   collection,
@@ -31,7 +32,7 @@ import {
   setDoc,
   deleteDoc
 } from 'firebase/firestore';
-import { updateProfile, deleteUser as deleteAuthUser } from 'firebase/auth';
+import { updateProfile, deleteUser as deleteAuthUser, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
@@ -69,28 +70,47 @@ export default function ParticipantPage() {
     };
   }, [user]);
 
+  const profileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'students', user.uid);
+  }, [firestore, user]);
+
+  const { data: profile, isLoading: isProfileLoading } = useDoc<Participant>(profileRef);
+
   React.useEffect(() => {
-    if (isUserLoading) return;
+    if (isUserLoading || isProfileLoading) return;
+
     if (!user) {
       router.replace('/');
       return;
     }
+
+    if (profile?.disabled) {
+        toast({
+            variant: 'destructive',
+            title: 'Hesap Askıya Alındı',
+            description: 'Hesabınız bir sahip tarafından askıya alınmıştır. Lütfen iletişime geçin.',
+            duration: 5000,
+        });
+        if (auth) signOut(auth);
+        router.replace('/');
+        return;
+    }
+
     // Redirect admins or owners away from this page
     if (roles.isAdmin || roles.isOwner) {
       router.replace(roles.isOwner ? '/owner' : '/admin');
     }
-  }, [user, isUserLoading, router, roles]);
+  }, [user, isUserLoading, profile, isProfileLoading, router, roles, toast, auth]);
 
   const songsQuery = useMemoFirebase(() => {
-    // The query is only built if the user is a participant.
     if (!firestore || !user || !roles.isParticipant) {
       return null;
     }
-    // The centralized guard function builds a query filtered by the participant's UID.
     return buildSongRequestsQuery(firestore, user, roles);
   }, [firestore, user, roles]);
 
-  const { data: songs, isLoading } = useCollection<Song>(songsQuery);
+  const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);
 
   const createAuditLog = (action: string, details: string) => {
     if (!firestore || !user) return;
@@ -127,14 +147,14 @@ export default function ParticipantPage() {
 
     const batch = writeBatch(firestore);
 
-    batch.set(participantDocRef, { id: participantId, name: participantName, role: 'student' }, { merge: true });
+    batch.set(participantDocRef, { id: participantId, name: participantName, role: 'student', disabled: false }, { merge: true });
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
     const songData = {
       id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId, // RULE COMPLIANCE: This field is mandatory
+      participantId: participantId,
       participantName: participantName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
@@ -276,7 +296,7 @@ export default function ParticipantPage() {
   };
 
 
-  if (isUserLoading || !user || !roles.isParticipant) {
+  if (isUserLoading || isProfileLoading || !user || !roles.isParticipant || profile?.disabled) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Yükleniyor...</p>
@@ -295,7 +315,7 @@ export default function ParticipantPage() {
         <SongQueue
           role="participant"
           songs={songs || []}
-          isLoading={isLoading}
+          isLoading={songsLoading}
           currentUserId={user?.uid}
           onEditSong={setEditingSong}
         />
