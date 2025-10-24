@@ -67,7 +67,7 @@ export function useCollection<T = any>(
     // This is the critical guard to prevent queries with insufficient context (e.g., before user is loaded).
     if (!memoizedTargetRefOrQuery) {
       setData(null);
-      setIsLoading(false);
+      setIsLoading(false); // Set loading to false as there's nothing to load
       setError(null);
       return;
     }
