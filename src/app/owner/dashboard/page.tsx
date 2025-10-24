@@ -118,6 +118,7 @@ export default function OwnerDashboardPage() {
     const participantId = 'owner-added';
   
     const songData = {
+      id: '', // Placeholder ID for schema validation
       title: newSong.title,
       karaokeUrl: newSong.url,
       participantId: participantId,
@@ -454,3 +455,5 @@ const handleDeleteParticipant = async () => {
     </div>
   );
 }
+
+    
