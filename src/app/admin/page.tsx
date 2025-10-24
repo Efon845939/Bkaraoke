@@ -22,9 +22,9 @@ export default function AdminPage() {
   React.useEffect(() => {
     if (isUserLoading) return;
     if (!user) {
-      router.push('/');
+      router.replace('/');
     } else if (!isAdmin) {
-      router.push('/participant'); // Redirect non-admins
+      router.replace('/participant'); // Redirect non-admins
     }
   }, [user, isUserLoading, router, isAdmin]);
 
@@ -37,6 +37,8 @@ export default function AdminPage() {
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
+  // Render a loading/unauthorized state UNTIL the user is confirmed to be an admin.
+  // This prevents the SongQueue from being mounted with a null query while waiting for auth.
   if (isUserLoading || !user || !isAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -45,6 +47,7 @@ export default function AdminPage() {
     );
   }
 
+  // By this point, we know the user is an admin, and the query can be safely executed.
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />

@@ -57,8 +57,15 @@ export default function ParticipantPage() {
   const [isDeleteAccountAlertOpen, setDeleteAccountAlertOpen] = React.useState(false);
 
   React.useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/');
+    if (isUserLoading) return;
+    if (!user) {
+      router.replace('/');
+      return;
+    }
+    // Redirect admins away from the participant page
+    const isAdmin = /@karaoke\.admin\.app$/i.test(user.email || '');
+    if (isAdmin) {
+      router.replace('/admin');
     }
   }, [user, isUserLoading, router]);
 
