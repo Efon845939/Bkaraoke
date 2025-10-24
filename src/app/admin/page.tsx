@@ -28,38 +28,38 @@ export default function AdminPage() {
     if (isUserLoading) return;
     if (!user) {
       router.replace('/');
-    } else if (!roles.isAdmin && !roles.isOwner) { // Owner'lar da admin paneline girebilir
-      router.replace('/participant'); // Admin veya Owner olmayanları yönlendir
+    } else if (!roles.isAdmin && !roles.isOwner) { // Owners can also access the admin panel
+      router.replace('/participant'); // Redirect non-admins/owners
     }
   }, [user, isUserLoading, router, roles]);
 
   const songsQuery = useMemoFirebase(() => {
-    // Merkezi guard fonksiyonu çağrılıyor.
-    // Bu fonksiyon, roller ve kullanıcı durumu uygun değilse null döner.
-    // Sorgunun yalnızca admin veya owner rolüne sahip kullanıcılar için oluşturulduğundan emin olunur.
+    // The query is only constructed if the user is an admin or owner.
+    // This prevents unauthorized queries from ever being built.
     if (!firestore || !user || (!roles.isAdmin && !roles.isOwner)) {
       return null;
     }
+    // The centralized guard function is called here.
     return buildSongRequestsQuery(firestore, user, roles);
   }, [firestore, user, roles]);
 
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
-  // Auth durumu netleşene veya kullanıcı doğru role sahip olana kadar render etme.
+  // Do not render anything until auth status and roles are confirmed.
   if (isUserLoading || !user || (!roles.isAdmin && !roles.isOwner)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Yönetici Erişimi Yükleniyor ve Doğrulanıyor...</p>
+        <p>Loading and Verifying Admin Access...</p>
       </div>
     );
   }
 
-  // Bu noktada, kullanıcının admin veya owner olduğu ve sorgunun güvenli olduğu doğrulanmıştır.
+  // At this point, it is confirmed that the user is an admin or owner.
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
-        <h2 className="mb-4 text-3xl font-headline tracking-wider">Yönetici Paneli - Şarkı Sırası</h2>
+        <h2 className="mb-4 text-3xl font-headline tracking-wider">Admin Panel - Song Queue</h2>
         <SongQueue
           role="admin"
           songs={songs || []}

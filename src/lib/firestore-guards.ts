@@ -8,6 +8,7 @@ import {
   query,
   where,
   orderBy,
+  getFirestore,
 } from 'firebase/firestore';
 import type { User } from 'firebase/auth';
 
@@ -17,44 +18,42 @@ export type Roles = {
   isParticipant: boolean;
 };
 
+/**
+ * Builds a Firestore query for the 'song_requests' collection based on user role.
+ * This is the single source of truth for this type of query.
+ *
+ * @param db The Firestore instance.
+ * @param user The authenticated user object.
+ * @param roles The roles object for the user.
+ * @returns A Firestore query object.
+ * @throws An error if db/user are not provided or if the user role is unknown.
+ */
 export function buildSongRequestsQuery(
-  db: any,
-  user: User | null,
+  db: ReturnType<typeof getFirestore>,
+  user: User,
   roles: Roles
-): Query<DocumentData> | null {
+): Query<DocumentData> {
   if (!db || !user) {
-    // Auth/db henüz hazır değilse veya kullanıcı yoksa sorgu oluşturma.
-    return null;
+    // This should be caught before calling, but as a safeguard:
+    throw new Error("Firestore DB or User not available for query construction.");
   }
 
-  const orderField = 'order'; // Admin/Owner için sıralama alanı
-  const participantOrderField = 'submissionDate'; // Katılımcı için sıralama alanı
-  const orderDir = 'asc';
-  const participantOrderDir = 'desc';
+  const col = collection(db, 'song_requests') as CollectionReference<DocumentData>;
 
   if (roles.isOwner || roles.isAdmin) {
-    // Yönetici/owner full liste
-    const col = collection(
-      db,
-      'song_requests'
-    ) as CollectionReference<DocumentData>;
-    return query(col, orderBy(orderField, orderDir));
+    // Owner/Admin can see the full list, ordered by the manual 'order' field
+    return query(col, orderBy('order', 'asc'));
   }
 
   if (roles.isParticipant) {
-    // Katılımcı: sadece kendi belgeleri
-    const col = collection(
-      db,
-      'song_requests'
-    ) as CollectionReference<DocumentData>;
-    const q = query(
+    // Participant can only see their own requests, ordered by submission date
+    return query(
       col,
       where('participantId', '==', user.uid),
-      orderBy(participantOrderField, participantOrderDir)
+      orderBy('submissionDate', 'desc')
     );
-    return q;
   }
 
-  // Bilinmeyen bir rol veya yetkisiz bir durum varsa sorgu oluşturma.
-  return null;
+  // If no role matches, throw an error to prevent any data leakage.
+  throw new Error("Unknown user role; cannot build song request query.");
 }

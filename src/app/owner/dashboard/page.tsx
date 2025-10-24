@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, runTransaction, query, where, getDocs, serverTimestamp, orderBy, addDoc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import type { Song, Participant, AuditLog } from '@/types';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,7 +63,7 @@ export default function OwnerDashboardPage() {
 
   React.useEffect(() => {
     if (isUserLoading) return;
-    if (!roles.isOwner) {
+    if (!user || !roles.isOwner) { // Only allow owners
       router.replace('/');
     }
   }, [user, isUserLoading, router, roles]);
@@ -75,6 +75,7 @@ export default function OwnerDashboardPage() {
   }, [firestore, roles.isOwner]);
 
   const songsQuery = useMemoFirebase(() => {
+    if (!firestore || !user || !roles.isOwner) return null;
     return buildSongRequestsQuery(firestore, user, roles);
   }, [firestore, user, roles]);
   
@@ -122,7 +123,7 @@ export default function OwnerDashboardPage() {
       ? `${newSong.firstName} ${newSong.lastName}`
       : 'Sahip';
     
-    // KURAL UYUMLULUĞU: participantId, işlemi yapan kullanıcının UID'si olmalı
+    // RULE COMPLIANCE: participantId must be the UID of the user performing the action
     const participantId = user.uid;
   
     const newSongRef = doc(collection(firestore, 'song_requests'));
@@ -131,13 +132,13 @@ export default function OwnerDashboardPage() {
       id: newSongRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId, // isSelf kuralı için bu zorunlu
+      participantId: participantId, // This is required for the isSelf rule
       participantName: requesterName,
       submissionDate: serverTimestamp(),
       order: songList?.length ?? 0,
     };
   
-    setDoc(newSongRef, songData).then(() => { // addDoc yerine setDoc ile id'yi garanti et
+    setDoc(newSongRef, songData).then(() => { // Use setDoc to guarantee ID
         createAuditLog('SONG_ADDED_BY_OWNER', `Şarkı: "${newSong.title}", Ekleyen: ${requesterName}`);
     }).catch(e => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -263,7 +264,7 @@ const handleDeleteParticipant = async () => {
   if (isUserLoading || !user || !roles.isOwner) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Sistem Sahibi Erişimi Yükleniyor ve Doğrulanıyor...</p>
+        <p>Loading and Verifying System Owner Access...</p>
       </div>
     );
   }
@@ -272,7 +273,7 @@ const handleDeleteParticipant = async () => {
     <div className="container mx-auto max-w-7xl space-y-8 p-4 md:p-8">
       <PageHeader />
       <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-headline tracking-wider">Sistem Sahibi Paneli</h1>
+        <h1 className="text-4xl font-headline tracking-wider">System Owner Panel</h1>
       </div>
       
       <SongSubmissionForm
@@ -292,11 +293,11 @@ const handleDeleteParticipant = async () => {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-3"><Users /> Tüm Kullanıcılar</CardTitle>
-                    <CardDescription>Sisteme kayıtlı tüm katılımcılar ve yöneticiler.</CardDescription>
+                    <CardTitle className="flex items-center gap-3"><Users /> All Users</CardTitle>
+                    <CardDescription>All participants and admins registered in the system.</CardDescription>
                      <div className="pt-4">
                         <Input
-                            placeholder="Kullanıcı ara..."
+                            placeholder="Search users..."
                             value={participantFilter}
                             onChange={(e) => setParticipantFilter(e.target.value)}
                             className="w-full"
@@ -386,8 +387,8 @@ const handleDeleteParticipant = async () => {
 
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-3"><History /> Denetim Kayıtları</CardTitle>
-                    <CardDescription>Sistemde gerçekleştirilen önemli eylemlerin kaydı.</CardDescription>
+                    <CardTitle className="flex items-center gap-3"><History /> Audit Logs</CardTitle>
+                    <CardDescription>A record of significant actions performed in the system.</CardDescription>
                 </CardHeader>
                 <CardContent>
                      <div className="rounded-md border h-96 overflow-y-auto">

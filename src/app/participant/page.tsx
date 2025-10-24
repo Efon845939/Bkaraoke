@@ -28,6 +28,7 @@ import {
   updateDoc,
   orderBy,
   addDoc,
+  setDoc,
   deleteDoc
 } from 'firebase/firestore';
 import { updateProfile, deleteUser as deleteAuthUser } from 'firebase/auth';
@@ -74,14 +75,18 @@ export default function ParticipantPage() {
       router.replace('/');
       return;
     }
-    // Admin veya owner'ları bu sayfadan yönlendir
+    // Redirect admins or owners away from this page
     if (roles.isAdmin || roles.isOwner) {
       router.replace(roles.isOwner ? '/owner' : '/admin');
     }
   }, [user, isUserLoading, router, roles]);
 
   const songsQuery = useMemoFirebase(() => {
-    // Merkezi guard fonksiyonu, yalnızca katılımcı rolü için doğru sorguyu oluşturur.
+    // The query is only built if the user is a participant.
+    if (!firestore || !user || !roles.isParticipant) {
+      return null;
+    }
+    // The centralized guard function builds a query filtered by the participant's UID.
     return buildSongRequestsQuery(firestore, user, roles);
   }, [firestore, user, roles]);
 
@@ -129,7 +134,7 @@ export default function ParticipantPage() {
       id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId, // KURAL UYUMLULUĞU: Bu alan zorunlu
+      participantId: participantId, // RULE COMPLIANCE: This field is mandatory
       participantName: participantName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
@@ -271,7 +276,7 @@ export default function ParticipantPage() {
   };
 
 
-  if (isUserLoading || !user) {
+  if (isUserLoading || !user || !roles.isParticipant) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Yükleniyor...</p>
