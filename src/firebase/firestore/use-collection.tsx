@@ -59,7 +59,7 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
@@ -71,8 +71,8 @@ export function useCollection<T = any>(
       setError(null);
       return;
     }
-
-    setIsLoading(true);
+    
+    if(!isLoading) setIsLoading(true);
     setError(null);
 
     const unsubscribe = onSnapshot(
@@ -108,7 +108,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]);
+  }, [memoizedTargetRefOrQuery, isLoading]);
   
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     // This check is disabled in production to avoid unnecessary errors for the end-user.
