@@ -49,7 +49,7 @@ export default function AdminPage() {
   if (isUserLoading || !user || (!roles.isAdmin && !roles.isOwner)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Loading and Verifying Admin Access...</p>
+        <p>Yönetici Erişimi Doğrulanıyor...</p>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default function AdminPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader />
       <main className="space-y-8">
-        <h2 className="mb-4 text-3xl font-headline tracking-wider">Admin Panel - Song Queue</h2>
+        <h2 className="mb-4 text-3xl font-headline tracking-wider">Yönetici Paneli - Şarkı Sırası</h2>
         <SongQueue
           role="admin"
           songs={songs || []}
