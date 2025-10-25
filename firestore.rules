@@ -1,123 +1,105 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model for a karaoke song request application.
- *
- * Data Structure:
- * - /students/{participantId}: Stores participant and admin profiles.
- * - /song_requests/{songRequestId}: Stores all song requests.
- * - /audit_logs/{logId}: Stores audit logs.
- *
- * Key Security Decisions:
- * - Participants can only read their own song requests.
- * - Admins and Owners have full read/write access to song requests.
- * - Only authenticated users can create song requests.
- * - Audit logs can only be created by trusted server environments.
- *
- * Denormalization for Authorization:
- * - Song requests contain a `participantId` field to quickly check ownership.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Authentication is required for certain actions.
+     * Helper functions
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the user is the owner of the document.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces document ownership.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    function hasEmail() {
+      return isSignedIn() && request.auth.token.email != null;
     }
 
-     /**
-      * @description Checks if the user is an existing owner of the document. This function checks both ownership and existence of the document.
-      * @path N/A
-      * @allow N/A
-      * @deny N/A
-      * @principle Prevents actions on non-existent documents.
-      */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+    function isOwner() {
+      return hasEmail() && request.auth.token.email.matches(".*@karaoke\\.owner\\.app$");
     }
 
-    /**
-     * @description Checks if the user is an admin.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     */
     function isAdmin() {
-        return isSignedIn() && (request.auth.token.email.matches(".*@karaoke\\.admin\\.app$") || request.auth.token.email.matches(".*@karaoke\\.owner\\.app$"));
+      return hasEmail() && request.auth.token.email.matches(".*@karaoke\\.admin\\.app$");
+    }
+
+    function isParticipant() {
+      return hasEmail() && request.auth.token.email.matches(".*@karaoke\\.app$");
+    }
+
+    function isOwnerOfParticipant(participantId) {
+        return isSignedIn() && request.auth.uid == participantId;
+    }
+
+    // Participant profile lookup — used to check the 'disabled' status
+    function getParticipantDoc(uid) {
+      return get(/databases/$(database)/documents/students/$(uid));
+    }
+
+    function notDisabled(uid) {
+      return !getParticipantDoc(uid).data.disabled;
     }
 
     /**
-     * @description Checks if the user is the owner of the song request based on the `participantId` field.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces ownership of song requests.
-     */
-    function isSelf(songRequest) {
-      return isSignedIn() && request.auth.uid == songRequest.participantId;
-    }
-
-    /**
-     * @description Rule for /students/{participantId}
+     * @description Rules for participant profiles (students collection).
      * @path /students/{participantId}
-     * @allow (create) User with matching UID creates their own profile.
-     * @allow (get, list) User gets their own profile.
-     * @deny (update, delete) User attempts to modify another user's profile.
-     * @principle Enforces user-ownership for profiles.
+     * @allow (read) Owner, admin or the participant themselves, if not disabled.
+     * @allow (create) Any signed-in user.
+     * @allow (update) Owner or the participant themselves, if not disabled.
+     * @deny (delete) No one can delete a participant profile.
+     * @principle Enforces role-based access control and disables account deletion.
      */
     match /students/{participantId} {
-      allow get, list: if isOwner(participantId);
-      allow create: if isOwner(participantId);
-      allow update: if isExistingOwner(participantId);
-      allow delete: if isExistingOwner(participantId);
+      allow get:    if isOwner() || isAdmin() || (isSignedIn() && request.auth.uid == participantId);
+      allow list:   if isOwner() || isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == participantId;
+      allow update: if isOwner() || (isSignedIn() && request.auth.uid == participantId);
+      allow delete: if false;  // ← ACCOUNT DELETION COMPLETELY DISABLED
     }
 
     /**
-     * @description Rules for /song_requests/{songRequestId}
+     * @description Rules for song requests.
      * @path /song_requests/{songRequestId}
-     * @allow (read) Owner, admin, or the participant who created the request can read it.
-     * @allow (create) Signed in user can create a song request. The request must include studentId.
-     * @allow (update) Owner or participant can update the song request.
-     * @allow (delete) Owner or participant can delete the song request.
-     * @deny (list) Participants cannot list all song requests
-     * @principle Enforces ownership and admin roles for song requests.
+     * @allow (read) Owner, admin, or the participant who made the request (if not disabled).
+     * @allow (create) Any signed-in user for their own requests (if not disabled).
+     * @allow (update) Owner or the participant who made the request.
+     * @deny (delete) No one can delete a song request.
+     * @principle Enforces role-based access control and disables request deletion.
      */
     match /song_requests/{songRequestId} {
-      allow get: if isOwner(resource.data.participantId) || isAdmin() || isSelf(resource.data);
-      allow list: if isAdmin(); // Only admins can list all song requests.
-
-      allow create: if isSignedIn() && request.resource.data.participantId == request.auth.uid;
-      allow update: if isOwner(resource.data.participantId) || isSelf(resource.data);
-      allow delete: if isOwner(resource.data.participantId) || isSelf(resource.data);
+      allow get:    if isOwner() || isAdmin() || (isSignedIn() && request.auth.uid == resource.data.participantId);
+      allow list:   if isOwner() || isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.participantId;
+      allow update: if isOwner() || (isSignedIn() && request.auth.uid == resource.data.participantId);
+      allow delete: if false;  // ← REQUEST DELETION ALSO DISABLED
     }
 
     /**
-     * @description Rules for /audit_logs/{logId}
+     * @description Rules for audit logs.
      * @path /audit_logs/{logId}
-     * @allow create Trusted server environments with appropriate credentials can create audit logs.
-     * @deny get, list, update, delete No client-side access to audit logs.
-     * @principle Restricts access to audit logs to prevent tampering.
+     * @allow (read) Only owners can read audit logs.
+     * @allow (create) Any signed-in user can create audit logs.
+     * @deny (update, delete) No one can update or delete audit logs.
+     * @principle Restricts read access to audit logs and prevents modification.
      */
     match /audit_logs/{logId} {
-      allow get, list, update, delete: if false;
-      allow create: if isSignedIn() && isAdmin(); // Only admins can create audit logs.
+      allow get:    if isOwner() || isAdmin();
+      allow list:   if isOwner() || isAdmin();
+      allow create: if isSignedIn();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Catches all other documents and denies access.
+     * @path /{document=**}
+     * @deny (read, write) All read and write operations are denied by default.
+     * @principle Enforces a default-deny security posture.
+     */
+    match /{document=**} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }

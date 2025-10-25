@@ -6,7 +6,6 @@ import type { Song } from '@/types';
 import {
   ListMusic,
   MoreHorizontal,
-  Trash2,
   Youtube,
   Pencil,
   GripVertical,
@@ -34,7 +33,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -53,9 +51,6 @@ import {
   CardTitle,
   CardDescription,
 } from './ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useUser, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { doc, collection, serverTimestamp, addDoc, deleteDoc } from 'firebase/firestore';
 import { Skeleton } from './ui/skeleton';
 
 type SongQueueProps = {
@@ -211,9 +206,6 @@ const SortableSongRow = ({
   onEditSong: (song: Song) => void;
   canDrag: boolean;
 }) => {
-  const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user } = useUser();
 
   const {
     attributes,
@@ -229,42 +221,6 @@ const SortableSongRow = ({
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1 : 0,
-  };
-  
-  const createAuditLog = (action: string, details: string) => {
-    if (!firestore || !user) return;
-    const logData = {
-      timestamp: serverTimestamp(),
-      actorId: user.uid,
-      actorName: user.displayName || user.email,
-      action,
-      details
-    };
-    addDoc(collection(firestore, 'audit_logs'), logData).catch(e => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'audit_logs',
-            operation: 'create',
-            requestResourceData: logData
-        }));
-    });
-  };
-
-  const deleteSong = (id: string, title: string) => {
-    if (!firestore) return;
-    const songDocRef = doc(firestore, 'song_requests', id);
-    deleteDoc(songDocRef).then(() => {
-        createAuditLog('SONG_DELETED', `Şarkı: "${title}" (ID: ${id})`);
-        toast({
-          title: 'Şarkı Kaldırıldı',
-          description: `"${title}" sıradan kaldırıldı.`,
-          duration: 3000,
-        });
-    }).catch(e => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: songDocRef.path,
-            operation: 'delete'
-        }));
-    });
   };
 
   const isOwnerOfSong = song.participantId === currentUserId;
@@ -297,19 +253,6 @@ const SortableSongRow = ({
                 <Pencil className="mr-2 h-4 w-4" />
                 <span>Düzenle</span>
               </DropdownMenuItem>
-            )}
-            
-            {canModify && (
-              <>
-               {(role === 'owner' || role === 'participant') && <DropdownMenuSeparator />}
-                <DropdownMenuItem
-                  onClick={() => deleteSong(song.id, song.title)}
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Sil</span>
-                </DropdownMenuItem>
-              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

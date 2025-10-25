@@ -27,25 +27,12 @@ import {
   getDocs,
   runTransaction,
   updateDoc,
-  orderBy,
   addDoc,
-  setDoc,
-  deleteDoc
 } from 'firebase/firestore';
-import { updateProfile, deleteUser as deleteAuthUser, signOut } from 'firebase/auth';
+import { updateProfile, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { buildSongRequestsQuery, type Roles } from '@/lib/firestore-guards';
 
 
@@ -58,8 +45,7 @@ export default function ParticipantPage() {
 
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
   const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
-  const [isDeleteAccountAlertOpen, setDeleteAccountAlertOpen] = React.useState(false);
-
+  
   const roles: Roles = React.useMemo(() => {
     if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
     const email = user.email.toLowerCase();
@@ -97,7 +83,6 @@ export default function ParticipantPage() {
         return;
     }
 
-    // Redirect admins or owners away from this page
     if (roles.isAdmin || roles.isOwner) {
       router.replace(roles.isOwner ? '/owner' : '/admin');
     }
@@ -244,58 +229,6 @@ export default function ParticipantPage() {
     setEditProfileOpen(false);
   };
 
-  const handleDeleteAccount = async () => {
-    if (!firestore || !auth.currentUser) {
-      toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı oturumu bulunamadı.'});
-      return;
-    }
-    
-    const userToDelete = auth.currentUser;
-    const participantId = userToDelete.uid;
-    const participantName = userToDelete.displayName || "Bilinmeyen Kullanıcı";
-
-    try {
-        await runTransaction(firestore, async (transaction) => {
-            const participantDocRef = doc(firestore, 'students', participantId);
-            transaction.delete(participantDocRef);
-
-            const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
-            const songRequestsSnapshot = await getDocs(songRequestsQuery);
-            songRequestsSnapshot.forEach((songDoc) => {
-              transaction.delete(songDoc.ref);
-            });
-        });
-
-        createAuditLog('USER_DELETED_SELF', `Katılımcı kendi hesabını sildi: "${participantName}" (ID: ${participantId})`);
-        
-        await deleteAuthUser(userToDelete);
-        
-        toast({ title: 'Hesap Silindi', description: 'Hesabınız ve tüm verileriniz başarıyla silindi. Yönlendiriliyorsunuz.' });
-        router.push('/');
-
-    } catch (error: any) {
-        console.error("Hesap silinirken hata oluştu:", error);
-        toast({
-            variant: 'destructive',
-            title: 'Hesap Silinemedi',
-            description: error.code === 'auth/requires-recent-login'
-                ? 'Bu hassas bir işlemdir. Lütfen tekrar giriş yapıp tekrar deneyin.'
-                : 'Hesabınızı silerken bir hata oluştu. Lütfen tekrar deneyin.'
-        });
-
-        if (error.code !== 'auth/requires-recent-login') {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: `students/${participantId} and related song_requests`,
-                operation: 'delete',
-                requestResourceData: { info: `Self-deleting account for user ${participantName}` }
-            }));
-        }
-    } finally {
-        setDeleteAccountAlertOpen(false);
-    }
-  };
-
-
   if (isUserLoading || isProfileLoading || !user || !roles.isParticipant || profile?.disabled) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -308,7 +241,6 @@ export default function ParticipantPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <PageHeader 
         onEditProfile={() => setEditProfileOpen(true)}
-        onDeleteAccount={() => setDeleteAccountAlertOpen(true)} 
       />
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} participantName={user.displayName || ''} showNameInput={!user.displayName} />
@@ -336,25 +268,6 @@ export default function ParticipantPage() {
           onProfileUpdate={handleProfileUpdate}
         />
       )}
-      <AlertDialog open={isDeleteAccountAlertOpen} onOpenChange={setDeleteAccountAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hesabınızı Silmek Üzere misiniz?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Bu eylem geri alınamaz. Profiliniz ve tüm şarkı istekleriniz kalıcı olarak silinecektir. Devam etmek istediğinizden emin misiniz?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteAccount}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Evet, Hesabımı Sil
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
