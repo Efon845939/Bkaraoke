@@ -4,7 +4,7 @@ export type Song = {
   title: string;
   karaokeUrl: string;
   participantName: string; // Denormalized for display
-  participantId: string;
+  studentId: string;
   submissionDate: Date;
   order: number;
 };

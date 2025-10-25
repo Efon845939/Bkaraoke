@@ -11,7 +11,7 @@
           "type": "string",
           "description": "Unique identifier for the song request."
         },
-        "participantId": {
+        "studentId": {
           "type": "string",
           "description": "Reference to the Participant who submitted the request."
         },
@@ -40,7 +40,7 @@
       },
       "required": [
         "id",
-        "participantId",
+        "studentId",
         "participantName",
         "title",
         "karaokeUrl",
@@ -100,7 +100,7 @@
     ]
   },
   "firestore": {
-    "/students/{participantId}": {
+    "/students/{studentId}": {
       "schema": {
         "$ref": "#/entities/Participant"
       },

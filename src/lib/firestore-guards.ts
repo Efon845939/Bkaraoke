@@ -50,7 +50,7 @@ export function buildSongRequestsQuery(
     // Participant can only see their own requests, ordered by submission date
     return query(
       col,
-      where('participantId', '==', user.uid),
+      where('studentId', '==', user.uid),
       orderBy('submissionDate', 'desc')
     );
   }

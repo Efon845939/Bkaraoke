@@ -118,28 +118,28 @@ export default function ParticipantPage() {
   const handleSongAdd = async (newSong: { title: string; url: string; name?: string }) => {
     if (!firestore || !user) return;
 
-    const participantId = user.uid;
+    const studentId = user.uid;
     const participantName = user.displayName || newSong.name || 'Bilinmeyen Katılımcı';
     
     if (!user.displayName && newSong.name && auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: newSong.name });
     }
 
-    const participantDocRef = doc(firestore, 'students', participantId);
+    const participantDocRef = doc(firestore, 'students', studentId);
     
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
     const totalSongs = totalSongsSnapshot.size;
 
     const batch = writeBatch(firestore);
 
-    batch.set(participantDocRef, { id: participantId, name: participantName, role: 'student', disabled: false }, { merge: true });
+    batch.set(participantDocRef, { id: studentId, name: participantName, role: 'student', disabled: false }, { merge: true });
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
     const songData = {
       id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId,
+      studentId: studentId,
       participantName: participantName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
@@ -184,18 +184,18 @@ export default function ParticipantPage() {
 
     const oldDisplayName = auth.currentUser.displayName;
     const newDisplayName = `${values.firstName} ${values.lastName}`;
-    const participantId = auth.currentUser.uid;
+    const studentId = auth.currentUser.uid;
 
     try {
       await updateProfile(auth.currentUser!, { displayName: newDisplayName });
       
       runTransaction(firestore, async (transaction) => {
-        const participantDocRef = doc(firestore, 'students', participantId);
+        const participantDocRef = doc(firestore, 'students', studentId);
         transaction.update(participantDocRef, { name: newDisplayName });
 
         const songRequestsQuery = query(
           collection(firestore, 'song_requests'),
-          where('participantId', '==', participantId)
+          where('studentId', '==', studentId)
         );
         const songRequestsSnapshot = await getDocs(songRequestsQuery);
         songRequestsSnapshot.forEach((songDoc) => {
@@ -210,7 +210,7 @@ export default function ParticipantPage() {
           });
       }).catch(error => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: `students/${participantId} and related song_requests`,
+              path: `students/${studentId} and related song_requests`,
               operation: 'write',
               requestResourceData: { info: `Updating user name to ${newDisplayName}`}
           }));

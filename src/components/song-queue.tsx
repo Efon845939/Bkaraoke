@@ -223,7 +223,7 @@ const SortableSongRow = ({
     zIndex: isDragging ? 1 : 0,
   };
 
-  const isOwnerOfSong = song.participantId === currentUserId;
+  const isOwnerOfSong = song.studentId === currentUserId;
   const canModify = role === 'owner' || (role === 'participant' && isOwnerOfSong);
   
   return (

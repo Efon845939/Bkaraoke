@@ -124,7 +124,7 @@ export default function OwnerDashboardPage() {
       ? `${newSong.firstName} ${newSong.lastName}`
       : 'Sahip';
     
-    const participantId = user.uid;
+    const studentId = user.uid;
   
     const newSongRef = doc(collection(firestore, 'song_requests'));
 
@@ -132,7 +132,7 @@ export default function OwnerDashboardPage() {
       id: newSongRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      participantId: participantId,
+      studentId: studentId,
       participantName: requesterName,
       submissionDate: serverTimestamp(),
       order: songList?.length ?? 0,
@@ -195,26 +195,26 @@ export default function OwnerDashboardPage() {
 
   const handleProfileUpdate = async (values: { firstName: string, lastName: string }) => {
     if (!firestore || !editingParticipant) return;
-    const participantId = editingParticipant.id;
+    const studentId = editingParticipant.id;
     const oldName = editingParticipant.name;
     const newDisplayName = `${values.firstName} ${values.lastName}`;
     
     runTransaction(firestore, async (transaction) => {
-        const participantDocRef = doc(firestore, 'students', participantId);
+        const participantDocRef = doc(firestore, 'students', studentId);
         transaction.update(participantDocRef, { name: newDisplayName });
 
-        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('participantId', '==', participantId));
+        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
         const songRequestsSnapshot = await getDocs(songRequestsQuery);
         songRequestsSnapshot.forEach((songDoc) => {
             transaction.update(songDoc.ref, { participantName: newDisplayName });
         });
     }).then(() => {
-        createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${participantId})`);
+        createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${studentId})`);
         toast({ title: 'Profil Güncellendi', description: 'Kullanıcının adı başarıyla güncellendi.' });
     }).catch((error) => {
         toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `students/${participantId} and related song_requests`,
+            path: `students/${studentId} and related song_requests`,
             operation: 'write',
             requestResourceData: { info: `Updating user name to ${newDisplayName}` }
         }));
@@ -226,13 +226,13 @@ const handleToggleSuspend = async () => {
     if (!firestore || !participantToToggle) return;
 
     setIsToggling(true);
-    const { id: participantId, name, disabled } = participantToToggle;
+    const { id: studentId, name, disabled } = participantToToggle;
     const newDisabledState = !disabled;
     const action = newDisabledState ? 'USER_SUSPENDED' : 'USER_ENABLED';
     const actionPastTense = newDisabledState ? 'askıya alındı' : 'tekrar etkinleştirildi';
-    const details = `Kullanıcı: "${name}" (ID: ${participantId})`;
+    const details = `Kullanıcı: "${name}" (ID: ${studentId})`;
 
-    const participantRef = doc(firestore, 'students', participantId);
+    const participantRef = doc(firestore, 'students', studentId);
     
     updateDoc(participantRef, { disabled: newDisabledState }).then(() => {
         createAuditLog(action, details);
