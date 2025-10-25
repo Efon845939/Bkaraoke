@@ -28,6 +28,7 @@ import {
   runTransaction,
   updateDoc,
   addDoc,
+  setDoc,
 } from 'firebase/firestore';
 import { updateProfile, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -47,7 +48,7 @@ export default function ParticipantPage() {
   const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
   
   const roles: Roles = React.useMemo(() => {
-    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
+    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: true }; // Default to participant
     const email = user.email.toLowerCase();
     return {
         isOwner: /@karaoke\.owner\.app$/.test(email),
@@ -70,6 +71,11 @@ export default function ParticipantPage() {
       router.replace('/');
       return;
     }
+    
+    if (roles.isAdmin || roles.isOwner) {
+      router.replace(roles.isOwner ? '/owner' : '/admin');
+      return;
+    }
 
     if (profile?.disabled) {
         toast({
@@ -83,13 +89,10 @@ export default function ParticipantPage() {
         return;
     }
 
-    if (roles.isAdmin || roles.isOwner) {
-      router.replace(roles.isOwner ? '/owner' : '/admin');
-    }
   }, [user, isUserLoading, profile, isProfileLoading, router, roles, toast, auth]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !roles.isParticipant) {
+    if (!firestore || !user ) { // Removed role check, buildSongRequestsQuery handles it
       return null;
     }
     return buildSongRequestsQuery(firestore, user, roles);
@@ -118,28 +121,27 @@ export default function ParticipantPage() {
   const handleSongAdd = async (newSong: { title: string; url: string; name?: string }) => {
     if (!firestore || !user) return;
 
-    const studentId = user.uid;
     const participantName = user.displayName || newSong.name || 'Bilinmeyen Katılımcı';
     
     if (!user.displayName && newSong.name && auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: newSong.name });
     }
 
-    const participantDocRef = doc(firestore, 'students', studentId);
+    const participantDocRef = doc(firestore, 'students', user.uid);
     
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
     const totalSongs = totalSongsSnapshot.size;
 
     const batch = writeBatch(firestore);
 
-    batch.set(participantDocRef, { id: studentId, name: participantName, role: 'student', disabled: false }, { merge: true });
+    batch.set(participantDocRef, { id: user.uid, name: participantName, role: 'student', disabled: false }, { merge: true });
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
     const songData = {
       id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      studentId: studentId,
+      studentId: user.uid,
       participantName: participantName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
