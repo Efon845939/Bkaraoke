@@ -14,29 +14,35 @@ export default function AdminPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const roles: Roles = React.useMemo(() => {
-    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
-    const email = user.email.toLowerCase();
-    return {
+  const [roles, setRoles] = React.useState<Roles | null>(null);
+
+  React.useEffect(() => {
+    if (isUserLoading) {
+      return; // Wait for user to be loaded
+    }
+    if (!user) {
+      router.replace('/');
+      return;
+    }
+    
+    const email = user.email?.toLowerCase() ?? "";
+    const userRoles: Roles = {
         isOwner: /@karaoke\.owner\.app$/.test(email),
         isAdmin: /@karaoke\.admin\.app$/.test(email),
         isParticipant: /@karaoke\.app$/.test(email),
     };
-  }, [user]);
+    setRoles(userRoles);
 
-  React.useEffect(() => {
-    if (isUserLoading) return;
-    if (!user) {
-      router.replace('/');
-    } else if (!roles.isAdmin && !roles.isOwner) { // Owners can also access the admin panel
+    if (!userRoles.isAdmin && !userRoles.isOwner) {
       router.replace('/participant'); // Redirect non-admins/owners
     }
-  }, [user, isUserLoading, router, roles]);
+
+  }, [user, isUserLoading, router]);
 
   const songsQuery = useMemoFirebase(() => {
     // The query is only constructed if the user is an admin or owner.
     // This prevents unauthorized queries from ever being built.
-    if (!firestore || !user || (!roles.isAdmin && !roles.isOwner)) {
+    if (!firestore || !user || !roles || (!roles.isAdmin && !roles.isOwner)) {
       return null;
     }
     // The centralized guard function is called here.
@@ -46,7 +52,7 @@ export default function AdminPage() {
   const { data: songs, isLoading } = useCollection<Song>(songsQuery);
 
   // Do not render anything until auth status and roles are confirmed.
-  if (isUserLoading || !user || (!roles.isAdmin && !roles.isOwner)) {
+  if (isUserLoading || !roles || (!roles.isAdmin && !roles.isOwner)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Yönetici Erişimi Doğrulanıyor...</p>
