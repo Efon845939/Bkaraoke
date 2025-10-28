@@ -31,7 +31,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
-import { buildSongRequestsQuery, type Roles } from '@/lib/firestore-guards';
 
 const roleTranslations: Record<string, string> = {
   student: 'Katılımcı',
@@ -52,7 +51,7 @@ export default function OwnerDashboardPage() {
   const [participantToToggle, setParticipantToToggle] = React.useState<Participant | null>(null);
   const [isToggling, setIsToggling] = React.useState(false);
 
-  const roles: Roles = React.useMemo(() => {
+  const roles = React.useMemo(() => {
     if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
     const email = user.email.toLowerCase();
     return {
@@ -77,7 +76,7 @@ export default function OwnerDashboardPage() {
 
   const songsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !roles.isOwner) return null;
-    return buildSongRequestsQuery(firestore, user, roles);
+    return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
   }, [firestore, user, roles]);
   
   const auditLogsQuery = useMemoFirebase(() => {

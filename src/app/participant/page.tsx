@@ -29,12 +29,12 @@ import {
   updateDoc,
   addDoc,
   setDoc,
+  orderBy
 } from 'firebase/firestore';
 import { updateProfile, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
-import { buildSongRequestsQuery, type Roles } from '@/lib/firestore-guards';
 
 
 export default function ParticipantPage() {
@@ -47,7 +47,7 @@ export default function ParticipantPage() {
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
   const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
   
-  const roles: Roles = React.useMemo(() => {
+  const roles = React.useMemo(() => {
     if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: true }; // Default to participant
     const email = user.email.toLowerCase();
     return {
@@ -73,7 +73,7 @@ export default function ParticipantPage() {
     }
     
     if (roles.isAdmin || roles.isOwner) {
-      router.replace(roles.isOwner ? '/owner' : '/admin');
+      router.replace(roles.isOwner ? '/owner' : '/owner/dashboard'); // Admin also redirects to owner for now
       return;
     }
 
@@ -92,11 +92,13 @@ export default function ParticipantPage() {
   }, [user, isUserLoading, profile, isProfileLoading, router, roles, toast, auth]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore || !user ) { // Removed role check, buildSongRequestsQuery handles it
-      return null;
-    }
-    return buildSongRequestsQuery(firestore, user, roles);
-  }, [firestore, user, roles]);
+    if (!firestore || !user || !roles.isParticipant) return null;
+    return query(
+        collection(firestore, 'song_requests'),
+        where('studentId', '==', user.uid),
+        orderBy('submissionDate', 'desc')
+    );
+  }, [firestore, user, roles.isParticipant]);
 
   const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);
 
