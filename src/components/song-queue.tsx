@@ -27,6 +27,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useUser } from '@/firebase';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -54,22 +55,20 @@ import {
 import { Skeleton } from './ui/skeleton';
 
 type SongQueueProps = {
-  role: 'participant' | 'admin';
   songs: Song[];
   isLoading: boolean;
-  currentUserId?: string;
   onEditSong: (song: Song) => void;
   onReorder?: (songs: Song[]) => void;
 };
 
 export function SongQueue({
-  role,
   songs,
   isLoading,
-  currentUserId,
   onEditSong,
   onReorder,
 }: SongQueueProps) {
+  const { user } = useUser();
+  const isAdmin = user?.email?.endsWith('@karaoke.admin.app');
   const [globalFilter, setGlobalFilter] = React.useState('');
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -94,7 +93,7 @@ export function SongQueue({
     return songs.filter(
       (song) =>
         song.title.toLowerCase().includes(globalFilter.toLowerCase()) ||
-        song.participantName.toLowerCase().includes(globalFilter.toLowerCase())
+        song.requesterName.toLowerCase().includes(globalFilter.toLowerCase())
     );
   }, [songs, globalFilter]);
 
@@ -104,10 +103,10 @@ export function SongQueue({
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <ListMusic />
-            {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
+            Mevcut Sıra
           </CardTitle>
           <CardDescription>
-            {role === 'admin' ? "Sırada ne olduğunu görün." : "İstediğiniz şarkılar burada."}
+            Sırada ne olduğunu görün.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -121,7 +120,7 @@ export function SongQueue({
     );
   }
   
-  const canDrag = role === 'admin' && onReorder;
+  const canDrag = !!isAdmin && !!onReorder;
 
   const tableContent = (
     <Table>
@@ -129,7 +128,7 @@ export function SongQueue({
         <TableRow>
           {canDrag && <TableHead className="w-12"></TableHead>}
           <TableHead>Şarkı Başlığı</TableHead>
-          {role === 'admin' && <TableHead>İsteyen</TableHead>}
+          {isAdmin && <TableHead>İsteyen</TableHead>}
           <TableHead className="text-right">Eylemler</TableHead>
         </TableRow>
       </TableHeader>
@@ -139,16 +138,15 @@ export function SongQueue({
             <SortableSongRow
               key={song.id}
               song={song}
-              role={role}
-              currentUserId={currentUserId}
+              isAdmin={!!isAdmin}
               onEditSong={onEditSong}
               canDrag={canDrag}
             />
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={role === 'admin' ? (canDrag ? 4: 3) : 2} className="h-24 text-center">
-              {role === 'participant' ? "Henüz bir şarkı istemediniz." : 'Sıra boş.'}
+            <TableCell colSpan={isAdmin ? (canDrag ? 4: 3) : 2} className="h-24 text-center">
+              Sıra boş.
             </TableCell>
           </TableRow>
         )}
@@ -161,7 +159,7 @@ export function SongQueue({
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <ListMusic />
-           {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
+           Mevcut Sıra
         </CardTitle>
         <CardDescription>
           Şarkıları arayın veya sırada ne olduğunu görün.
@@ -192,17 +190,14 @@ export function SongQueue({
   );
 }
 
-// A new component for the sortable row
 const SortableSongRow = ({
   song,
-  role,
-  currentUserId,
+  isAdmin,
   onEditSong,
   canDrag
 }: {
   song: Song;
-  role: 'admin' | 'participant';
-  currentUserId?: string;
+  isAdmin: boolean;
   onEditSong: (song: Song) => void;
   canDrag: boolean;
 }) => {
@@ -223,8 +218,7 @@ const SortableSongRow = ({
     zIndex: isDragging ? 1 : 0,
   };
 
-  const isOwnerOfSong = song.studentId === currentUserId;
-  const canModify = role === 'admin' || (role === 'participant' && isOwnerOfSong);
+  const canModify = isAdmin;
   
   return (
     <TableRow ref={setNodeRef} style={style}>
@@ -234,7 +228,7 @@ const SortableSongRow = ({
         </TableCell>
       )}
       <TableCell className="font-medium">{song.title}</TableCell>
-      {role === 'admin' && <TableCell>{song.participantName}</TableCell>}
+      {isAdmin && <TableCell>{song.requesterName}</TableCell>}
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

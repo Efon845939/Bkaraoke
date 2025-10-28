@@ -23,7 +23,7 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { EditSongDialog } from '@/components/edit-song-dialog';
-import type { Song, Participant } from '@/types';
+import type { Song, RequesterProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -106,7 +106,6 @@ export function AdminDashboard() {
       <PageHeader />
       <main className="space-y-8">
         <SongQueue
-          role="admin"
           songs={songs || []}
           isLoading={songsLoading}
           onEditSong={setEditingSong}

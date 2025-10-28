@@ -3,7 +3,6 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
 import type { Song } from '@/types';
@@ -42,7 +41,7 @@ export default function PublicPage() {
   const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
     if (!firestore) return;
 
-    const participantName = newSong.name || 'Bilinmeyen Katılımcı';
+    const requesterName = newSong.name || 'Anonymous';
 
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
     const totalSongs = totalSongsSnapshot.size;
@@ -52,8 +51,8 @@ export default function PublicPage() {
       id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
-      studentId: 'anonymous', // No longer tied to a user
-      participantName: participantName,
+      studentId: 'anonymous', 
+      requesterName: requesterName,
       submissionDate: serverTimestamp(),
       order: totalSongs,
     };
@@ -82,10 +81,9 @@ export default function PublicPage() {
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
         <SongQueue
-          role="participant"
           songs={songs || []}
           isLoading={songsLoading}
-          onEditSong={() => {}} // No editing for public
+          onEditSong={() => {}}
         />
       </main>
     </div>

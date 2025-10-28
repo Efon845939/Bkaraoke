@@ -3,17 +3,16 @@ export type Song = {
   id: string;
   title: string;
   karaokeUrl: string;
-  participantName: string; // Denormalized for display
-  studentId: string;
+  requesterName: string; // Denormalized for display
+  studentId: string; // Legacy field, might be 'anonymous'
   submissionDate: Date;
   order: number;
 };
 
-export type Participant = {
+export type RequesterProfile = {
   id: string;
   name: string;
-  role: 'student' | 'admin';
-  disabled?: boolean;
+  role: 'admin';
 };
 
 export type AuditLog = {

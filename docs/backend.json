@@ -13,11 +13,11 @@
         },
         "studentId": {
           "type": "string",
-          "description": "Reference to the Participant who submitted the request."
+          "description": "Legacy field, can be 'anonymous' or a user ID."
         },
-        "participantName": {
+        "requesterName": {
           "type": "string",
-          "description": "Denormalized name of the participant for easy display."
+          "description": "Denormalized name of the person who made the request for easy display."
         },
         "title": {
           "type": "string",
@@ -41,18 +41,18 @@
       "required": [
         "id",
         "studentId",
-        "participantName",
+        "requesterName",
         "title",
         "karaokeUrl",
         "submissionDate",
         "order"
       ]
     },
-    "Participant": {
+    "RequesterProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Participant",
+      "title": "RequesterProfile",
       "type": "object",
-      "description": "Represents a participant or admin who can submit song requests.",
+      "description": "Represents an admin who can manage song requests.",
       "properties": {
         "id": {
           "type": "string",
@@ -65,7 +65,7 @@
         "role": {
           "type": "string",
           "description": "The role of the user.",
-          "enum": ["student", "admin"]
+          "enum": ["admin"]
         }
       },
       "required": [
@@ -96,11 +96,11 @@
     ]
   },
   "firestore": {
-    "/students/{studentId}": {
+    "/user_profiles/{userId}": {
       "schema": {
-        "$ref": "#/entities/Participant"
+        "$ref": "#/entities/RequesterProfile"
       },
-      "description": "Stores participant and admin profiles. Each document represents a user."
+      "description": "Stores admin profiles. Each document represents a user."
     },
     "/song_requests/{songRequestId}": {
         "schema": {
