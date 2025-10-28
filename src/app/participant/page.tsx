@@ -50,7 +50,6 @@ export default function ParticipantPage() {
     if (!user?.email) return null;
     const email = user.email.toLowerCase();
     return {
-        isOwner: /@karaoke\.owner\.app$/.test(email),
         isAdmin: /@karaoke\.admin\.app$/.test(email),
         isParticipant: /@karaoke\.app$/.test(email),
     };
@@ -71,8 +70,8 @@ export default function ParticipantPage() {
       return;
     }
     
-    if (roles?.isAdmin || roles?.isOwner) {
-      router.replace(roles.isOwner ? '/owner/dashboard' : '/admin');
+    if (roles?.isAdmin) {
+      router.replace('/admin');
       return;
     }
 

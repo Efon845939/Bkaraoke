@@ -54,7 +54,7 @@ import {
 import { Skeleton } from './ui/skeleton';
 
 type SongQueueProps = {
-  role: 'participant' | 'admin' | 'owner';
+  role: 'participant' | 'admin';
   songs: Song[];
   isLoading: boolean;
   currentUserId?: string;
@@ -104,7 +104,7 @@ export function SongQueue({
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             <ListMusic />
-            {role === 'admin' ? 'Mevcut Sıra' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
+            {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
           </CardTitle>
           <CardDescription>
             {role === 'admin' ? "Sırada ne olduğunu görün." : "İstediğiniz şarkılar burada."}
@@ -121,7 +121,7 @@ export function SongQueue({
     );
   }
   
-  const canDrag = role === 'owner' && onReorder;
+  const canDrag = role === 'admin' && onReorder;
 
   const tableContent = (
     <Table>
@@ -129,7 +129,7 @@ export function SongQueue({
         <TableRow>
           {canDrag && <TableHead className="w-12"></TableHead>}
           <TableHead>Şarkı Başlığı</TableHead>
-          {(role === 'admin' || role === 'owner') && <TableHead>İsteyen</TableHead>}
+          {role === 'admin' && <TableHead>İsteyen</TableHead>}
           <TableHead className="text-right">Eylemler</TableHead>
         </TableRow>
       </TableHeader>
@@ -147,7 +147,7 @@ export function SongQueue({
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={(role === 'admin' || role === 'owner') ? (canDrag ? 4: 3) : 2} className="h-24 text-center">
+            <TableCell colSpan={role === 'admin' ? (canDrag ? 4: 3) : 2} className="h-24 text-center">
               {role === 'participant' ? "Henüz bir şarkı istemediniz." : 'Sıra boş.'}
             </TableCell>
           </TableRow>
@@ -161,7 +161,7 @@ export function SongQueue({
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <ListMusic />
-           {role === 'admin' ? 'Mevcut Sıra' : role === 'owner' ? 'Sıra Yönetimi' : 'İsteklerim'}
+           {role === 'admin' ? 'Mevcut Sıra' : 'İsteklerim'}
         </CardTitle>
         <CardDescription>
           Şarkıları arayın veya sırada ne olduğunu görün.
@@ -201,7 +201,7 @@ const SortableSongRow = ({
   canDrag
 }: {
   song: Song;
-  role: 'admin' | 'participant' | 'owner';
+  role: 'admin' | 'participant';
   currentUserId?: string;
   onEditSong: (song: Song) => void;
   canDrag: boolean;
@@ -224,7 +224,7 @@ const SortableSongRow = ({
   };
 
   const isOwnerOfSong = song.studentId === currentUserId;
-  const canModify = role === 'owner' || (role === 'participant' && isOwnerOfSong);
+  const canModify = role === 'admin' || (role === 'participant' && isOwnerOfSong);
   
   return (
     <TableRow ref={setNodeRef} style={style}>
@@ -234,7 +234,7 @@ const SortableSongRow = ({
         </TableCell>
       )}
       <TableCell className="font-medium">{song.title}</TableCell>
-      {(role === 'admin' || role === 'owner') && <TableCell>{song.participantName}</TableCell>}
+      {role === 'admin' && <TableCell>{song.participantName}</TableCell>}
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

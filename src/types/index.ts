@@ -12,7 +12,7 @@ export type Song = {
 export type Participant = {
   id: string;
   name: string;
-  role: 'student' | 'admin' | 'owner';
+  role: 'student' | 'admin';
 };
 
 export type AuditLog = {

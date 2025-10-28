@@ -43,8 +43,8 @@ const participantSchema = z.object({
 });
 
 const adminSchema = participantSchema.extend({
-  adminPin: z.string().refine((pin) => pin === 'kara90ke' || pin === 'gizli_kara90ke', {
-    message: 'Geçersiz yönetici/sahip PINi.',
+  adminPin: z.string().refine((pin) => pin === 'kara90ke', {
+    message: 'Geçersiz yönetici PINi.',
   }),
 });
 
@@ -110,9 +110,8 @@ export function LoginDialog({
 
     const { firstName, lastName, pin } = values;
     const isAdmin = role === 'admin';
-    const isOwnerLogin = isAdmin && 'adminPin' in values && values.adminPin === 'gizli_kara90ke';
     
-    const emailDomain = isOwnerLogin ? '@karaoke.owner.app' : isAdmin ? '@karaoke.admin.app' : '@karaoke.app';
+    const emailDomain = isAdmin ? '@karaoke.admin.app' : '@karaoke.app';
     const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${emailDomain}`;
     const password = `${pin}${firstName}${lastName}`;
     const displayName = `${firstName} ${lastName}`;
@@ -123,7 +122,7 @@ export function LoginDialog({
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(userCredential.user, { displayName });
             
-            const userRole = isOwnerLogin ? 'owner' : isAdmin ? 'admin' : 'student';
+            const userRole = isAdmin ? 'admin' : 'student';
             const userDocRef = doc(firestore, 'students', userCredential.user.uid);
             const userProfileData = {
                 id: userCredential.user.uid,
@@ -147,9 +146,7 @@ export function LoginDialog({
             toast({ title: 'Tekrar hoş geldiniz!' });
         }
 
-        if (isOwnerLogin) {
-            router.push('/owner');
-        } else if (isAdmin) {
+        if (isAdmin) {
             router.push('/admin');
         } else {
             router.push('/participant');
@@ -255,7 +252,7 @@ export function LoginDialog({
                     name="adminPin"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Yönetici/Sahip PIN'i</FormLabel>
+                        <FormLabel>Yönetici PIN'i</FormLabel>
                         <FormControl>
                           <Input type="password" {...field} />
                         </FormControl>

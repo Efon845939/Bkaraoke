@@ -7,7 +7,7 @@ import { useUser } from '@/firebase';
 
 /**
  * AdminRedirectPage is a client-side component that acts as a secure gateway.
- * It ensures that only users with 'admin' or 'owner' roles can proceed.
+ * It ensures that only users with 'admin' roles can proceed.
  * If a user is not authenticated or does not have the correct role, they are
  * immediately redirected to the homepage. This component performs NO data fetching
  * to prevent any Firestore security rule violations from unauthorized access attempts.
@@ -25,10 +25,9 @@ export default function AdminPage() {
     // Determine roles based on email domain.
     const email = user?.email?.toLowerCase() || '';
     const isAdmin = /@karaoke\.admin\.app$/.test(email);
-    const isOwner = /@karaoke\.owner\.app$/.test(email);
 
-    // If the user is not an admin or an owner, redirect them to the home page.
-    if (!user || (!isAdmin && !isOwner)) {
+    // If the user is not an admin, redirect them to the home page.
+    if (!user || !isAdmin) {
       router.replace('/');
     }
     // If the user is an admin, they stay on this page which will render the admin content.

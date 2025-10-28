@@ -106,7 +106,7 @@
         "schema": {
             "$ref": "#/entities/SongRequest"
         },
-        "description": "Stores all song requests in a single collection for easier querying and sorting by admins/owners."
+        "description": "Stores all song requests in a single collection for easier querying and sorting by admins."
     },
     "/audit_logs/{logId}": {
         "schema": {

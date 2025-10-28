@@ -14,7 +14,6 @@ import {
 import type { User } from 'firebase/auth';
 
 export type Roles = {
-  isOwner: boolean;
   isAdmin: boolean;
   isParticipant: boolean;
 };
@@ -43,8 +42,8 @@ export function buildSongRequestsQuery(
     'song_requests'
   ) as CollectionReference<DocumentData>;
 
-  if (roles.isOwner || roles.isAdmin) {
-    // Owner/Admin can see the full list, ordered by the manual 'order' field.
+  if (roles.isAdmin) {
+    // Admin can see the full list, ordered by the manual 'order' field.
     return query(col, orderBy('order', 'asc'));
   }
 
