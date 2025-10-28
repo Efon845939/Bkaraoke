@@ -31,6 +31,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
+import { buildSongRequestsQuery, Roles } from '@/lib/firestore-guards';
 
 const roleTranslations: Record<string, string> = {
   student: 'Katılımcı',
@@ -51,8 +52,8 @@ export default function OwnerDashboardPage() {
   const [participantToToggle, setParticipantToToggle] = React.useState<Participant | null>(null);
   const [isToggling, setIsToggling] = React.useState(false);
 
-  const roles = React.useMemo(() => {
-    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: false };
+  const roles: Roles | null = React.useMemo(() => {
+    if (!user?.email) return null;
     const email = user.email.toLowerCase();
     return {
         isOwner: /@karaoke\.owner\.app$/.test(email),
@@ -63,26 +64,30 @@ export default function OwnerDashboardPage() {
 
   React.useEffect(() => {
     if (isUserLoading) return;
-    if (!user || !roles.isOwner) { // Only allow owners
+    if (!user || !roles || !roles.isOwner) { // Only allow owners
       router.replace('/');
     }
   }, [user, isUserLoading, router, roles]);
 
   // --- Firestore Queries ---
   const participantsQuery = useMemoFirebase(() => {
-    if (!firestore || !roles.isOwner) return null;
+    if (!firestore || !roles?.isOwner) return null;
     return collection(firestore, 'students');
-  }, [firestore, roles.isOwner]);
+  }, [firestore, roles]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !roles.isOwner) return null;
-    return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
+    if (!firestore || !user || !roles) return null;
+    try {
+        return buildSongRequestsQuery(firestore, user, roles);
+    } catch(e) {
+        return null; // Don't query if roles/user aren't ready
+    }
   }, [firestore, user, roles]);
   
   const auditLogsQuery = useMemoFirebase(() => {
-      if (!firestore || !roles.isOwner) return null;
+      if (!firestore || !roles?.isOwner) return null;
       return query(collection(firestore, 'audit_logs'), orderBy('timestamp', 'desc'));
-  }, [firestore, roles.isOwner]);
+  }, [firestore, roles]);
 
   const { data: participants, isLoading: participantsLoading } = useCollection<Participant>(participantsQuery);
   const { data: songsFromHook, isLoading: songsLoading } = useCollection<Song>(songsQuery);
@@ -261,7 +266,7 @@ const handleToggleSuspend = async () => {
     );
   }, [participants, participantFilter]);
 
-  if (isUserLoading || !user || !roles.isOwner) {
+  if (isUserLoading || !user || !roles?.isOwner) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Loading and Verifying System Owner Access...</p>

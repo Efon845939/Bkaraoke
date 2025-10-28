@@ -3,43 +3,77 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import type { Song } from '@/types';
+import { PageHeader } from '@/components/page-header';
+import { SongQueue } from '@/components/song-queue';
+import { buildSongRequestsQuery, Roles } from '@/lib/firestore-guards';
+import { EditSongDialog } from '@/components/edit-song-dialog';
 
-export default function AdminRedirectPage() {
+export default function AdminPage() {
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const router = useRouter();
+  const [editingSong, setEditingSong] = React.useState<Song | null>(null);
+
+  const roles: Roles | null = React.useMemo(() => {
+    if (!user?.email) return null;
+    const email = user.email.toLowerCase();
+    return {
+      isOwner: /@karaoke\.owner\.app$/.test(email),
+      isAdmin: /@karaoke\.admin\.app$/.test(email),
+      isParticipant: /@karaoke\.app$/.test(email),
+    };
+  }, [user]);
 
   React.useEffect(() => {
-    if (isUserLoading) {
-      return; // Wait until user status is resolved
+    if (isUserLoading) return;
+    if (!user || !roles || (!roles.isAdmin && !roles.isOwner)) {
+      router.replace('/');
     }
+  }, [user, isUserLoading, router, roles]);
 
-    if (!user) {
-        router.replace('/');
-        return;
+  const songsQuery = useMemoFirebase(() => {
+    if (!firestore || !user || !roles || (!roles.isAdmin && !roles.isOwner)) return null;
+    try {
+      return buildSongRequestsQuery(firestore, user, roles);
+    } catch (e) {
+      console.error(e);
+      return null;
     }
-    
-    const email = user.email?.toLowerCase() ?? "";
-    const isAdmin = /@karaoke\.admin\.app$/i.test(email);
-    const isOwner = /@karaoke\.owner\.app$/i.test(email);
+  }, [firestore, user, roles]);
 
-    if (isOwner) {
-      router.replace('/owner/dashboard');
-    } else if (isAdmin) {
-      // The user is an admin, but we are removing the song list from this page
-      // to prevent security issues. For now, we can redirect them to the owner
-      // dashboard as well, or a future dedicated admin view.
-      // For simplicity and security, we direct them away from this page.
-      // A proper admin dashboard would be built here.
-      router.replace('/owner/dashboard');
-    } else {
-      router.replace('/participant');
-    }
-  }, [user, isUserLoading, router]);
+  const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);
+
+  if (isUserLoading || !roles) {
+    return <div className="flex min-h-screen items-center justify-center"><p>Yönlendiriliyor...</p></div>;
+  }
+  
+  if (!roles.isAdmin && !roles.isOwner) {
+    return <div className="flex min-h-screen items-center justify-center"><p>Yönlendiriliyor...</p></div>;
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <p>Yönlendiriliyor...</p>
+    <div className="container mx-auto max-w-5xl p-4 md:p-8">
+      <PageHeader />
+      <main className="space-y-8">
+        <h1 className="text-4xl font-headline tracking-wider">Yönetici Paneli</h1>
+        <SongQueue
+          role="admin"
+          songs={songs || []}
+          isLoading={songsLoading}
+          currentUserId={user?.uid}
+          onEditSong={setEditingSong} // Admins can't edit, but prop is required
+        />
+      </main>
+      {editingSong && (
+        <EditSongDialog
+          song={editingSong}
+          isOpen={!!editingSong}
+          onOpenChange={(isOpen) => !isOpen && setEditingSong(null)}
+          onSongUpdate={() => {}} // Admin is read-only, so this does nothing
+        />
+      )}
     </div>
   );
 }

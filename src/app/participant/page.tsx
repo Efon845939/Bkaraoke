@@ -35,6 +35,7 @@ import { updateProfile, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
+import { buildSongRequestsQuery, Roles } from '@/lib/firestore-guards';
 
 
 export default function ParticipantPage() {
@@ -47,8 +48,8 @@ export default function ParticipantPage() {
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
   const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
   
-  const roles = React.useMemo(() => {
-    if (!user?.email) return { isOwner: false, isAdmin: false, isParticipant: true }; // Default to participant
+  const roles: Roles | null = React.useMemo(() => {
+    if (!user?.email) return null;
     const email = user.email.toLowerCase();
     return {
         isOwner: /@karaoke\.owner\.app$/.test(email),
@@ -72,8 +73,8 @@ export default function ParticipantPage() {
       return;
     }
     
-    if (roles.isAdmin || roles.isOwner) {
-      router.replace(roles.isOwner ? '/owner' : '/owner/dashboard'); // Admin also redirects to owner for now
+    if (roles?.isAdmin || roles?.isOwner) {
+      router.replace(roles.isOwner ? '/owner/dashboard' : '/admin');
       return;
     }
 
@@ -92,13 +93,13 @@ export default function ParticipantPage() {
   }, [user, isUserLoading, profile, isProfileLoading, router, roles, toast, auth]);
 
   const songsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !roles.isParticipant) return null;
-    return query(
-        collection(firestore, 'song_requests'),
-        where('studentId', '==', user.uid),
-        orderBy('submissionDate', 'desc')
-    );
-  }, [firestore, user, roles.isParticipant]);
+    if (!firestore || !user || !roles) return null;
+    try {
+        return buildSongRequestsQuery(firestore, user, roles);
+    } catch(e) {
+        return null;
+    }
+  }, [firestore, user, roles]);
 
   const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);
 
@@ -233,7 +234,7 @@ export default function ParticipantPage() {
     setEditProfileOpen(false);
   };
 
-  if (isUserLoading || isProfileLoading || !user || !roles.isParticipant || profile?.disabled) {
+  if (isUserLoading || isProfileLoading || !user || !roles || !roles.isParticipant || profile?.disabled) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Yükleniyor...</p>
