@@ -34,7 +34,6 @@ import {
 import { updateProfile, signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { EditSongDialog } from '@/components/edit-song-dialog';
-import { EditProfileDialog } from '@/components/edit-profile-dialog';
 import { buildSongRequestsQuery, Roles } from '@/lib/firestore-guards';
 
 
@@ -46,7 +45,6 @@ export default function ParticipantPage() {
   const { toast } = useToast();
 
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
-  const [isEditProfileOpen, setEditProfileOpen] = React.useState(false);
   
   const roles: Roles | null = React.useMemo(() => {
     if (!user?.email) return null;
@@ -76,18 +74,6 @@ export default function ParticipantPage() {
     if (roles?.isAdmin || roles?.isOwner) {
       router.replace(roles.isOwner ? '/owner/dashboard' : '/admin');
       return;
-    }
-
-    if (profile?.disabled) {
-        toast({
-            variant: 'destructive',
-            title: 'Hesap Askıya Alındı',
-            description: 'Hesabınız bir sahip tarafından askıya alınmıştır. Lütfen iletişime geçin.',
-            duration: 5000,
-        });
-        if (auth) signOut(auth);
-        router.replace('/');
-        return;
     }
 
   }, [user, isUserLoading, profile, isProfileLoading, router, roles, toast, auth]);
@@ -137,7 +123,7 @@ export default function ParticipantPage() {
 
     const batch = writeBatch(firestore);
 
-    batch.set(participantDocRef, { id: user.uid, name: participantName, role: 'student', disabled: false }, { merge: true });
+    batch.set(participantDocRef, { id: user.uid, name: participantName, role: 'student' }, { merge: true });
 
     const songRequestDocRef = doc(collection(firestore, 'song_requests'));
     const songData = {
@@ -184,57 +170,7 @@ export default function ParticipantPage() {
     setEditingSong(null);
   };
 
-   const handleProfileUpdate = async (values: { firstName: string, lastName: string }) => {
-    if (!auth?.currentUser || !firestore) return;
-
-    const oldDisplayName = auth.currentUser.displayName;
-    const newDisplayName = `${values.firstName} ${values.lastName}`;
-    const studentId = auth.currentUser.uid;
-
-    try {
-      await updateProfile(auth.currentUser!, { displayName: newDisplayName });
-      
-      runTransaction(firestore, async (transaction) => {
-        const participantDocRef = doc(firestore, 'students', studentId);
-        transaction.update(participantDocRef, { name: newDisplayName });
-
-        const songRequestsQuery = query(
-          collection(firestore, 'song_requests'),
-          where('studentId', '==', studentId)
-        );
-        const songRequestsSnapshot = await getDocs(songRequestsQuery);
-        songRequestsSnapshot.forEach((songDoc) => {
-          transaction.update(songDoc.ref, { participantName: newDisplayName });
-        });
-      }).then(() => {
-          createAuditLog('PROFILE_UPDATED', `Kullanıcı: "${oldDisplayName}" -> "${newDisplayName}"`);
-          toast({
-            title: 'Profil Güncellendi',
-            description: 'Adınız başarıyla güncellendi.',
-            duration: 3000,
-          });
-      }).catch(error => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: `students/${studentId} and related song_requests`,
-              operation: 'write',
-              requestResourceData: { info: `Updating user name to ${newDisplayName}`}
-          }));
-          if(oldDisplayName && auth.currentUser) updateProfile(auth.currentUser, { displayName: oldDisplayName });
-      });
-
-    } catch (error) {
-      console.error('Auth profil güncellenirken hata oluştu:', error);
-       toast({
-        variant: 'destructive',
-        title: 'Hata',
-        description: 'Profiliniz güncellenirken bir sorun oluştu (Auth).',
-        duration: 3000,
-      });
-    }
-    setEditProfileOpen(false);
-  };
-
-  if (isUserLoading || isProfileLoading || !user || !roles || !roles.isParticipant || profile?.disabled) {
+  if (isUserLoading || isProfileLoading || !user || !roles || !roles.isParticipant) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p>Yükleniyor...</p>
@@ -244,9 +180,7 @@ export default function ParticipantPage() {
 
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
-      <PageHeader 
-        onEditProfile={() => setEditProfileOpen(true)}
-      />
+      <PageHeader />
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} participantName={user.displayName || ''} showNameInput={!user.displayName} />
         <SongQueue
@@ -263,14 +197,6 @@ export default function ParticipantPage() {
           isOpen={!!editingSong}
           onOpenChange={(isOpen) => !isOpen && setEditingSong(null)}
           onSongUpdate={handleSongUpdate}
-        />
-      )}
-       {isEditProfileOpen && user && (
-        <EditProfileDialog
-          user={user}
-          isOpen={isEditProfileOpen}
-          onOpenChange={setEditProfileOpen}
-          onProfileUpdate={handleProfileUpdate}
         />
       )}
     </div>

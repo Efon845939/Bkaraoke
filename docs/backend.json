@@ -66,10 +66,6 @@
           "type": "string",
           "description": "The role of the user.",
           "enum": ["student", "admin"]
-        },
-        "disabled": {
-          "type": "boolean",
-          "description": "If true, the user account is suspended and has no access."
         }
       },
       "required": [

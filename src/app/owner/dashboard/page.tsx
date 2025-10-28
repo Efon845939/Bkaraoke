@@ -11,13 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ListMusic, Users, History, UserX, UserCheck, Pencil } from 'lucide-react';
+import { ListMusic, Users, History } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
 import { EditSongDialog } from '@/components/edit-song-dialog';
-import { EditProfileDialog } from '@/components/edit-profile-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -47,10 +46,7 @@ export default function OwnerDashboardPage() {
 
   const [participantFilter, setParticipantFilter] = React.useState('');
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
-  const [editingParticipant, setEditingParticipant] = React.useState<Participant | null>(null);
   const [songList, setSongList] = React.useState<Song[]>([]);
-  const [participantToToggle, setParticipantToToggle] = React.useState<Participant | null>(null);
-  const [isToggling, setIsToggling] = React.useState(false);
 
   const roles: Roles | null = React.useMemo(() => {
     if (!user?.email) return null;
@@ -197,67 +193,6 @@ export default function OwnerDashboardPage() {
     });
   };
 
-  const handleProfileUpdate = async (values: { firstName: string, lastName: string }) => {
-    if (!firestore || !editingParticipant) return;
-    const studentId = editingParticipant.id;
-    const oldName = editingParticipant.name;
-    const newDisplayName = `${values.firstName} ${values.lastName}`;
-    
-    runTransaction(firestore, async (transaction) => {
-        const participantDocRef = doc(firestore, 'students', studentId);
-        transaction.update(participantDocRef, { name: newDisplayName });
-
-        const songRequestsQuery = query(collection(firestore, 'song_requests'), where('studentId', '==', studentId));
-        const songRequestsSnapshot = await getDocs(songRequestsQuery);
-        songRequestsSnapshot.forEach((songDoc) => {
-            transaction.update(songDoc.ref, { participantName: newDisplayName });
-        });
-    }).then(() => {
-        createAuditLog('USER_RENAMED', `Kullanıcı: "${oldName}" -> "${newDisplayName}" (ID: ${studentId})`);
-        toast({ title: 'Profil Güncellendi', description: 'Kullanıcının adı başarıyla güncellendi.' });
-    }).catch((error) => {
-        toast({ variant: 'destructive', title: 'Hata', description: 'Kullanıcı profili güncellenirken bir sorun oluştu.' });
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: `students/${studentId} and related song_requests`,
-            operation: 'write',
-            requestResourceData: { info: `Updating user name to ${newDisplayName}` }
-        }));
-    });
-    setEditingParticipant(null);
-};
-
-const handleToggleSuspend = async () => {
-    if (!firestore || !participantToToggle) return;
-
-    setIsToggling(true);
-    const { id: studentId, name, disabled } = participantToToggle;
-    const newDisabledState = !disabled;
-    const action = newDisabledState ? 'USER_SUSPENDED' : 'USER_ENABLED';
-    const actionPastTense = newDisabledState ? 'askıya alındı' : 'tekrar etkinleştirildi';
-    const details = `Kullanıcı: "${name}" (ID: ${studentId})`;
-
-    const participantRef = doc(firestore, 'students', studentId);
-    
-    updateDoc(participantRef, { disabled: newDisabledState }).then(() => {
-        createAuditLog(action, details);
-        toast({
-            title: `Kullanıcı ${actionPastTense}.`,
-            description: `${name} adlı kullanıcının hesabı başarıyla ${actionPastTense}.`
-        });
-    }).catch(error => {
-        toast({ variant: 'destructive', title: 'Hata', description: `Kullanıcı durumu güncellenirken bir sorun oluştu.` });
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: participantRef.path,
-            operation: 'update',
-            requestResourceData: { disabled: newDisabledState }
-        }));
-    }).finally(() => {
-        setIsToggling(false);
-        setParticipantToToggle(null);
-    });
-};
-
-
   // --- Memoized Filters ---
   const filteredParticipants = React.useMemo(() => {
     if (!participants) return [];
@@ -316,7 +251,6 @@ const handleToggleSuspend = async () => {
                                 <TableRow>
                                     <TableHead>İsim</TableHead>
                                     <TableHead>Rol</TableHead>
-                                    <TableHead className="text-right">Eylemler</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -325,67 +259,22 @@ const handleToggleSuspend = async () => {
                                         <TableRow key={i}>
                                             <TableCell><Skeleton className="h-6 w-3/4" /></TableCell>
                                             <TableCell><Skeleton className="h-6 w-1/4" /></TableCell>
-                                            <TableCell className="flex justify-end gap-2">
-                                                <Skeleton className="h-8 w-8" />
-                                                <Skeleton className="h-8 w-8" />
-                                            </TableCell>
                                         </TableRow>
                                     ))
                                 ) : filteredParticipants.length > 0 ? (
                                     filteredParticipants.map(participant => (
-                                        <TableRow key={participant.id} className={participant.disabled ? 'bg-muted/50' : ''}>
-                                            <TableCell className={`font-medium ${participant.disabled ? 'text-muted-foreground line-through' : ''}`}>{participant.name}</TableCell>
+                                        <TableRow key={participant.id}>
+                                            <TableCell className="font-medium">{participant.name}</TableCell>
                                             <TableCell>
-                                              <Badge variant={participant.disabled ? 'outline' : participant.role === 'owner' ? 'default' : participant.role === 'admin' ? 'secondary' : 'outline'}>
-                                                {participant.disabled ? 'Askıda' : roleTranslations[participant.role] || participant.role}
+                                              <Badge variant={participant.role === 'owner' ? 'default' : participant.role === 'admin' ? 'secondary' : 'outline'}>
+                                                {roleTranslations[participant.role] || participant.role}
                                               </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button variant="ghost" size="icon" onClick={() => setEditingParticipant(participant)} disabled={participant.disabled}>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <AlertDialog>
-                                                    <AlertDialogTrigger asChild>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className={participant.disabled ? 'text-green-600 hover:text-green-700' : 'text-destructive hover:text-destructive'}
-                                                            onClick={() => setParticipantToToggle(participant)}
-                                                            disabled={participant.id === user.uid}
-                                                        >
-                                                            {participant.disabled ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
-                                                        </Button>
-                                                    </AlertDialogTrigger>
-                                                    {participantToToggle && participantToToggle.id === participant.id && (
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                        <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                             {participant.disabled 
-                                                                ? `Bu eylem, "${participant.name}" adlı kullanıcının hesabını yeniden etkinleştirecektir.`
-                                                                : `Bu eylem, "${participant.name}" adlı kullanıcının hesabını askıya alacaktır. Kullanıcı artık giriş yapabilir ancak verilere erişemez.`
-                                                             }
-                                                        </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                        <AlertDialogCancel onClick={() => setParticipantToToggle(null)}>İptal</AlertDialogCancel>
-                                                        <AlertDialogAction
-                                                            onClick={handleToggleSuspend}
-                                                            className={participant.disabled ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'}
-                                                            disabled={isToggling}
-                                                        >
-                                                            {isToggling ? 'İşleniyor...' : (participant.disabled ? 'Evet, Etkinleştir' : 'Evet, Askıya Al')}
-                                                        </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                    )}
-                                                </AlertDialog>
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center">Kullanıcı bulunamadı.</TableCell>
+                                        <TableCell colSpan={2} className="h-24 text-center">Kullanıcı bulunamadı.</TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -451,16 +340,6 @@ const handleToggleSuspend = async () => {
             isOpen={!!editingSong}
             onOpenChange={(isOpen) => !isOpen && setEditingSong(null)}
             onSongUpdate={handleSongUpdate}
-            />
-        )}
-        {editingParticipant && (
-            <EditProfileDialog
-                user={{ displayName: editingParticipant.name } as any} // Simplified for dialog
-                isOpen={!!editingParticipant}
-                onOpenChange={(isOpen) => !isOpen && setEditingParticipant(null)}
-                onProfileUpdate={handleProfileUpdate}
-                dialogTitle="Kullanıcı Adını Düzenle"
-                dialogDescription="Kullanıcının görünen adını güncelleyin."
             />
         )}
     </div>
