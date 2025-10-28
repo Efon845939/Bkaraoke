@@ -75,6 +75,19 @@ export default function ParticipantPage() {
       return;
     }
 
+    if (profile?.disabled) {
+        toast({
+          title: 'Hesap Askıya Alındı',
+          description: 'Hesabınız bir yönetici tarafından askıya alınmıştır.',
+          variant: 'destructive',
+          duration: 5000,
+        });
+        if (auth) {
+            signOut(auth);
+        }
+        router.replace('/');
+    }
+
   }, [user, isUserLoading, profile, isProfileLoading, router, roles, toast, auth]);
 
   const songsQuery = useMemoFirebase(() => {
