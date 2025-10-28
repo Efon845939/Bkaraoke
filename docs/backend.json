@@ -40,7 +40,6 @@
       },
       "required": [
         "id",
-        "studentId",
         "requesterName",
         "title",
         "karaokeUrl",
