@@ -5,52 +5,49 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase';
 import { AdminDashboard } from '@/components/admin-dashboard';
-import type { Roles } from '@/lib/firestore-guards';
+import { LoginDialog } from '@/components/login-dialog';
 
-/**
- * AdminPage acts as a secure gateway. It ensures that only users with
- * 'admin' roles can access the main dashboard content.
- *
- * It performs NO data fetching itself. It only determines the user's role and
- * conditionally renders the <AdminDashboard /> component, which is responsible
- * for its own data fetching. This prevents any unauthorized Firestore queries
- * from being initiated by non-admin users.
- */
+
 export default function AdminPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const [dialogOpen, setDialogOpen] = React.useState(true);
 
-  const roles: Roles | null = React.useMemo(() => {
-    if (!user?.email) return null;
-    const email = user.email.toLowerCase();
-    return {
-        isAdmin: /@karaoke\.admin\.app$/.test(email),
-        isParticipant: /@karaoke\.app$/.test(email),
-    };
+
+  const isAdminEmail = React.useMemo(() => {
+     if (!user?.email) return false;
+     return /@karaoke\.admin\.app$/.test(user.email.toLowerCase());
   }, [user]);
 
+
   React.useEffect(() => {
-    // Do not run redirection logic until the user's auth state is fully loaded.
     if (isUserLoading) {
       return;
     }
-
-    // If the user is not authenticated or not an admin, redirect them.
-    if (!user || !roles?.isAdmin) {
-      router.replace('/');
+    if (!user) {
+        setDialogOpen(true);
+    } else if (!isAdminEmail) {
+        router.replace('/');
+    } else {
+        setDialogOpen(false);
     }
-  }, [user, isUserLoading, roles, router]);
+  }, [user, isUserLoading, isAdminEmail, router]);
 
-  // Display a loading message while auth state and roles are being determined.
-  if (isUserLoading || !roles) {
+
+  if (isUserLoading || !user || !isAdminEmail) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Yönlendiriliyor...</p>
-      </div>
+       <LoginDialog
+            role="admin"
+            open={dialogOpen}
+            onOpenChange={(isOpen) => {
+                if (!isOpen && !user) {
+                    router.push('/');
+                }
+                setDialogOpen(isOpen)
+            }}
+      />
     );
   }
 
-  // Only render the AdminDashboard if the user is a confirmed admin.
-  // The dashboard itself will handle all data fetching and display.
-  return roles.isAdmin ? <AdminDashboard /> : null;
+  return isAdminEmail ? <AdminDashboard /> : null;
 }

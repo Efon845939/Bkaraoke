@@ -36,20 +36,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const participantSchema = z.object({
+const adminSchema = z.object({
   firstName: z.string().min(1, 'İsim gerekli').transform(name => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()),
   lastName: z.string().min(1, 'Soyisim gerekli').transform(name => name.charAt(0).toUpperCase() + name.slice(1).toLowerCase()),
   pin: z.string().length(4, 'PIN 4 haneli olmalıdır.').regex(/^\d{4}$/, 'PIN sadece rakamlardan oluşmalıdır.'),
-});
-
-const adminSchema = participantSchema.extend({
   adminPin: z.string().refine((pin) => pin === 'kara90ke', {
     message: 'Geçersiz yönetici PINi.',
   }),
 });
 
 type LoginDialogProps = {
-  role: 'participant' | 'admin' | null;
+  role: 'admin' | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -66,17 +63,16 @@ export function LoginDialog({
   const [isLoading, setIsLoading] = React.useState(false);
   const [authAction, setAuthAction] = React.useState<'login' | 'signup'>('login');
 
-  const formSchema = role === 'admin' ? adminSchema : participantSchema;
-  type FormValues = z.infer<typeof formSchema>;
+  type FormValues = z.infer<typeof adminSchema>;
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(adminSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
       pin: '',
       adminPin: '',
-    } as any,
+    },
   });
 
   React.useEffect(() => {
@@ -109,9 +105,8 @@ export function LoginDialog({
     setIsLoading(true);
 
     const { firstName, lastName, pin } = values;
-    const isAdmin = role === 'admin';
     
-    const emailDomain = isAdmin ? '@karaoke.admin.app' : '@karaoke.app';
+    const emailDomain = '@karaoke.admin.app';
     const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${emailDomain}`;
     const password = `${pin}${firstName}${lastName}`;
     const displayName = `${firstName} ${lastName}`;
@@ -122,15 +117,13 @@ export function LoginDialog({
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(userCredential.user, { displayName });
             
-            const userRole = isAdmin ? 'admin' : 'student';
             const userDocRef = doc(firestore, 'students', userCredential.user.uid);
             const userProfileData = {
                 id: userCredential.user.uid,
                 name: displayName,
-                role: userRole
+                role: 'admin'
             };
 
-            // Use setDoc to create the document with a specific ID (the user's UID)
             setDoc(userDocRef, userProfileData).catch(e => {
                 errorEmitter.emit('permission-error', new FirestorePermissionError({
                     path: userDocRef.path,
@@ -139,18 +132,14 @@ export function LoginDialog({
                 }));
             });
 
-            createAuditLog(userCredential.user.uid, displayName, 'USER_SIGNUP', `Rol: ${userRole}`);
+            createAuditLog(userCredential.user.uid, displayName, 'USER_SIGNUP', `Rol: admin`);
             toast({ title: 'Hesap oluşturuldu!', description: 'Hoş geldiniz! Yeni hesabınız hazır.' });
         } else { // Login
             userCredential = await signInWithEmailAndPassword(auth, email, password);
             toast({ title: 'Tekrar hoş geldiniz!' });
         }
 
-        if (isAdmin) {
-            router.push('/admin');
-        } else {
-            router.push('/participant');
-        }
+        router.push('/admin');
 
     } catch (error: any) {
         let title = 'Hata';
@@ -174,19 +163,10 @@ export function LoginDialog({
   };
 
   const getDialogContent = () => {
-    if (role === 'admin') {
-      return {
-        title: 'Yönetici Alanı',
-        description: 'Panele erişmek için yönetici bilgilerinizi girin.',
-      };
-    }
-    if (role === 'participant') {
-      return {
-        title: 'Katılımcı Alanı',
-        description: 'Şarkı istemek için giriş yapın veya yeni hesap oluşturun.',
-      };
-    }
-    return { title: '', description: '' };
+    return {
+      title: 'Yönetici Alanı',
+      description: 'Panele erişmek için yönetici bilgilerinizi girin.',
+    };
   };
   
   const { title, description } = getDialogContent();

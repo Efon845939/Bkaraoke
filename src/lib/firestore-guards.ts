@@ -30,20 +30,16 @@ export type Roles = {
  */
 export function buildSongRequestsQuery(
   db: Firestore,
-  user: User,
-  roles: Roles
+  user: User | null,
+  roles: Roles | null
 ): Query<DocumentData> {
-  if (!db || !user) {
-    throw new Error('Firestore DB or User not available for query construction.');
-  }
-
   const col = collection(
     db,
     'song_requests'
   ) as CollectionReference<DocumentData>;
 
-  if (roles.isAdmin) {
-    // Admin can see the full list, ordered by the manual 'order' field.
+  // Public query or admin query
+  if (!user || !roles || roles.isAdmin) {
     return query(col, orderBy('order', 'asc'));
   }
 
@@ -56,6 +52,6 @@ export function buildSongRequestsQuery(
     );
   }
 
-  // If no role matches, throw an error to prevent any data leakage.
-  throw new Error('Unknown user role; cannot build song request query.');
+  // Default to a safe, likely empty query if roles are indeterminate
+  return query(col, where('studentId', '==', 'null-sentinel-value'));
 }

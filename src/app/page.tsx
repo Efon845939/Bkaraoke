@@ -2,72 +2,92 @@
 'use client';
 
 import * as React from 'react';
-import { Logo } from '@/components/logo';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { LoginDialog } from '@/components/login-dialog';
+import { useRouter } from 'next/navigation';
+import { PageHeader } from '@/components/page-header';
+import { SongQueue } from '@/components/song-queue';
+import { SongSubmissionForm } from '@/components/song-submission-form';
+import type { Song } from '@/types';
+import {
+  useFirestore,
+  useCollection,
+  useMemoFirebase,
+  errorEmitter,
+  FirestorePermissionError,
+} from '@/firebase';
+import {
+  collection,
+  serverTimestamp,
+  doc,
+  writeBatch,
+  getDocs,
+  addDoc,
+  query,
+  orderBy
+} from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 
-export default function LoginPage() {
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [loginRole, setLoginRole] = React.useState<'participant' | 'admin' | null>(
-    null
-  );
+export default function PublicPage() {
+  const firestore = useFirestore();
+  const router = useRouter();
+  const { toast } = useToast();
 
-  const handleRoleSelect = (role: 'participant' | 'admin') => {
-    setLoginRole(role);
-    setDialogOpen(true);
+  const songsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
+  }, [firestore]);
+
+  const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);
+
+  const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
+    if (!firestore) return;
+
+    const participantName = newSong.name || 'Bilinmeyen Katılımcı';
+
+    const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
+    const totalSongs = totalSongsSnapshot.size;
+
+    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
+    const songData = {
+      id: songRequestDocRef.id,
+      title: newSong.title,
+      karaokeUrl: newSong.url,
+      studentId: 'anonymous', // No longer tied to a user
+      participantName: participantName,
+      submissionDate: serverTimestamp(),
+      order: totalSongs,
+    };
+    
+    addDoc(collection(firestore, 'song_requests'), songData).catch(e => {
+       errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: 'song_requests', 
+            operation: 'create',
+            requestResourceData: songData
+       }));
+    });
+
+    toast({
+      title: 'İstek Gönderildi!',
+      description: `"${newSong.title}" sıraya eklendi.`,
+      duration: 3000,
+    });
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <style jsx global>{`
-        body {
-          background-image: radial-gradient(
-              hsl(var(--accent)) 0.5px,
-              transparent 0.5px
-            ),
-            radial-gradient(hsl(var(--accent)) 0.5px, hsl(var(--background)) 0.5px);
-          background-size: 20px 20px;
-          background-position: 0 0, 10px 10px;
-        }
-      `}</style>
-      <Card className="w-full max-w-lg animate-in fade-in zoom-in-95 shadow-2xl">
-        <CardHeader className="items-center text-center">
-          <Logo />
-          <p className="pt-2 text-muted-foreground">
-            90'lar temalı karaoke yardımcınız
-          </p>
-        </CardHeader>
-        <Separator />
-        <CardContent className="flex flex-col gap-4 p-6">
-          <h2 className="text-center font-body text-lg font-bold uppercase tracking-widest text-primary/80">
-            Giriş Yap veya Kayıt Ol
-          </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-             <Button
-                className="w-full"
-                size="lg"
-                onClick={() => handleRoleSelect('participant')}
-              >
-                Katılımcı
-              </Button>
-              <Button
-                className="w-full"
-                size="lg"
-                variant="secondary"
-                onClick={() => handleRoleSelect('admin')}
-              >
-                Yönetici
-              </Button>
-          </div>
-        </CardContent>
-      </Card>
-      <LoginDialog
-            role={loginRole}
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-      />
-    </main>
+    <div className="container mx-auto max-w-5xl p-4 md:p-8">
+       <header className="sticky top-4 z-10 mb-8 flex items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
+        <h1 className="text-3xl font-headline tracking-wider text-primary">Karaoke Sırası</h1>
+        <Button onClick={() => router.push('/admin')}>Yönetici Girişi</Button>
+      </header>
+      <main className="space-y-8">
+        <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
+        <SongQueue
+          role="participant"
+          songs={songs || []}
+          isLoading={songsLoading}
+          onEditSong={() => {}} // No editing for public
+        />
+      </main>
+    </div>
   );
 }
