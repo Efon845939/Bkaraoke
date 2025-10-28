@@ -16,7 +16,6 @@ import {
 import {
   collection,
   serverTimestamp,
-  doc,
   addDoc,
   query,
   orderBy,
@@ -45,9 +44,7 @@ export default function PublicPage() {
     const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
     const totalSongs = totalSongsSnapshot.size;
 
-    const songRequestDocRef = doc(collection(firestore, 'song_requests'));
     const songData = {
-      id: songRequestDocRef.id,
       title: newSong.title,
       karaokeUrl: newSong.url,
       studentId: 'anonymous', 
