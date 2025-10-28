@@ -2,22 +2,6 @@
 'use client';
 
 import * as React from 'react';
-import {
-  collection,
-  doc,
-  writeBatch,
-  updateDoc,
-  query,
-  orderBy,
-  deleteDoc,
-} from 'firebase/firestore';
-import {
-  useFirestore,
-  useCollection,
-  errorEmitter,
-  FirestorePermissionError,
-  useMemoFirebase,
-} from '@/firebase';
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { EditSongDialog } from '@/components/edit-song-dialog';
@@ -26,85 +10,50 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
 import { Trash } from 'lucide-react';
 
+const placeholderSongs: Song[] = [
+    {id: '1', title: 'Bohemian Rhapsody', requesterName: 'Freddie', karaokeUrl: 'https://youtube.com', studentId: '', submissionDate: new Date(), order: 0},
+    {id: '2', title: 'Livin\' on a Prayer', requesterName: 'Jon', karaokeUrl: 'https://youtube.com', studentId: '', submissionDate: new Date(), order: 1},
+    {id: '3', title: 'My Way', requesterName: 'Frank', karaokeUrl: 'https://youtube.com', studentId: '', submissionDate: new Date(), order: 2},
+];
+
+
 export function AdminDashboard() {
-  const firestore = useFirestore();
   const { toast } = useToast();
 
+  const [songs, setSongs] = React.useState<Song[]>(placeholderSongs);
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
 
-  const songsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
-  }, [firestore]);
-
-  const { data: songs, isLoading: songsLoading, error } = useCollection<Song>(songsQuery);
 
   const handleReorder = (reorderedSongs: Song[]) => {
-    if (!firestore) return;
-    const batch = writeBatch(firestore);
-    reorderedSongs.forEach((song, index) => {
-      const docRef = doc(firestore, 'song_requests', song.id);
-      batch.update(docRef, { order: index });
-    });
-    batch.commit().catch((e) => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: 'song_requests',
-        operation: 'write',
-        requestResourceData: { info: "Batch update for song reordering." }
-      }));
+    setSongs(reorderedSongs);
+     toast({
+      title: 'Sıra Yeniden Düzenlendi (Demo)',
+      description: 'Bu yalnızca bir demondur, veriler kaydedilmedi.',
     });
   };
   
   const handleSongUpdate = (songId: string, updatedData: { title: string; url: string; }) => {
-    if (!firestore) return;
-    const songRef = doc(firestore, 'song_requests', songId);
-    const songData = {
-        title: updatedData.title,
-        karaokeUrl: updatedData.url
-    };
-    updateDoc(songRef, songData).catch(e => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: songRef.path,
-            operation: 'update',
-            requestResourceData: songData
-        }));
-    });
+    setSongs(songs.map(s => s.id === songId ? {...s, title: updatedData.title, karaokeUrl: updatedData.url } : s));
     setEditingSong(null);
+     toast({
+      title: 'Şarkı Güncellendi (Demo)',
+      description: `"${updatedData.title}" güncellendi. (Bu yalnızca bir demondur).`,
+    });
   };
   
   const handleClearQueue = () => {
-    if (!firestore || !songs) return;
-
-    const batch = writeBatch(firestore);
-    songs.forEach(song => {
-        batch.delete(doc(firestore, 'song_requests', song.id));
-    });
-    batch.commit().then(() => {
-        toast({
-            title: 'Sıra Temizlendi!',
-            description: 'Tüm şarkı istekleri silindi.',
-        });
-    }).catch(e => {
-       errorEmitter.emit('permission-error', new FirestorePermissionError({
-           path: 'song_requests',
-           operation: 'delete',
-           requestResourceData: {info: 'Batch delete all songs'}
-       }));
-       toast({
-           variant: 'destructive',
-           title: 'Hata!',
-           description: 'Sıra temizlenirken bir hata oluştu.',
-       });
+    setSongs([]);
+    toast({
+        title: 'Sıra Temizlendi! (Demo)',
+        description: 'Tüm şarkı istekleri silindi. (Bu yalnızca bir demondur).',
     });
   };
   
   const handleSongDelete = (songId: string) => {
-    if (!firestore) return;
-    deleteDoc(doc(firestore, 'song_requests', songId)).catch(e => {
-      errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: `song_requests/${songId}`,
-        operation: 'delete',
-      }));
+    setSongs(songs.filter(s => s.id !== songId));
+     toast({
+      title: 'Şarkı Silindi (Demo)',
+      description: 'Şarkı silindi. (Bu yalnızca bir demondur).',
     });
   };
 
@@ -120,7 +69,7 @@ export function AdminDashboard() {
         </div>
         <SongQueue
           songs={songs || []}
-          isLoading={songsLoading}
+          isLoading={false}
           onEditSong={setEditingSong}
           onReorder={handleReorder}
           onDeleteSong={handleSongDelete}

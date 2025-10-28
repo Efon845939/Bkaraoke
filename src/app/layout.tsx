@@ -1,12 +1,9 @@
 
 'use client';
 
-import { useEffect } from 'react';
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
-import { diag } from '@/firebase/diag';
 
 // Metadata cannot be exported from a client component.
 // We can move it to a server component or handle it differently if needed.
@@ -21,11 +18,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  useEffect(() => {
-    // Run the diagnostic function on initial load
-    diag();
-  }, []);
-
   return (
     <html lang="tr">
       <head>
@@ -39,10 +31,8 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <FirebaseClientProvider>
-          {children}
-          <Toaster />
-        </FirebaseClientProvider>
+        {children}
+        <Toaster />
       </body>
     </html>
   );

@@ -6,64 +6,24 @@ import { useRouter } from 'next/navigation';
 import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
 import type { Song } from '@/types';
-import {
-  useFirestore,
-  useCollection,
-  useMemoFirebase,
-  errorEmitter,
-  FirestorePermissionError,
-} from '@/firebase';
-import {
-  collection,
-  serverTimestamp,
-  addDoc,
-  query,
-  orderBy,
-  getDocs,
-} from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 
+const placeholderSongs: Song[] = [
+    {id: '1', title: 'Bohemian Rhapsody', requesterName: 'Freddie', karaokeUrl: '', studentId: '', submissionDate: new Date(), order: 0},
+    {id: '2', title: 'Livin\' on a Prayer', requesterName: 'Jon', karaokeUrl: '', studentId: '', submissionDate: new Date(), order: 1},
+    {id: '3', title: 'My Way', requesterName: 'Frank', karaokeUrl: '', studentId: '', submissionDate: new Date(), order: 2},
+];
+
+
 export default function PublicPage() {
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
-  const songsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'song_requests'), orderBy('order', 'asc'));
-  }, [firestore]);
-
-  const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);
-
-  const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
-    if (!firestore) return;
-
-    const requesterName = newSong.name || 'Anonymous';
-
-    const totalSongsSnapshot = await getDocs(collection(firestore, 'song_requests'));
-    const totalSongs = totalSongsSnapshot.size;
-
-    const songData = {
-      title: newSong.title,
-      karaokeUrl: newSong.url,
-      studentId: 'anonymous', 
-      requesterName: requesterName,
-      submissionDate: serverTimestamp(),
-      order: totalSongs,
-    };
-    
-    addDoc(collection(firestore, 'song_requests'), songData).catch(e => {
-       errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'song_requests', 
-            operation: 'create',
-            requestResourceData: songData
-       }));
-    });
-
+  const handleSongAdd = (newSong: { title: string; url: string; name: string }) => {
     toast({
       title: 'İstek Gönderildi!',
-      description: `"${newSong.title}" sıraya eklendi.`,
+      description: `"${newSong.title}" sıraya eklendi. (Bu yalnızca bir demondur, veriler kaydedilmedi).`,
       duration: 3000,
     });
   };
@@ -77,8 +37,8 @@ export default function PublicPage() {
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
         <SongQueue
-          songs={songs || []}
-          isLoading={songsLoading}
+          songs={placeholderSongs}
+          isLoading={false}
           onEditSong={() => {}}
           isAdmin={false}
         />
