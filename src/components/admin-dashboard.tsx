@@ -9,52 +9,127 @@ import type { Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
 import { Trash } from 'lucide-react';
-
-const placeholderSongs: Song[] = [
-    {id: '1', title: 'Bohemian Rhapsody', requesterName: 'Freddie', karaokeUrl: 'https://youtube.com', studentId: '', submissionDate: new Date(), order: 0},
-    {id: '2', title: 'Livin\' on a Prayer', requesterName: 'Jon', karaokeUrl: 'https://youtube.com', studentId: '', submissionDate: new Date(), order: 1},
-    {id: '3', title: 'My Way', requesterName: 'Frank', karaokeUrl: 'https://youtube.com', studentId: '', submissionDate: new Date(), order: 2},
-];
-
+import { useFirestore } from '@/firebase';
+import { collection, query, orderBy, onSnapshot, doc, writeBatch, updateDoc, deleteDoc } from 'firebase/firestore';
 
 export function AdminDashboard() {
   const { toast } = useToast();
-
-  const [songs, setSongs] = React.useState<Song[]>(placeholderSongs);
+  const firestore = useFirestore();
+  const [songs, setSongs] = React.useState<Song[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [editingSong, setEditingSong] = React.useState<Song | null>(null);
 
+  React.useEffect(() => {
+    if (!firestore) return;
+    setIsLoading(true);
+    const songsCollection = collection(firestore, 'song_requests');
+    const q = query(songsCollection, orderBy('order', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const songList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        submissionDate: doc.data().submissionDate?.toDate()
+      } as Song));
+      setSongs(songList);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching songs:", error);
+      toast({
+        variant: "destructive",
+        title: "Hata!",
+        description: "Şarkı listesi yüklenemedi.",
+      });
+      setIsLoading(false);
+    });
 
-  const handleReorder = (reorderedSongs: Song[]) => {
-    setSongs(reorderedSongs);
-     toast({
-      title: 'Sıra Yeniden Düzenlendi (Demo)',
-      description: 'Bu yalnızca bir demondur, veriler kaydedilmedi.',
-    });
+    return () => unsubscribe();
+  }, [firestore, toast]);
+
+
+  const handleReorder = async (reorderedSongs: Song[]) => {
+    if (!firestore) return;
+    setSongs(reorderedSongs); 
+    
+    try {
+      const batch = writeBatch(firestore);
+      reorderedSongs.forEach((song, index) => {
+        const songRef = doc(firestore, 'song_requests', song.id);
+        batch.update(songRef, { order: index });
+      });
+      await batch.commit();
+      toast({
+        title: 'Sıra Yeniden Düzenlendi',
+        description: 'Şarkı sırası başarıyla güncellendi.',
+      });
+    } catch (error) {
+      console.error("Error reordering songs:", error);
+      toast({
+        variant: "destructive",
+        title: "Hata!",
+        description: "Sıra güncellenirken bir sorun oluştu.",
+      });
+    }
   };
   
-  const handleSongUpdate = (songId: string, updatedData: { title: string; url: string; }) => {
-    setSongs(songs.map(s => s.id === songId ? {...s, title: updatedData.title, karaokeUrl: updatedData.url } : s));
-    setEditingSong(null);
-     toast({
-      title: 'Şarkı Güncellendi (Demo)',
-      description: `"${updatedData.title}" güncellendi. (Bu yalnızca bir demondur).`,
-    });
+  const handleSongUpdate = async (songId: string, updatedData: { title: string; url: string; }) => {
+    if (!firestore) return;
+    try {
+        const songRef = doc(firestore, 'song_requests', songId);
+        await updateDoc(songRef, { title: updatedData.title, karaokeUrl: updatedData.url });
+        setEditingSong(null);
+        toast({
+            title: 'Şarkı Güncellendi!',
+            description: `"${updatedData.title}" başarıyla güncellendi.`,
+        });
+    } catch (error) {
+        console.error("Error updating song:", error);
+        toast({
+            variant: "destructive",
+            title: "Hata!",
+            description: "Şarkı güncellenirken bir sorun oluştu.",
+        });
+    }
   };
   
-  const handleClearQueue = () => {
-    setSongs([]);
-    toast({
-        title: 'Sıra Temizlendi! (Demo)',
-        description: 'Tüm şarkı istekleri silindi. (Bu yalnızca bir demondur).',
-    });
+  const handleClearQueue = async () => {
+    if (!firestore || songs.length === 0) return;
+    try {
+        const batch = writeBatch(firestore);
+        songs.forEach(song => {
+            const songRef = doc(firestore, 'song_requests', song.id);
+            batch.delete(songRef);
+        });
+        await batch.commit();
+        toast({
+            title: 'Sıra Temizlendi!',
+            description: 'Tüm şarkı istekleri silindi.',
+        });
+    } catch(error) {
+        console.error("Error clearing queue:", error);
+        toast({
+            variant: "destructive",
+            title: "Hata!",
+            description: "Sıra temizlenirken bir sorun oluştu.",
+        });
+    }
   };
   
-  const handleSongDelete = (songId: string) => {
-    setSongs(songs.filter(s => s.id !== songId));
-     toast({
-      title: 'Şarkı Silindi (Demo)',
-      description: 'Şarkı silindi. (Bu yalnızca bir demondur).',
-    });
+  const handleSongDelete = async (songId: string) => {
+    if (!firestore) return;
+    try {
+        await deleteDoc(doc(firestore, 'song_requests', songId));
+        toast({
+            title: 'Şarkı Silindi',
+            description: 'Şarkı başarıyla sıradan kaldırıldı.',
+        });
+    } catch (error) {
+        console.error("Error deleting song:", error);
+        toast({
+            variant: "destructive",
+            title: "Hata!",
+            description: "Şarkı silinirken bir sorun oluştu.",
+        });
+    }
   };
 
   return (
@@ -69,7 +144,7 @@ export function AdminDashboard() {
         </div>
         <SongQueue
           songs={songs || []}
-          isLoading={false}
+          isLoading={isLoading}
           onEditSong={setEditingSong}
           onReorder={handleReorder}
           onDeleteSong={handleSongDelete}

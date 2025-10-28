@@ -8,24 +8,73 @@ import { SongSubmissionForm } from '@/components/song-submission-form';
 import type { Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-
-const placeholderSongs: Song[] = [
-    {id: '1', title: 'Bohemian Rhapsody', requesterName: 'Freddie', karaokeUrl: '', studentId: '', submissionDate: new Date(), order: 0},
-    {id: '2', title: 'Livin\' on a Prayer', requesterName: 'Jon', karaokeUrl: '', studentId: '', submissionDate: new Date(), order: 1},
-    {id: '3', title: 'My Way', requesterName: 'Frank', karaokeUrl: '', studentId: '', submissionDate: new Date(), order: 2},
-];
-
+import { useFirestore } from '@/firebase';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { v4 as uuidv4 } from 'uuid';
 
 export default function PublicPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const [songs, setSongs] = React.useState<Song[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const handleSongAdd = (newSong: { title: string; url: string; name: string }) => {
-    toast({
-      title: 'İstek Gönderildi!',
-      description: `"${newSong.title}" sıraya eklendi. (Bu yalnızca bir demondur, veriler kaydedilmedi).`,
-      duration: 3000,
+  React.useEffect(() => {
+    if (!firestore) return;
+    setIsLoading(true);
+    const songsCollection = collection(firestore, 'song_requests');
+    const q = query(songsCollection, orderBy('order', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const songList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        submissionDate: doc.data().submissionDate?.toDate()
+      } as Song));
+      setSongs(songList);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching songs:", error);
+      toast({
+        variant: "destructive",
+        title: "Hata!",
+        description: "Şarkı listesi yüklenemedi.",
+      });
+      setIsLoading(false);
     });
+
+    return () => unsubscribe();
+  }, [firestore, toast]);
+
+
+  const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
+    if (!firestore) return;
+    try {
+      const newId = uuidv4();
+      const maxOrder = songs.reduce((max, song) => Math.max(song.order, max), -1);
+      
+      await addDoc(collection(firestore, 'song_requests'), {
+          id: newId,
+          title: newSong.title,
+          karaokeUrl: newSong.url,
+          requesterName: newSong.name,
+          submissionDate: serverTimestamp(),
+          order: maxOrder + 1,
+          studentId: 'anonymous',
+      });
+
+      toast({
+        title: 'İstek Gönderildi!',
+        description: `"${newSong.title}" sıraya eklendi.`,
+        duration: 3000,
+      });
+    } catch (error) {
+        console.error("Error adding song:", error);
+        toast({
+            variant: "destructive",
+            title: "Hata!",
+            description: "Şarkı eklenirken bir sorun oluştu.",
+        });
+    }
   };
 
   return (
@@ -37,8 +86,8 @@ export default function PublicPage() {
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
         <SongQueue
-          songs={placeholderSongs}
-          isLoading={false}
+          songs={songs}
+          isLoading={isLoading}
           onEditSong={() => {}}
           isAdmin={false}
         />
