@@ -9,6 +9,7 @@ import {
   Youtube,
   Pencil,
   GripVertical,
+  Trash2,
 } from 'lucide-react';
 import {
   DndContext,
@@ -26,14 +27,24 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { useUser } from '@/firebase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -57,18 +68,20 @@ import { Skeleton } from './ui/skeleton';
 type SongQueueProps = {
   songs: Song[];
   isLoading: boolean;
+  isAdmin: boolean;
   onEditSong: (song: Song) => void;
   onReorder?: (songs: Song[]) => void;
+  onDeleteSong?: (songId: string) => void;
 };
 
 export function SongQueue({
   songs,
   isLoading,
+  isAdmin,
   onEditSong,
   onReorder,
+  onDeleteSong,
 }: SongQueueProps) {
-  const { user } = useUser();
-  const isAdmin = user?.email?.endsWith('@karaoke.admin.app');
   const [globalFilter, setGlobalFilter] = React.useState('');
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -120,7 +133,7 @@ export function SongQueue({
     );
   }
   
-  const canDrag = !!isAdmin && !!onReorder;
+  const canDrag = isAdmin && !!onReorder;
 
   const tableContent = (
     <Table>
@@ -128,7 +141,7 @@ export function SongQueue({
         <TableRow>
           {canDrag && <TableHead className="w-12"></TableHead>}
           <TableHead>Şarkı Başlığı</TableHead>
-          {isAdmin && <TableHead>İsteyen</TableHead>}
+          <TableHead>İsteyen</TableHead>
           <TableHead className="text-right">Eylemler</TableHead>
         </TableRow>
       </TableHeader>
@@ -138,14 +151,15 @@ export function SongQueue({
             <SortableSongRow
               key={song.id}
               song={song}
-              isAdmin={!!isAdmin}
+              isAdmin={isAdmin}
               onEditSong={onEditSong}
+              onDeleteSong={onDeleteSong}
               canDrag={canDrag}
             />
           ))
         ) : (
           <TableRow>
-            <TableCell colSpan={isAdmin ? (canDrag ? 4: 3) : 2} className="h-24 text-center">
+            <TableCell colSpan={isAdmin ? 4 : 3} className="h-24 text-center">
               Sıra boş.
             </TableCell>
           </TableRow>
@@ -194,11 +208,13 @@ const SortableSongRow = ({
   song,
   isAdmin,
   onEditSong,
+  onDeleteSong,
   canDrag
 }: {
   song: Song;
   isAdmin: boolean;
   onEditSong: (song: Song) => void;
+  onDeleteSong?: (songId: string) => void;
   canDrag: boolean;
 }) => {
 
@@ -217,8 +233,6 @@ const SortableSongRow = ({
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1 : 0,
   };
-
-  const canModify = isAdmin;
   
   return (
     <TableRow ref={setNodeRef} style={style}>
@@ -228,7 +242,7 @@ const SortableSongRow = ({
         </TableCell>
       )}
       <TableCell className="font-medium">{song.title}</TableCell>
-      {isAdmin && <TableCell>{song.requesterName}</TableCell>}
+      <TableCell>{song.requesterName}</TableCell>
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -242,11 +256,42 @@ const SortableSongRow = ({
               <Youtube className="mr-2 h-4 w-4" />
               <span>Bağlantıyı Aç</span>
             </DropdownMenuItem>
-            {canModify && (
-              <DropdownMenuItem onClick={() => onEditSong(song)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                <span>Düzenle</span>
-              </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuItem onClick={() => onEditSong(song)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  <span>Düzenle</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <DropdownMenuItem
+                      onSelect={(e) => e.preventDefault()}
+                      className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>Sil</span>
+                    </DropdownMenuItem>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Bu eylem geri alınamaz. Bu şarkı isteğini kalıcı olarak silecektir.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>İptal</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => onDeleteSong?.(song.id)}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        Sil
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

@@ -46,72 +46,17 @@
         "submissionDate",
         "order"
       ]
-    },
-    "RequesterProfile": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "RequesterProfile",
-      "type": "object",
-      "description": "Represents an admin who can manage song requests.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user (matches Firebase Auth UID)."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the user."
-        },
-        "role": {
-          "type": "string",
-          "description": "The role of the user.",
-          "enum": ["admin"]
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "role"
-      ]
-    },
-    "AuditLog": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "AuditLog",
-        "type": "object",
-        "description": "Represents a log of an action taken in the system.",
-        "properties": {
-            "id": { "type": "string" },
-            "timestamp": { "type": "string", "format": "date-time" },
-            "actorId": { "type": "string" },
-            "actorName": { "type": "string" },
-            "action": { "type": "string" },
-            "details": { "type": "string" }
-        },
-        "required": ["id", "timestamp", "actorId", "actorName", "action", "details"]
     }
   },
   "auth": {
-    "providers": [
-      "email-password"
-    ]
+    "providers": []
   },
   "firestore": {
-    "/user_profiles/{userId}": {
-      "schema": {
-        "$ref": "#/entities/RequesterProfile"
-      },
-      "description": "Stores admin profiles. Each document represents a user."
-    },
     "/song_requests/{songRequestId}": {
         "schema": {
             "$ref": "#/entities/SongRequest"
         },
         "description": "Stores all song requests in a single collection for easier querying and sorting by admins."
-    },
-    "/audit_logs/{logId}": {
-        "schema": {
-            "$ref": "#/entities/AuditLog"
-        },
-        "description": "Stores a chronological log of all significant actions taken in the application."
     }
   }
 }

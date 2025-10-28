@@ -17,11 +17,10 @@ import {
   collection,
   serverTimestamp,
   doc,
-  writeBatch,
-  getDocs,
   addDoc,
   query,
-  orderBy
+  orderBy,
+  getDocs,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -76,7 +75,7 @@ export default function PublicPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
        <header className="sticky top-4 z-10 mb-8 flex items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
         <h1 className="text-3xl font-headline tracking-wider text-primary">Karaoke Sırası</h1>
-        <Button onClick={() => router.push('/admin')}>Yönetici Girişi</Button>
+        <Button onClick={() => router.push('/admin')}>Yönetici Paneli</Button>
       </header>
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
@@ -84,6 +83,7 @@ export default function PublicPage() {
           songs={songs || []}
           isLoading={songsLoading}
           onEditSong={() => {}}
+          isAdmin={false}
         />
       </main>
     </div>
