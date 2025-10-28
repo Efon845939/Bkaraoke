@@ -2,15 +2,20 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
+import type { Song } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { collection, query, orderBy, onSnapshot, doc, writeBatch, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
 import { EditSongDialog } from '@/components/edit-song-dialog';
-import type { Song } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import { SongSubmissionForm } from '@/components/song-submission-form';
 import { Button } from './ui/button';
-import { Trash } from 'lucide-react';
+import { Trash, Home } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { collection, query, orderBy, onSnapshot, doc, writeBatch, updateDoc, deleteDoc } from 'firebase/firestore';
+
 
 export function AdminDashboard() {
   const { toast } = useToast();
@@ -45,6 +50,37 @@ export function AdminDashboard() {
     return () => unsubscribe();
   }, [firestore, toast]);
 
+
+ const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
+    if (!firestore) return;
+    try {
+      const newId = uuidv4();
+      const maxOrder = songs.reduce((max, song) => Math.max(song.order, max), -1);
+      
+      await addDoc(collection(firestore, 'song_requests'), {
+          id: newId,
+          title: newSong.title,
+          karaokeUrl: newSong.url,
+          requesterName: newSong.name || 'Admin', // Admin eklerse adı 'Admin' olsun
+          submissionDate: serverTimestamp(),
+          order: maxOrder + 1,
+          studentId: 'anonymous', // Bu alan artık kullanılmıyor ama şemada var
+      });
+
+      toast({
+        title: 'İstek Gönderildi!',
+        description: `"${newSong.title}" sıraya eklendi.`,
+        duration: 3000,
+      });
+    } catch (error) {
+        console.error("Error adding song:", error);
+        toast({
+            variant: "destructive",
+            title: "Hata!",
+            description: "Şarkı eklenirken bir sorun oluştu.",
+        });
+    }
+  };
 
   const handleReorder = async (reorderedSongs: Song[]) => {
     if (!firestore) return;
@@ -93,6 +129,7 @@ export function AdminDashboard() {
   
   const handleClearQueue = async () => {
     if (!firestore || songs.length === 0) return;
+    if (!confirm("Emin misiniz? Bu işlem tüm şarkı sırasını kalıcı olarak silecektir.")) return;
     try {
         const batch = writeBatch(firestore);
         songs.forEach(song => {
@@ -134,8 +171,17 @@ export function AdminDashboard() {
 
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
-      <PageHeader />
+      <header className="sticky top-4 z-10 mb-8 flex items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
+        <PageHeader />
+        <Link href="/" passHref>
+          <Button variant="outline">
+            <Home className="mr-2 h-4 w-4" />
+            Lobiye Dön
+          </Button>
+        </Link>
+      </header>
       <main className="space-y-8">
+        <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
         <div className="flex justify-end">
             <Button variant="destructive" onClick={handleClearQueue} disabled={!songs || songs.length === 0}>
                 <Trash className="mr-2 h-4 w-4" />
