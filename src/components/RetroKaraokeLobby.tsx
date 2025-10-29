@@ -29,7 +29,6 @@ export default function RetroKaraokeLobby({
   const validate = () => {
     if (!firstName.trim() || !lastName.trim() || !songTitle.trim() || !songUrl.trim())
       return "Lütfen tüm alanları doldurun.";
-    if (songTitle.trim().length < 2) return "Şarkı başlığı en az 2 karakter olmalı.";
     if (!/^https?:\/\//i.test(songUrl.trim())) return "Geçerli bir URL girin (http/https).";
     return null;
   };

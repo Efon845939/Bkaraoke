@@ -95,7 +95,7 @@ function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const ADMIN_PASS = "90'sKaraoke";
+  const ADMIN_PASS = "kara90ke";
 
   async function handleLogin(e?: React.FormEvent) {
     e?.preventDefault();
@@ -173,7 +173,7 @@ export default function AdminPanel() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleLogin = (pass: string) => {
-    if (pass === "90'sKaraoke") {
+    if (pass === "kara90ke") {
         setAuth(true);
     }
   }
