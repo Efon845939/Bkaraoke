@@ -38,8 +38,8 @@ export default function AdminPanel() {
 
   if (!auth) {
     return (
-      <div className="flex min-h-screen flex-col items-center bg-background p-4">
-        <header className="sticky top-4 z-10 mb-8 flex w-full max-w-sm items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+        <header className="absolute top-4 left-4 z-10">
             <Link href="/" passHref>
                <Logo />
             </Link>
