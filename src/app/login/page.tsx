@@ -29,8 +29,7 @@ export default function LoginPage() {
         title: 'Başarılı!',
         description: 'Yönetici paneline yönlendiriliyorsunuz.',
       });
-      // Tarayıcı oturumunda admin durumunu sakla
-      sessionStorage.setItem('adminAuthenticated', 'true');
+      // Oturum saklama kaldırıldı.
       router.push('/admin');
     } else {
       toast({

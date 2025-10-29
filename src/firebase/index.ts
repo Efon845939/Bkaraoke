@@ -1,14 +1,6 @@
 
 'use client';
-import { app } from './config';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import React from 'react';
 
-let firestore: Firestore;
-
-export const useFirestore = () => {
-    if (!firestore) {
-        firestore = getFirestore(app);
-    }
-    return firestore;
-}
+// Bu dosya, provider.tsx dosyasındaki hook'u yeniden dışa aktarmak için kullanılır,
+// böylece içe aktarma yolları daha temiz olur.
+export { useFirestore } from './provider';

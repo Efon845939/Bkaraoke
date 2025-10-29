@@ -10,7 +10,7 @@ import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 
 
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
-import { SongSubmissionForm } from '@/components/song-submission-form';
+import { SongSubmissionForm, SongRequestValues } from '@/components/song-submission-form';
 import { Button } from './ui/button';
 import { Home } from 'lucide-react';
 import { useFirestore } from '@/firebase';
@@ -49,8 +49,15 @@ export function AdminDashboard() {
   }, [firestore, toast]);
 
 
- const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
-    if (!firestore) return;
+ const handleSongAdd = async (newSong: SongRequestValues) => {
+    if (!firestore) {
+        toast({
+            variant: "destructive",
+            title: "Hata!",
+            description: "Veritabanı bağlantısı kurulamadı. Lütfen tekrar deneyin.",
+        });
+        return;
+    }
     try {
       const newId = uuidv4();
       const maxOrder = songs.reduce((max, song) => Math.max(song.order, max), -1);

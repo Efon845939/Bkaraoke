@@ -26,18 +26,23 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 
-const capitalize = (s: string) => s.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+const capitalize = (s: string) => {
+    if (!s) return '';
+    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+};
 
 const formSchema = z.object({
-  name: z.string().min(2, "İsim en az 2 karakter olmalıdır.").transform(capitalize),
+  firstName: z.string().min(2, "İsim en az 2 karakter olmalıdır.").transform(capitalize),
+  lastName: z.string().min(2, "Soyisim en az 2 karakter olmalıdır.").transform(capitalize),
   title: z.string().min(2, 'Başlık en az 2 karakter olmalıdır.'),
   url: z.string().url('Lütfen geçerli bir YouTube, Vimeo vb. URL\'si girin.'),
 });
 
 type SongFormValues = z.infer<typeof formSchema>;
+export type SongRequestValues = { name: string; title: string; url: string; }
 
 interface SongSubmissionFormProps {
-  onSongAdd: (song: SongFormValues) => void;
+  onSongAdd: (song: SongRequestValues) => void;
   showNameInput?: boolean;
 }
 
@@ -49,14 +54,19 @@ export function SongSubmissionForm({
   const form = useForm<SongFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
+      firstName: '',
+      lastName: '',
       title: '',
       url: '',
     },
   });
 
   function onSubmit(values: SongFormValues) {
-    onSongAdd(values);
+    onSongAdd({
+        name: `${values.firstName} ${values.lastName}`,
+        title: values.title,
+        url: values.url
+    });
     form.reset();
   }
 
@@ -72,22 +82,40 @@ export function SongSubmissionForm({
           </CardHeader>
           <CardContent className="space-y-4">
             {showNameInput && (
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Adınız ve Soyadınız</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="ör., DJ Bülent" {...field} className="pl-10" />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Adınız</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input placeholder="ör., Bülent" {...field} className="pl-10" />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Soyadınız</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input placeholder="ör., Ersoy" {...field} className="pl-10" />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             )}
             <FormField
               control={form.control}

@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { SongSubmissionForm } from '@/components/song-submission-form';
+import { SongSubmissionForm, SongRequestValues } from '@/components/song-submission-form';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
@@ -17,8 +17,15 @@ export default function PublicPage() {
   const { toast } = useToast();
   const firestore = useFirestore();
 
-  const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
-    if (!firestore) return;
+  const handleSongAdd = async (newSong: SongRequestValues) => {
+    if (!firestore) {
+        toast({
+            variant: "destructive",
+            title: "Hata!",
+            description: "Veritabanı bağlantısı kurulamadı. Lütfen tekrar deneyin.",
+        });
+        return;
+    }
 
     try {
       const requesterSongsQuery = query(
@@ -53,6 +60,7 @@ export default function PublicPage() {
 
       toast({
         title: 'Katılımınız için teşekkürler!',
+        description: `"${newSong.title}" sıraya eklendi.`,
         duration: 3000,
       });
     } catch (error) {
@@ -69,7 +77,7 @@ export default function PublicPage() {
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
        <header className="sticky top-4 z-10 mb-8 flex items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
         <h1 className="text-3xl font-headline tracking-wider text-primary">Karaoke Sırası</h1>
-        <Button onClick={() => router.push('/admin')}>Yönetici Paneli</Button>
+        <Button onClick={() => router.push('/login')}>Yönetici Paneli</Button>
       </header>
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
