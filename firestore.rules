@@ -1,53 +1,34 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset is for the prototyping phase of the application. It prioritizes ease of development and rapid iteration speed by relaxing data validation constraints, while still enforcing authorization.
+ * @fileoverview Firestore Security Rules for the Song Request application.
  *
  * Core Philosophy:
- *   This ruleset provides a publicly readable collection (`/song_requests/{songRequestId}`) with owner-only access for creating, updating, and deleting documents.
+ * This ruleset is in prototyping mode, prioritizing developer velocity.  It focuses on broad accessibility
+ * to enable rapid iteration.  As such, read and write access to song requests is open to all authenticated users.
  *
  * Data Structure:
- *   - `/song_requests/{songRequestId}`: Stores song requests.
+ * All song requests are stored in the `/song_requests/{songRequestId}` collection.
  *
  * Key Security Decisions:
- *   - Public Read: The `song_requests` collection is publicly readable. This is acceptable during prototyping to quickly test and iterate on UI components.
- *   - Owner-Only Writes: Only the user who created a song request can modify or delete it. This prevents unauthorized data manipulation.
- *   - No User Listing: There are no user-specific collections, so user listing is not applicable.
- *   - Schema Flexibility: Data validation is minimal. While the schema defines types, the rules do NOT enforce these types to allow for rapid schema iteration during prototyping. The rules only focus on authorization.
- *
- * Denormalization for Authorization:
- *   The rules assume that each document in `/song_requests/{songRequestId}` contains an `ownerId` field that matches the authenticated user's UID. This is essential for enforcing owner-only writes.
- *
- * Structural Segregation:
- *   All data is stored in a single public collection. If user-specific private data were present, it would be stored in a separate user subcollection (e.g., `/users/{userId}/private_data`).
+ * - No user-specific ownership: All authenticated users can read and write any song request.
+ * - No schema validation: Data validation is deferred to the application layer for faster prototyping.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages song requests. Allows public read access but restricts write access to the owner of the request.
+     * @description Allows anyone to read and write song requests.
      * @path /song_requests/{songRequestId}
-     * @allow (read) Any user can read song requests.
-     * @allow (create) A user can create a song request if the `ownerId` matches their UID.
-     * @allow (update) The owner can update their song request.
-     * @allow (delete) The owner can delete their song request.
-     * @deny (create) A user cannot create a song request with an `ownerId` that doesn't match their UID.
-     * @deny (update) A user cannot update a song request they don't own.
-     * @deny (delete) A user cannot delete a song request they don't own.
-     * @principle Allows public read access for all song requests but restricts write access to the owner.
+     * @allow (read, write) Any authenticated user can perform these operations.
+     * @deny (none) This rule allows all reads and writes.
+     * @principle Open access for prototyping.
      */
     match /song_requests/{songRequestId} {
-      // Allows any signed-in user.
-      allow get, list: if true;
-
-      allow create: if isSignedIn() && request.resource.data.keys().hasAll(['firstName', 'lastName', 'songTitle', 'songUrl', 'status', 'timestamp']);
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow read: if true;
+      allow list: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
     }
-  }
-
-  // --- Helper Functions ---
-  function isSignedIn() {
-    return request.auth != null;
   }
 }
