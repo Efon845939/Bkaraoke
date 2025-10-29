@@ -6,7 +6,7 @@ import Link from 'next/link';
 import type { Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
@@ -60,7 +60,8 @@ export function AdminDashboard() {
     }
     try {
       const newId = uuidv4();
-      const maxOrder = songs.reduce((max, song) => Math.max(song.order, max), -1);
+      const songDocs = await getDocs(collection(firestore, 'song_requests'));
+      const maxOrder = songDocs.docs.reduce((max, doc) => Math.max(doc.data().order, max), -1);
       
       await addDoc(collection(firestore, 'song_requests'), {
           id: newId,
@@ -73,9 +74,8 @@ export function AdminDashboard() {
       });
 
       toast({
-        title: 'İstek Gönderildi!',
+        title: 'Katılımınız için teşekkürler!',
         description: `"${newSong.title}" sıraya eklendi.`,
-        duration: 3000,
       });
     } catch (error) {
         console.error("Error adding song:", error);

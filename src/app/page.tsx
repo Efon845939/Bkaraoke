@@ -61,7 +61,6 @@ export default function PublicPage() {
       toast({
         title: 'Katılımınız için teşekkürler!',
         description: `"${newSong.title}" sıraya eklendi.`,
-        duration: 3000,
       });
     } catch (error) {
         console.error("Error adding song:", error);
