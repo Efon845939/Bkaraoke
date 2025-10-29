@@ -1,10 +1,12 @@
+
 "use client";
 import { useEffect, useState } from "react";
 import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import VHSStage from "@/components/VHSStage";
+import Link from "next/link";
 
-const ADMIN_PASS = "90'sKaraoke";
+const ADMIN_PASS = "kara90ke";
 
 export default function AdminPage() {
   const [auth,setAuth]=useState(false);
@@ -37,6 +39,9 @@ export default function AdminPage() {
           <input type="password" className="retro-input-soft vhs-interact" placeholder="Şifre" value={pw} onChange={e=>setPw(e.target.value)} />
           <button onClick={()=>setAuth(pw===ADMIN_PASS)} className="retro-btn-soft vhs-interact w-full mt-4">Giriş</button>
           {pw && pw!==ADMIN_PASS && <p className="mt-2 text-sm text-red-300">Yanlış şifre.</p>}
+          <div className="text-center mt-4">
+            <Link href="/" className="text-sm text-white/60 hover:text-white transition">Lobiye dön</Link>
+          </div>
         </div>
         <VHSStage intensity={0.1} sfxVolume={0.35} />
       </div>
