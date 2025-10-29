@@ -1,9 +1,23 @@
 "use client";
 import { useState } from "react";
-import { setLogLevel } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, waitForPendingWrites, setLogLevel } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import VHSStage from "./VHSStage";
 
 setLogLevel("debug"); // en üste bir kere
+
+// Tüm yakalanmamış promise hatalarını yaz
+if (typeof window !== "undefined") {
+  window.onunhandledrejection = (e: any) => {
+    const err: any = e?.reason || e;
+    // FirebaseError tüm alanları
+    const dump = Object.fromEntries(
+      Object.getOwnPropertyNames(err).map(k => [k, (err as any)[k]])
+    );
+    console.log("[UNHANDLED]", dump);
+  };
+}
+
 
 export default function RetroKaraokeLobby({
   onAdminClick,
@@ -35,6 +49,9 @@ export default function RetroKaraokeLobby({
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
+    console.log("[KARAOKE] submit start", {
+      projectId: db.app.options.projectId
+    });
     setError(null);
     const v = validate();
     if (v) return setError(v);
@@ -42,38 +59,32 @@ export default function RetroKaraokeLobby({
     setBusy(true);
 
     try {
+       const payload = {
+        firstName: cap(firstName.trim()),
+        lastName: cap(lastName.trim()),
+        songTitle: cap(songTitle.trim()),
+        songUrl: songUrl.trim(),
+      };
+      
       if (!handleSubmit) {
-        console.error("[KARAOKE] handleSubmit prop'u sağlanmamış. Doğrudan Firestore'a yazma deneniyor.");
-        const { addDoc, collection, serverTimestamp, waitForPendingWrites } = await import("firebase/firestore");
-        const { db } = await import("@/lib/firebase");
-        console.log("[KARAOKE] projectId:", (db as any).app.options.projectId);
-        
+        console.log("[KARAOKE] handleSubmit prop'u sağlanmamış. Doğrudan Firestore'a yazma deneniyor.");
         await addDoc(collection(db, "song_requests"), {
-          firstName: cap(firstName.trim()),
-          lastName:  cap(lastName.trim()),
-          songTitle: cap(songTitle.trim()),
-          songUrl:   songUrl.trim(),
+          ...payload,
           status: "pending",
           timestamp: serverTimestamp(),
         });
         await waitForPendingWrites(db);
         console.log("[KARAOKE] Doğrudan yazma başarılı.");
       } else {
-         const payload = {
-          firstName: cap(firstName.trim()),
-          lastName: cap(lastName.trim()),
-          songTitle: cap(songTitle.trim()),
-          songUrl: songUrl.trim(),
-        };
-        await handleSubmit(payload);
+         await handleSubmit(payload);
       }
 
       setToast("🎶 Şarkı isteğiniz alınmıştır. Katılımınız için teşekkürler!");
       setFirst(""); setLast(""); setTitle(""); setUrl("");
       setTimeout(() => setToast(null), 2600);
     } catch (e: any) {
-      console.error("[KARAOKE] submit error:", e?.code, e?.message, e);
-      setError(`${e?.code || "Hata"}: ${e?.message || "Gönderim başarısız."}`);
+      console.error("[SUBMIT-ERROR] code=", e?.code, " message=", e?.message, " name=", e?.name, " stack=", e?.stack, " details=", e);
+      setError(`${e?.code || "error"}: ${e?.message || "Gönderim başarısız"}`);
     } finally {
       setBusy(false);
     }
