@@ -45,10 +45,12 @@ export default function AdminPanel() {
   if (!auth) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <header className="absolute top-4 left-4 z-10 rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
-            <Link href="/" passHref>
-               <Logo />
-            </Link>
+        <header className="absolute top-4 z-10 w-full max-w-5xl px-4">
+            <div className="flex items-center justify-start rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
+                <Link href="/" passHref>
+                <Logo />
+                </Link>
+            </div>
         </header>
         <Card className="w-full max-w-sm">
           <CardHeader>
