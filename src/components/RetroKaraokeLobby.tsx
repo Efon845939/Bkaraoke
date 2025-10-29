@@ -93,13 +93,13 @@ export default function RetroKaraokeLobby({
               <input
                 value={firstName}
                 onChange={e => setFirst(e.target.value)}
-                placeholder="Adınız"
+                placeholder="Adınız (örn: Bülent)"
                 className="retro-input-soft"
               />
               <input
                 value={lastName}
                 onChange={e => setLast(e.target.value)}
-                placeholder="Soyadınız"
+                placeholder="Soyadınız (örn: Ersoy)"
                 className="retro-input-soft"
               />
             </div>
@@ -107,13 +107,13 @@ export default function RetroKaraokeLobby({
             <input
               value={songTitle}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Şarkı Başlığı"
+              placeholder="Şarkı Başlığı (örn: Benim Yerime de Sev)"
               className="retro-input-soft"
             />
             <input
               value={songUrl}
               onChange={e => setUrl(e.target.value)}
-              placeholder="Şarkı URL"
+              placeholder="Şarkı URL (örn: https://youtube.com/...)"
               className="retro-input-soft"
             />
 

@@ -4,11 +4,8 @@
 import { useState, useEffect } from "react";
 import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import Link from "next/link";
 import { Home } from "lucide-react";
+import Link from "next/link";
 
 export default function AdminPanel() {
   const [auth, setAuth] = useState(false);
