@@ -102,7 +102,7 @@ export default function RetroKaraokeLobby({
           </div>
           <button
             onClick={onAdminClick}
-            className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow hover:shadow-[0_0_20px_rgba(255,255,255,0.6)] transition"
+            className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow hover:shadow-[0_0_20px_rgba(255,255,255,0.6)] transition vhs-interact"
           >
             Yönetici Paneli
           </button>
@@ -127,13 +127,13 @@ export default function RetroKaraokeLobby({
                 value={firstName}
                 onChange={e => setFirst(e.target.value)}
                 placeholder="Adınız (örn: Bülent)"
-                className="retro-input-soft"
+                className="retro-input-soft vhs-interact"
               />
               <input
                 value={lastName}
                 onChange={e => setLast(e.target.value)}
                 placeholder="Soyadınız (örn: Ersoy)"
-                className="retro-input-soft"
+                className="retro-input-soft vhs-interact"
               />
             </div>
 
@@ -141,13 +141,13 @@ export default function RetroKaraokeLobby({
               value={songTitle}
               onChange={e => setTitle(e.target.value)}
               placeholder="Şarkı Başlığı (örn: Benim Yerime de Sev)"
-              className="retro-input-soft"
+              className="retro-input-soft vhs-interact"
             />
             <input
               value={songUrl}
               onChange={e => setUrl(e.target.value)}
               placeholder="Şarkı URL (örn: https://youtube.com/...)"
-              className="retro-input-soft"
+              className="retro-input-soft vhs-interact"
             />
 
             {error && (
@@ -157,7 +157,7 @@ export default function RetroKaraokeLobby({
             )}
 
             <div className="flex justify-end">
-              <button type="submit" disabled={busy} className="retro-btn-soft">
+              <button type="submit" disabled={busy} className="retro-btn-soft vhs-interact">
                 {busy ? "Gönderiliyor..." : "Gönder"}
               </button>
             </div>

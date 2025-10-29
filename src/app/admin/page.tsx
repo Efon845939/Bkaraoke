@@ -4,8 +4,8 @@
 import { useState, useEffect } from "react";
 import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Home } from "lucide-react";
 import Link from "next/link";
+import { Home } from "lucide-react";
 
 function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefresh: () => void; }) {
   const [songs, setSongs] = useState<any[]>([]);
@@ -73,8 +73,8 @@ function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefre
                     </p>
                   </div>
                   <div className="flex gap-2 self-start sm:self-center">
-                    <button onClick={()=>updateStatus(s.id, "approved")} className="retro-btn-success">Onayla</button>
-                    <button onClick={()=>updateStatus(s.id, "rejected")} className="retro-btn-destructive">Reddet</button>
+                    <button onClick={()=>updateStatus(s.id, "approved")} className="retro-btn-success vhs-interact">Onayla</button>
+                    <button onClick={()=>updateStatus(s.id, "rejected")} className="retro-btn-destructive vhs-interact">Reddet</button>
                   </div>
                 </div>
               ))}
@@ -119,7 +119,7 @@ function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
       <div className="absolute -inset-1 blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-cyan-400/25 to-lime-400/20 -z-20" />
 
       {/* Kart */}
-      <div className="relative rounded-[28px] border border-white/15 bg-white/10 backdrop-blur-lg p-8 sm:p-10 w-[min(400px,90%)] shadow-[0_0_60px_rgba(168,85,247,0.25)] text-center">
+      <form onSubmit={handleLogin} className="relative rounded-[28px] border border-white/15 bg-white/10 backdrop-blur-lg p-8 sm:p-10 w-[min(400px,90%)] shadow-[0_0_60px_rgba(168,85,247,0.25)] text-center">
         <div className="mb-4 flex justify-center">
           <CassetteLogo />
         </div>
@@ -130,35 +130,33 @@ function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
           Şifreyi gir ve 90’ların karaoke sahnesine geri dön.
         </p>
 
-        <form onSubmit={handleLogin}>
-          <input
-            type="password"
-            placeholder="Şifre"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full p-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400 transition"
-          />
+        <input
+          type="password"
+          placeholder="Şifre"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          className="vhs-interact w-full p-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400 transition"
+        />
 
-          {error && (
-            <div className="mt-3 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl py-2">
-              {error}
-            </div>
-          )}
+        {error && (
+          <div className="mt-3 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl py-2">
+            {error}
+          </div>
+        )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 w-full py-3 rounded-2xl font-semibold bg-gradient-to-r from-fuchsia-500 to-indigo-500 hover:from-fuchsia-400 hover:to-indigo-400 transition shadow-[0_0_20px_rgba(217,70,239,0.4)]"
-          >
-            {loading ? "Giriş Yapılıyor..." : "Giriş"}
-          </button>
-           <Link href="/" passHref>
-              <button className="mt-4 w-full py-2 rounded-2xl font-semibold bg-black/20 border border-white/15 text-white hover:bg-white/10 transition">
-                Lobiye Dön
-              </button>
-            </Link>
-        </form>
-      </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="vhs-interact mt-6 w-full py-3 rounded-2xl font-semibold bg-gradient-to-r from-fuchsia-500 to-indigo-500 hover:from-fuchsia-400 hover:to-indigo-400 transition shadow-[0_0_20px_rgba(217,70,239,0.4)]"
+        >
+          {loading ? "Giriş Yapılıyor..." : "Giriş"}
+        </button>
+         <Link href="/" passHref>
+            <button type="button" className="mt-4 w-full py-2 rounded-2xl font-semibold bg-black/20 border border-white/15 text-white hover:bg-white/10 transition vhs-interact">
+              Lobiye Dön
+            </button>
+          </Link>
+      </form>
 
       {/* VHS scanline efekti */}
       <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:repeating-linear-gradient(180deg,rgba(255,255,255,.6)_0,rgba(255,255,255,.6)_1px,transparent_1px,transparent_3px)]"></div>
@@ -169,7 +167,7 @@ function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
 
 export default function AdminPanel() {
   const [auth, setAuth] = useState(false);
-  const [refresh, setRefresh] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleLogin = (pass: string) => {
     if (pass === "90'sKaraoke") {
@@ -181,7 +179,7 @@ export default function AdminPanel() {
     return <AdminLogin onLogin={handleLogin} />
   }
 
-  return <AdminDashboard onLogout={() => setAuth(false)} onRefresh={() => setRefresh(!refresh)} />
+  return <AdminDashboard onLogout={() => setAuth(false)} onRefresh={() => setRefreshKey(prev => prev + 1)} />
 }
 
 
@@ -190,19 +188,6 @@ export default function AdminPanel() {
 function StyleHelper() {
   return (
     <style jsx global>{`
-        .retro-input {
-          @apply w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-white placeholder:text-white/50 outline-none focus:ring-2 focus:ring-fuchsia-500/60 focus:border-white/30 transition;
-        }
-        .retro-btn {
-          @apply inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-fuchsia-500 to-indigo-500 px-5 py-2 font-semibold shadow;
-        }
-        .retro-btn:hover {
-          box-shadow: 0 0 20px rgba(217, 70, 239, 0.6), inset 0 0 10px rgba(59, 130, 246, 0.5);
-          transform: translateY(-1px);
-        }
-        .retro-btn:disabled {
-          @apply opacity-70 cursor-not-allowed;
-        }
         .retro-btn-secondary {
           @apply inline-flex items-center justify-center rounded-xl bg-black/20 border border-white/15 px-4 py-2 font-semibold shadow text-white;
         }

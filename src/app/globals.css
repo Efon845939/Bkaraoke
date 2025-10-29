@@ -86,3 +86,25 @@
     @apply font-headline;
   }
 }
+
+@keyframes vhs-flicker {
+  0%, 100% { filter: brightness(1) contrast(1); }
+  10% { filter: brightness(1.4) contrast(1.6) hue-rotate(10deg); }
+  20% { filter: brightness(0.9) contrast(1.3) hue-rotate(-5deg); }
+  40% { filter: brightness(1.2) contrast(1.8); }
+  60% { filter: brightness(1) contrast(1.4); }
+  80% { filter: brightness(1.3) contrast(1.6) hue-rotate(15deg); }
+}
+
+.vhs-interact {
+  transition: all .15s ease;
+}
+.vhs-interact:focus, 
+.vhs-interact:active {
+  animation: vhs-flicker 0.5s linear;
+  box-shadow: 0 0 12px rgba(217,70,239,0.6), 0 0 30px rgba(59,130,246,0.4);
+  outline: none;
+}
+.vhs-interact:focus-visible {
+  animation: vhs-flicker 0.5s linear;
+}
