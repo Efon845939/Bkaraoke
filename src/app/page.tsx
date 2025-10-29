@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { addDoc, collection, serverTimestamp, waitForPendingWrites } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import VHSStage from "./components/VHSStage";
+import VHSStage from "@/components/VHSStage";
 
 export default function Page() {
   const [firstName,setFirst]=useState(""), [lastName,setLast]=useState("");

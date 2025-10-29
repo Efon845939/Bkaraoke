@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import VHSStage from "../components/VHSStage";
+import VHSStage from "@/components/VHSStage";
 
 const ADMIN_PASS = "90'sKaraoke";
 
