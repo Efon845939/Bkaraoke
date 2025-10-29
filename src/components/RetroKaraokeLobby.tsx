@@ -1,6 +1,9 @@
 
 "use client";
 import { useState } from "react";
+import { setLogLevel } from "firebase/firestore";
+
+setLogLevel("debug"); // en üste bir kere
 
 export default function RetroKaraokeLobby({
   onAdminClick,
@@ -33,6 +36,9 @@ export default function RetroKaraokeLobby({
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
+    console.log("[KARAOKE] submit start", {
+      projectId: (await import("@/lib/firebase")).db.app.options.projectId
+    });
 
     setError(null);
     const v = validate();
@@ -80,6 +86,7 @@ export default function RetroKaraokeLobby({
       setFirst(""); setLast(""); setTitle(""); setUrl("");
       setTimeout(() => setToast(null), 2600);
     } catch (e: any) {
+      console.error("[KARAOKE] submit error", e?.code, e?.message, e);
       setError(e?.message || "Gönderim başarısız.");
     } finally {
       setBusy(false);

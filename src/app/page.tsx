@@ -1,7 +1,7 @@
 
 'use client';
 
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, waitForPendingWrites } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import RetroKaraokeLobby from "@/components/RetroKaraokeLobby";
 import { useRouter } from "next/navigation";
@@ -23,10 +23,11 @@ export default function Home() {
         status: "pending",
         timestamp: serverTimestamp(),
       });
+      await waitForPendingWrites(db);
     } catch (e) {
       console.error("Error adding document: ", e);
       // Bu hatayı yukarıdaki bileşene iletiyoruz ki 'busy' durumu sıfırlansın.
-      throw new Error("Şarkı isteği gönderilirken bir sunucu hatası oluştu.");
+      throw e;
     }
   }
 
