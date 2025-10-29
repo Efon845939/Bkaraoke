@@ -36,58 +36,45 @@ export default function RetroKaraokeLobby({
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();
-    console.log("[KARAOKE] submit start", {
-      projectId: (await import("@/lib/firebase")).db.app.options.projectId
-    });
-
     setError(null);
     const v = validate();
     if (v) return setError(v);
 
     setBusy(true);
 
-    const withTimeout = <T,>(p: Promise<T>, ms: number) =>
-      Promise.race([
-        p,
-        new Promise<never>((_, rej) =>
-          setTimeout(() => rej(new Error("İstek zaman aşımına uğradı (10s).")), ms)
-        ),
-      ]);
-
     try {
-      const payload = {
-        firstName: cap(firstName.trim()),
-        lastName: cap(lastName.trim()),
-        songTitle: cap(songTitle.trim()),
-        songUrl: songUrl.trim(),
-      };
-      
-      if (handleSubmit) {
-        await withTimeout(
-          Promise.resolve(handleSubmit(payload)),
-          10000
-        );
-      } else {
-        // Fallback in case handleSubmit is not provided
-        console.warn("No handleSubmit provided, using internal fallback.");
-        const { addDoc, collection, serverTimestamp } = await import("firebase/firestore");
+      if (!handleSubmit) {
+        console.error("[KARAOKE] handleSubmit prop'u sağlanmamış. Doğrudan Firestore'a yazma deneniyor.");
+        const { addDoc, collection, serverTimestamp, waitForPendingWrites } = await import("firebase/firestore");
         const { db } = await import("@/lib/firebase");
-        await withTimeout(
-          addDoc(collection(db, "song_requests"), {
-            ...payload,
-            status: "pending",
-            timestamp: serverTimestamp(),
-          }),
-          10000
-        );
+        console.log("[KARAOKE] projectId:", (db as any).app.options.projectId);
+        
+        await addDoc(collection(db, "song_requests"), {
+          firstName: cap(firstName.trim()),
+          lastName:  cap(lastName.trim()),
+          songTitle: cap(songTitle.trim()),
+          songUrl:   songUrl.trim(),
+          status: "pending",
+          timestamp: serverTimestamp(),
+        });
+        await waitForPendingWrites(db);
+        console.log("[KARAOKE] Doğrudan yazma başarılı.");
+      } else {
+         const payload = {
+          firstName: cap(firstName.trim()),
+          lastName: cap(lastName.trim()),
+          songTitle: cap(songTitle.trim()),
+          songUrl: songUrl.trim(),
+        };
+        await handleSubmit(payload);
       }
 
       setToast("🎶 Şarkı isteğiniz alınmıştır. Katılımınız için teşekkürler!");
       setFirst(""); setLast(""); setTitle(""); setUrl("");
       setTimeout(() => setToast(null), 2600);
     } catch (e: any) {
-      console.error("[KARAOKE] submit error", e?.code, e?.message, e);
-      setError(e?.message || "Gönderim başarısız.");
+      console.error("[KARAOKE] submit error:", e?.code, e?.message, e);
+      setError(`${e?.code || "Hata"}: ${e?.message || "Gönderim başarısız."}`);
     } finally {
       setBusy(false);
     }
@@ -110,7 +97,7 @@ export default function RetroKaraokeLobby({
           </div>
           <button
             onClick={onAdminClick}
-            className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow hover:shadow-[0_0_20px_rgba(255,255,255,0.6)] transition vhs-interact"
+            className="vhs-interact rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow hover:shadow-[0_0_20px_rgba(255,255,255,0.6)] transition"
           >
             Yönetici Paneli
           </button>
