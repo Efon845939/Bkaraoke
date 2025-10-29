@@ -22,8 +22,12 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;700&display=swap"
           rel="stylesheet"
         />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Archivo:wght@400;600&display=swap" 
+          rel="stylesheet"
+        />
       </head>
-      <body className="font-body antialiased">
+      <body>
         {children}
         <Toaster />
       </body>

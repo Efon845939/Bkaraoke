@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { Logo } from "@/components/logo";
 import { Home } from "lucide-react";
 
 export default function AdminPanel() {
@@ -48,7 +47,10 @@ export default function AdminPanel() {
         <header className="absolute top-4 z-10 w-full max-w-5xl px-4">
             <div className="flex items-center justify-start rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
                 <Link href="/" passHref>
-                <Logo />
+                  <Button variant="outline">
+                    <Home className="mr-2 h-4 w-4" />
+                    Lobiye Dön
+                  </Button>
                 </Link>
             </div>
         </header>
@@ -84,7 +86,7 @@ export default function AdminPanel() {
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
        <header className="sticky top-4 z-10 mb-8 flex items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
-        <Logo />
+        <div className="font-bold">Karaoke Yönetim Paneli</div>
         <div className="flex items-center gap-4">
             <Button onClick={()=>setRefresh(!refresh)} variant="outline">Yenile</Button>
             <Button onClick={()=>setAuth(false)} variant="destructive">Çıkış</Button>
