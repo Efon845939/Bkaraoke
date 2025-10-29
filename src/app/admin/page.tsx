@@ -35,11 +35,17 @@ export default function AdminPanel() {
     await updateDoc(doc(db, "song_requests", id), { status });
     setRefresh(!refresh);
   }
+  
+  const handleLogin = () => {
+    if (input === ADMIN_PASS) {
+        setAuth(true);
+    }
+  }
 
   if (!auth) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-        <header className="absolute top-4 left-4 z-10">
+        <header className="absolute top-4 left-4 z-10 rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
             <Link href="/" passHref>
                <Logo />
             </Link>
@@ -57,12 +63,12 @@ export default function AdminPanel() {
               placeholder="Admin Şifresi"
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setAuth(input === ADMIN_PASS)}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             />
           </CardContent>
           <CardFooter>
             <Button
-              onClick={() => setAuth(input === ADMIN_PASS)}
+              onClick={handleLogin}
               className="w-full"
             >
               Giriş
