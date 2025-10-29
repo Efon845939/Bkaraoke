@@ -1,10 +1,10 @@
 
-export type Song = {
+export type SongRequest = {
   id: string;
-  title: string;
-  karaokeUrl: string;
-  requesterName: string; 
-  studentId: string; // Legacy field, always 'anonymous'
-  submissionDate: Date;
-  order: number;
+  firstName: string;
+  lastName: string;
+  songTitle: string;
+  songUrl: string;
+  status: 'pending' | 'approved' | 'rejected';
+  timestamp: any; // Firestore ServerTimestamp
 };
