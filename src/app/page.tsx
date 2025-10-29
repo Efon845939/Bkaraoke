@@ -1,3 +1,4 @@
+
 "use client";
 import { useState } from "react";
 import { addDoc, collection, serverTimestamp, waitForPendingWrites } from "firebase/firestore";
@@ -12,7 +13,6 @@ export default function Page() {
   const cap=(s:string)=>s.replace(/\b\w/g,c=>c.toUpperCase());
   const validate=()=>{
     if(!firstName.trim()||!lastName.trim()||!songTitle.trim()||!songUrl.trim()) return "Lütfen tüm alanları doldurun.";
-    if(songTitle.trim().length<2) return "Şarkı başlığı en az 2 karakter olmalı.";
     if(!/^https?:\/\//i.test(songUrl.trim())) return "Geçerli bir URL girin.";
     return null;
   };
