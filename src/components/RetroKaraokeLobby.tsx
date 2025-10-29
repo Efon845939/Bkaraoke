@@ -1,27 +1,17 @@
 "use client";
-import { useState } from "react";
-import { addDoc, collection, serverTimestamp, waitForPendingWrites, setLogLevel } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { useEffect, useState } from "react";
 import VHSStage from "./VHSStage";
 
-setLogLevel("debug"); // en üste bir kere
+type Song = { id: string; firstName: string; lastName: string; songTitle: string; songUrl: string; status: "pending"|"approved"|"rejected"; ts: number };
 
-// Tüm yakalanmamış promise hatalarını yaz
-if (typeof window !== "undefined") {
-  window.onunhandledrejection = (e: any) => {
-    const err: any = e?.reason || e;
-    // FirebaseError tüm alanları
-    const dump = Object.fromEntries(
-      Object.getOwnPropertyNames(err).map(k => [k, (err as any)[k]])
-    );
-    console.log("[UNHANDLED]", dump);
-  };
-}
+const KEY = "karaoke_offline_requests";
 
+function load(): Song[] { try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; } }
+function save(data: Song[]) { localStorage.setItem(KEY, JSON.stringify(data)); }
+function cap(s:string){ return s.trim().replace(/\b\w/g,c=>c.toUpperCase()); }
 
 export default function RetroKaraokeLobby({
   onAdminClick,
-  handleSubmit,
 }: {
   onAdminClick?: () => void;
   handleSubmit?: (data: {
@@ -31,63 +21,41 @@ export default function RetroKaraokeLobby({
     songUrl: string;
   }) => Promise<void> | void;
 }) {
+  const [items, setItems] = useState<Song[]>([]);
   const [firstName, setFirst] = useState("");
   const [lastName, setLast] = useState("");
   const [songTitle, setTitle] = useState("");
   const [songUrl, setUrl] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
-  const cap = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
-  const validate = () => {
-    if (!firstName.trim() || !lastName.trim() || !songTitle.trim() || !songUrl.trim())
-      return "Lütfen tüm alanları doldurun.";
-    if (!/^https?:\/\//i.test(songUrl.trim())) return "Geçerli bir URL girin (http/https).";
-    return null;
-  };
+  useEffect(()=>{ setItems(load()); },[]);
 
-  async function submit(e?: React.FormEvent) {
+  function submit(e?: React.FormEvent) {
     e?.preventDefault();
-    console.log("[KARAOKE] submit start", {
-      projectId: db.app.options.projectId
-    });
     setError(null);
-    const v = validate();
-    if (v) return setError(v);
-
-    setBusy(true);
-
-    try {
-       const payload = {
-        firstName: cap(firstName.trim()),
-        lastName: cap(lastName.trim()),
-        songTitle: cap(songTitle.trim()),
-        songUrl: songUrl.trim(),
-      };
-      
-      if (!handleSubmit) {
-        console.log("[KARAOKE] handleSubmit prop'u sağlanmamış. Doğrudan Firestore'a yazma deneniyor.");
-        await addDoc(collection(db, "song_requests"), {
-          ...payload,
-          status: "pending",
-          timestamp: serverTimestamp(),
-        });
-        await waitForPendingWrites(db);
-        console.log("[KARAOKE] Doğrudan yazma başarılı.");
-      } else {
-         await handleSubmit(payload);
-      }
-
-      setToast("🎶 Şarkı isteğiniz alınmıştır. Katılımınız için teşekkürler!");
-      setFirst(""); setLast(""); setTitle(""); setUrl("");
-      setTimeout(() => setToast(null), 2600);
-    } catch (e: any) {
-      console.error("[SUBMIT-ERROR] code=", e?.code, " message=", e?.message, " name=", e?.name, " stack=", e?.stack, " details=", e);
-      setError(`${e?.code || "error"}: ${e?.message || "Gönderim başarısız"}`);
-    } finally {
-      setBusy(false);
+    if (!firstName.trim() || !lastName.trim() || !songTitle.trim() || !/^https?:\/\//i.test(songUrl)) { 
+      setError("Lütfen tüm alanları doğru doldurun."); 
+      return; 
     }
+    
+    const newSong: Song = { 
+      id: crypto.randomUUID(), 
+      firstName: cap(firstName), 
+      lastName: cap(last), 
+      songTitle: cap(songTitle), 
+      songUrl: songUrl.trim(), 
+      status:"pending", 
+      ts: Date.now() 
+    };
+    
+    const nextItems = [newSong, ...items];
+    save(nextItems);
+    setItems(nextItems);
+
+    setToast("🎶 Şarkınız alındı (offline).");
+    setFirst(""); setLast(""); setTitle(""); setUrl("");
+    setTimeout(() => setToast(null), 2600);
   }
 
   return (
@@ -123,10 +91,10 @@ export default function RetroKaraokeLobby({
           <div className="flex flex-col gap-6">
             <Badge90s text="Bir Şarkı İste!" />
             <p className="text-sm text-white/80">
-              Favori karaoke parçanızı listeye ekleyin. İlk harfler otomatik büyük yapılır.
+              Favori karaoke parçanızı listeye ekleyin. İstekleriniz geçici olarak kaydedilecektir.
             </p>
 
-            {/* INPUTLAR: daha yuvarlak, dolgu yüksek, focus ring yumuşak */}
+            {/* INPUTLAR */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input
                 value={firstName}
@@ -162,13 +130,30 @@ export default function RetroKaraokeLobby({
             )}
 
             <div className="flex justify-end">
-              <button type="submit" disabled={busy} className="retro-btn-soft vhs-interact">
-                {busy ? "Gönderiliyor..." : "Gönder"}
+              <button type="submit" className="retro-btn-soft vhs-interact">
+                Gönder
               </button>
             </div>
           </div>
         </form>
       </main>
+
+      {/* İSTEK LİSTESİ */}
+      {items.length > 0 && (
+        <section className="mx-auto w-[min(1100px,92%)] pb-24 -mt-8">
+            <div className="relative rounded-3xl border border-white/10 bg-white/10 backdrop-blur-lg p-6 sm:p-8 shadow-2xl">
+              <Badge90s text="Geçici İstek Listesi" />
+              <ul className="mt-6 space-y-3">
+                {items.map(it=>(
+                  <li key={it.id} className="border border-white/10 bg-white/5 backdrop-blur-sm p-3 rounded-xl flex justify-between items-center text-sm">
+                    <span className="truncate pr-4">{it.firstName} {it.lastName} — <strong>{it.songTitle}</strong></span>
+                    <a className="text-cyan-400 hover:underline flex-shrink-0" href={it.songUrl} target="_blank" rel="noopener noreferrer">Link</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+        </section>
+      )}
 
       {/* Toast */}
       {toast && (
@@ -185,7 +170,7 @@ export default function RetroKaraokeLobby({
           color: white;
           width: 100%;
           padding: 0.9rem 1rem;
-          border-radius: 16px;            /* daha yuvarlak */
+          border-radius: 16px;
           outline: none;
           transition: box-shadow .2s, border-color .2s, transform .05s;
         }
@@ -200,7 +185,7 @@ export default function RetroKaraokeLobby({
           background: linear-gradient(90deg, #d946ef, #6366f1);
           color: white;
           padding: 0.9rem 1.25rem;
-          border-radius: 16px;            /* buton da yumuşak */
+          border-radius: 16px;
           font-weight: 700;
           box-shadow: 0 8px 24px rgba(99,102,241,0.35);
           transition: transform .08s ease, box-shadow .2s ease, filter .2s;
@@ -216,7 +201,6 @@ export default function RetroKaraokeLobby({
   );
 }
 
-/* ——— yardımcı parçalar ——— */
 function LogoCassette() {
   return (
     <svg width="34" height="26" viewBox="0 0 48 34" fill="none" className="drop-shadow">
