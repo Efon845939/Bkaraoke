@@ -2,14 +2,13 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { SongSubmissionForm } from '@/components/song-submission-form';
-import type { Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, query, where, getDocs, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
+import { useRouter } from 'next/navigation';
 
 const SONG_REQUEST_LIMIT = 5;
 
@@ -17,24 +16,6 @@ export default function PublicPage() {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
-  const [songs, setSongs] = React.useState<Song[]>([]);
-  
-  React.useEffect(() => {
-    if (!firestore) return;
-    const songsCollection = collection(firestore, 'song_requests');
-    const q = query(songsCollection, orderBy('order', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const songList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        submissionDate: doc.data().submissionDate?.toDate()
-      } as Song));
-      setSongs(songList);
-    });
-
-    return () => unsubscribe();
-  }, [firestore]);
-
 
   const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
     if (!firestore) return;
@@ -54,9 +35,11 @@ export default function PublicPage() {
         });
         return;
       }
+      
+      const songDocs = await getDocs(collection(firestore, 'song_requests'));
+      const maxOrder = songDocs.docs.reduce((max, doc) => Math.max(doc.data().order, max), -1);
 
       const newId = uuidv4();
-      const maxOrder = songs.reduce((max, song) => Math.max(song.order, max), -1);
       
       await addDoc(collection(firestore, 'song_requests'), {
           id: newId,
