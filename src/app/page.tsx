@@ -5,9 +5,11 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import RetroKaraokeLobby from "@/components/RetroKaraokeLobby";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
   const router = useRouter();
+  const { toast } = useToast();
 
   async function handleSongSubmit(data: {
     firstName: string;
@@ -15,11 +17,17 @@ export default function Home() {
     songTitle: string;
     songUrl: string;
   }) {
-    await addDoc(collection(db, "song_requests"), {
-      ...data,
-      status: "pending",
-      timestamp: serverTimestamp(),
-    });
+    try {
+      await addDoc(collection(db, "song_requests"), {
+        ...data,
+        status: "pending",
+        timestamp: serverTimestamp(),
+      });
+    } catch (e) {
+      console.error("Error adding document: ", e);
+      // Bu hatayı yukarıdaki bileşene iletiyoruz ki 'busy' durumu sıfırlansın.
+      throw new Error("Şarkı isteği gönderilirken bir sunucu hatası oluştu.");
+    }
   }
 
   function handleAdminClick() {
