@@ -7,19 +7,12 @@ import { db } from "@/lib/firebase";
 import { Home } from "lucide-react";
 import Link from "next/link";
 
-export default function AdminPanel() {
-  const [auth, setAuth] = useState(false);
-  const [input, setInput] = useState("");
+function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefresh: () => void; }) {
   const [songs, setSongs] = useState<any[]>([]);
-  const [refresh, setRefresh] = useState(false);
-
-  const ADMIN_PASS = "90'sKaraoke";
 
   useEffect(() => {
-    if (auth) {
-      loadSongs();
-    }
-  }, [auth, refresh]);
+    loadSongs();
+  }, []);
 
   async function loadSongs() {
     const q = query(collection(db, "song_requests"), orderBy("timestamp", "desc"));
@@ -29,68 +22,13 @@ export default function AdminPanel() {
 
   async function updateStatus(id: string, status: "approved" | "rejected") {
     await updateDoc(doc(db, "song_requests", id), { status });
-    setRefresh(!refresh);
+    // Optimistic UI update
+    setSongs(songs.map(s => s.id === id ? { ...s, status } : s));
   }
   
-  const handleLogin = () => {
-    if (input === ADMIN_PASS) {
-        setAuth(true);
-    }
-  }
-
-  if (!auth) {
-    return (
-      <div className="min-h-screen relative overflow-hidden bg-black text-white">
-        <div className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-fuchsia-600/30 via-indigo-700/20 to-black"></div>
-        <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] [background:repeating-linear-gradient(0deg,rgba(255,255,255,.8)_0,rgba(255,255,255,.8)_1px,transparent_1px,transparent_3px)]"></div>
-        <MemphisConfetti />
-
-        <header className="mx-auto mt-6 w-[min(1100px,92%)]">
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-3 shadow-[0_0_40px_rgba(168,85,247,0.25)]">
-              <div className="flex items-center gap-3">
-                 <Link href="/" passHref className="flex items-center gap-3">
-                    <LogoCassette />
-                    <h1 className="font-[Lilita One] text-2xl sm:text-3xl tracking-wide">
-                      Karaoke <span className="text-fuchsia-400">Sırası</span>
-                    </h1>
-                 </Link>
-              </div>
-            </div>
-        </header>
-
-        <main className="flex flex-col items-center justify-center min-h-[80vh] px-4">
-            <div className="relative mx-auto w-full max-w-sm">
-                <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-lime-400 blur-2xl opacity-30" />
-                <div className="relative rounded-3xl border border-white/10 bg-white/10 backdrop-blur-lg p-6 sm:p-8 shadow-2xl">
-                    <Badge90s text="Yönetici Girişi" />
-                    <p className="mt-3 text-sm text-white/80">
-                      Lütfen yönetici paneline erişmek için parolayı girin.
-                    </p>
-                    <div className="mt-6 flex flex-col gap-3">
-                        <input
-                          type="password"
-                          placeholder="Admin Şifresi"
-                          value={input}
-                          onChange={e => setInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                          className="retro-input"
-                        />
-                    </div>
-                    <div className="mt-5 flex justify-end">
-                        <button
-                          onClick={handleLogin}
-                          className="retro-btn w-full"
-                        >
-                          Giriş
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </main>
-        
-        <StyleHelper />
-      </div>
-    );
+  const handleRefresh = () => {
+    loadSongs();
+    onRefresh();
   }
 
   return (
@@ -107,11 +45,11 @@ export default function AdminPanel() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={()=>setRefresh(!refresh)} className="retro-btn-secondary">Yenile</button>
-            <button onClick={()=>setAuth(false)} className="retro-btn-destructive">Çıkış</button>
+            <button onClick={handleRefresh} className="retro-btn-secondary">Yenile</button>
+            <button onClick={onLogout} className="retro-btn-destructive">Çıkış</button>
             <Link href="/" passHref>
-              <button className="retro-btn-secondary">
-                <Home className="mr-2 h-4 w-4 inline-block" /> Lobiye Dön
+              <button className="retro-btn-secondary flex items-center">
+                <Home className="mr-2 h-4 w-4" /> Lobiye Dön
               </button>
             </Link>
           </div>
@@ -148,6 +86,100 @@ export default function AdminPanel() {
       <StyleHelper />
     </div>
   );
+}
+
+
+function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const ADMIN_PASS = "90'sKaraoke";
+
+  async function handleLogin() {
+    setError("");
+    setLoading(true);
+    setTimeout(() => {
+      if (password === ADMIN_PASS) {
+        onLogin(password);
+      } else {
+        setError("Yanlış şifre. 90’lar havasını bozdun!");
+      }
+      setLoading(false);
+    }, 700);
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-black text-white relative overflow-hidden">
+      {/* Arka plan efekti */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(168,85,247,0.25),_transparent_70%)]" />
+      <div className="absolute inset-0 -z-20 opacity-5 [background:repeating-linear-gradient(0deg,rgba(255,255,255,0.6)_0,rgba(255,255,255,0.6)_1px,transparent_1px,transparent_3px)]"></div>
+
+      {/* Neon halo */}
+      <div className="absolute -inset-1 blur-3xl bg-gradient-to-r from-fuchsia-500/20 via-cyan-400/25 to-lime-400/20 -z-20" />
+
+      {/* Kart */}
+      <div className="relative rounded-[28px] border border-white/15 bg-white/10 backdrop-blur-lg p-8 sm:p-10 w-[min(400px,90%)] shadow-[0_0_60px_rgba(168,85,247,0.25)] text-center">
+        <div className="mb-4 flex justify-center">
+          <CassetteLogo />
+        </div>
+        <h1 className="font-[Lilita One] text-3xl mb-4 text-fuchsia-400 drop-shadow">
+          Yönetici Girişi
+        </h1>
+        <p className="text-sm text-white/80 mb-6">
+          Şifreyi gir ve 90’ların karaoke sahnesine geri dön.
+        </p>
+
+        <input
+          type="password"
+          placeholder="Şifre"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+          className="w-full p-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400 transition"
+        />
+
+        {error && (
+          <div className="mt-3 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl py-2">
+            {error}
+          </div>
+        )}
+
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className="mt-6 w-full py-3 rounded-2xl font-semibold bg-gradient-to-r from-fuchsia-500 to-indigo-500 hover:from-fuchsia-400 hover:to-indigo-400 transition shadow-[0_0_20px_rgba(217,70,239,0.4)]"
+        >
+          {loading ? "Giriş Yapılıyor..." : "Giriş"}
+        </button>
+         <Link href="/" passHref>
+              <button className="mt-4 w-full py-2 rounded-2xl font-semibold bg-black/20 border border-white/15 text-white hover:bg-white/10 transition">
+                Lobiye Dön
+              </button>
+            </Link>
+      </div>
+
+      {/* VHS scanline efekti */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.06] [background:repeating-linear-gradient(180deg,rgba(255,255,255,.6)_0,rgba(255,255,255,.6)_1px,transparent_1px,transparent_3px)]"></div>
+    </div>
+  );
+}
+
+
+export default function AdminPanel() {
+  const [auth, setAuth] = useState(false);
+  const [refresh, setRefresh] = useState(false);
+
+  const handleLogin = (pass: string) => {
+    if (pass === "90'sKaraoke") {
+        setAuth(true);
+    }
+  }
+
+  if (!auth) {
+    return <AdminLogin onLogin={handleLogin} />
+  }
+
+  return <AdminDashboard onLogout={() => setAuth(false)} onRefresh={() => setRefresh(!refresh)} />
 }
 
 
@@ -192,11 +224,11 @@ function StyleHelper() {
 }
 
 
-function LogoCassette() {
+function CassetteLogo() {
   return (
-    <svg width="34" height="26" viewBox="0 0 48 34" fill="none" className="drop-shadow">
-      <rect x="1" y="3" width="46" height="26" rx="4" fill="#111" stroke="white" strokeOpacity="0.25" />
-      <rect x="6" y="8" width="36" height="8" rx="2" fill="#A855F7" opacity="0.9" />
+    <svg width="48" height="32" viewBox="0 0 48 34" fill="none">
+      <rect x="1" y="3" width="46" height="26" rx="6" fill="#111" stroke="white" strokeOpacity="0.25" />
+      <rect x="6" y="8" width="36" height="8" rx="3" fill="#A855F7" opacity="0.9" />
       <circle cx="16" cy="22" r="3.2" fill="#22D3EE" />
       <circle cx="32" cy="22" r="3.2" fill="#22D3EE" />
     </svg>
@@ -232,3 +264,5 @@ function MemphisConfetti() {
     </svg>
   );
 }
+
+    
