@@ -6,14 +6,13 @@ import Link from 'next/link';
 import type { Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { collection, query, orderBy, onSnapshot, doc, writeBatch, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 
 import { PageHeader } from '@/components/page-header';
 import { SongQueue } from '@/components/song-queue';
-import { EditSongDialog } from '@/components/edit-song-dialog';
 import { SongSubmissionForm } from '@/components/song-submission-form';
 import { Button } from './ui/button';
-import { Trash, Home } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 
 
@@ -22,7 +21,6 @@ export function AdminDashboard() {
   const firestore = useFirestore();
   const [songs, setSongs] = React.useState<Song[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [editingSong, setEditingSong] = React.useState<Song | null>(null);
 
   React.useEffect(() => {
     if (!firestore) return;
@@ -61,10 +59,10 @@ export function AdminDashboard() {
           id: newId,
           title: newSong.title,
           karaokeUrl: newSong.url,
-          requesterName: newSong.name || 'Admin', // Admin eklerse adı 'Admin' olsun
+          requesterName: newSong.name || 'Admin',
           submissionDate: serverTimestamp(),
           order: maxOrder + 1,
-          studentId: 'anonymous', // Bu alan artık kullanılmıyor ama şemada var
+          studentId: 'anonymous', 
       });
 
       toast({
@@ -82,93 +80,6 @@ export function AdminDashboard() {
     }
   };
 
-  const handleReorder = async (reorderedSongs: Song[]) => {
-    if (!firestore) return;
-    setSongs(reorderedSongs); 
-    
-    try {
-      const batch = writeBatch(firestore);
-      reorderedSongs.forEach((song, index) => {
-        const songRef = doc(firestore, 'song_requests', song.id);
-        batch.update(songRef, { order: index });
-      });
-      await batch.commit();
-      toast({
-        title: 'Sıra Yeniden Düzenlendi',
-        description: 'Şarkı sırası başarıyla güncellendi.',
-      });
-    } catch (error) {
-      console.error("Error reordering songs:", error);
-      toast({
-        variant: "destructive",
-        title: "Hata!",
-        description: "Sıra güncellenirken bir sorun oluştu.",
-      });
-    }
-  };
-  
-  const handleSongUpdate = async (songId: string, updatedData: { title: string; url: string; }) => {
-    if (!firestore) return;
-    try {
-        const songRef = doc(firestore, 'song_requests', songId);
-        await updateDoc(songRef, { title: updatedData.title, karaokeUrl: updatedData.url });
-        setEditingSong(null);
-        toast({
-            title: 'Şarkı Güncellendi!',
-            description: `"${updatedData.title}" başarıyla güncellendi.`,
-        });
-    } catch (error) {
-        console.error("Error updating song:", error);
-        toast({
-            variant: "destructive",
-            title: "Hata!",
-            description: "Şarkı güncellenirken bir sorun oluştu.",
-        });
-    }
-  };
-  
-  const handleClearQueue = async () => {
-    if (!firestore || songs.length === 0) return;
-    if (!confirm("Emin misiniz? Bu işlem tüm şarkı sırasını kalıcı olarak silecektir.")) return;
-    try {
-        const batch = writeBatch(firestore);
-        songs.forEach(song => {
-            const songRef = doc(firestore, 'song_requests', song.id);
-            batch.delete(songRef);
-        });
-        await batch.commit();
-        toast({
-            title: 'Sıra Temizlendi!',
-            description: 'Tüm şarkı istekleri silindi.',
-        });
-    } catch(error) {
-        console.error("Error clearing queue:", error);
-        toast({
-            variant: "destructive",
-            title: "Hata!",
-            description: "Sıra temizlenirken bir sorun oluştu.",
-        });
-    }
-  };
-  
-  const handleSongDelete = async (songId: string) => {
-    if (!firestore) return;
-    try {
-        await deleteDoc(doc(firestore, 'song_requests', songId));
-        toast({
-            title: 'Şarkı Silindi',
-            description: 'Şarkı başarıyla sıradan kaldırıldı.',
-        });
-    } catch (error) {
-        console.error("Error deleting song:", error);
-        toast({
-            variant: "destructive",
-            title: "Hata!",
-            description: "Şarkı silinirken bir sorun oluştu.",
-        });
-    }
-  };
-
   return (
     <div className="container mx-auto max-w-5xl p-4 md:p-8">
       <header className="sticky top-4 z-10 mb-8 flex items-center justify-between rounded-lg border bg-card/80 p-4 shadow-md backdrop-blur-sm">
@@ -182,30 +93,12 @@ export function AdminDashboard() {
       </header>
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
-        <div className="flex justify-end">
-            <Button variant="destructive" onClick={handleClearQueue} disabled={!songs || songs.length === 0}>
-                <Trash className="mr-2 h-4 w-4" />
-                Sırayı Temizle
-            </Button>
-        </div>
         <SongQueue
           songs={songs || []}
           isLoading={isLoading}
-          onEditSong={setEditingSong}
-          onReorder={handleReorder}
-          onDeleteSong={handleSongDelete}
-          isAdmin={true}
+          isAdmin={false} // Admin yetkileri kısıtlandı
         />
       </main>
-      
-      {editingSong && (
-        <EditSongDialog
-          song={editingSong}
-          isOpen={!!editingSong}
-          onOpenChange={(isOpen) => !isOpen && setEditingSong(null)}
-          onSongUpdate={handleSongUpdate}
-        />
-      )}
     </div>
   );
 }

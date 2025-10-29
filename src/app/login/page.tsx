@@ -10,9 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { KeyRound } from 'lucide-react';
 
-// Bu parola normalde bir ortam değişkeninde saklanmalıdır.
-// Örnek olarak burada sabit kodlanmıştır.
-const ADMIN_PASSWORD = 'supersecretpassword';
+const ADMIN_PASSWORD = 'kara90ke';
 
 export default function LoginPage() {
   const router = useRouter();

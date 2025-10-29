@@ -3,25 +3,24 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { SongQueue } from '@/components/song-queue';
 import { SongSubmissionForm } from '@/components/song-submission-form';
 import type { Song } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
+
+const SONG_REQUEST_LIMIT = 5;
 
 export default function PublicPage() {
   const router = useRouter();
   const { toast } = useToast();
   const firestore = useFirestore();
   const [songs, setSongs] = React.useState<Song[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-
+  
   React.useEffect(() => {
     if (!firestore) return;
-    setIsLoading(true);
     const songsCollection = collection(firestore, 'song_requests');
     const q = query(songsCollection, orderBy('order', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -31,24 +30,31 @@ export default function PublicPage() {
         submissionDate: doc.data().submissionDate?.toDate()
       } as Song));
       setSongs(songList);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching songs:", error);
-      toast({
-        variant: "destructive",
-        title: "Hata!",
-        description: "Şarkı listesi yüklenemedi.",
-      });
-      setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, [firestore, toast]);
+  }, [firestore]);
 
 
   const handleSongAdd = async (newSong: { title: string; url: string; name: string }) => {
     if (!firestore) return;
+
     try {
+      const requesterSongsQuery = query(
+        collection(firestore, 'song_requests'),
+        where('requesterName', '==', newSong.name)
+      );
+      const querySnapshot = await getDocs(requesterSongsQuery);
+      
+      if (querySnapshot.size >= SONG_REQUEST_LIMIT) {
+        toast({
+          variant: "destructive",
+          title: "İstek Limiti Aşıldı!",
+          description: `Her kişi en fazla ${SONG_REQUEST_LIMIT} şarkı isteyebilir.`,
+        });
+        return;
+      }
+
       const newId = uuidv4();
       const maxOrder = songs.reduce((max, song) => Math.max(song.order, max), -1);
       
@@ -63,8 +69,7 @@ export default function PublicPage() {
       });
 
       toast({
-        title: 'İstek Gönderildi!',
-        description: `"${newSong.title}" sıraya eklendi.`,
+        title: 'Katılımınız için teşekkürler!',
         duration: 3000,
       });
     } catch (error) {
@@ -85,12 +90,6 @@ export default function PublicPage() {
       </header>
       <main className="space-y-8">
         <SongSubmissionForm onSongAdd={handleSongAdd} showNameInput={true} />
-        <SongQueue
-          songs={songs}
-          isLoading={isLoading}
-          onEditSong={() => {}}
-          isAdmin={false}
-        />
       </main>
     </div>
   );

@@ -70,7 +70,7 @@ type SongQueueProps = {
   songs: Song[];
   isLoading: boolean;
   isAdmin: boolean;
-  onEditSong: (song: Song) => void;
+  onEditSong?: (song: Song) => void;
   onReorder?: (songs: Song[]) => void;
   onDeleteSong?: (songId: string) => void;
 };
@@ -214,7 +214,7 @@ const SortableSongRow = ({
 }: {
   song: Song;
   isAdmin: boolean;
-  onEditSong: (song: Song) => void;
+  onEditSong?: (song: Song) => void;
   onDeleteSong?: (songId: string) => void;
   canDrag: boolean;
 }) => {
@@ -257,7 +257,7 @@ const SortableSongRow = ({
               <Youtube className="mr-2 h-4 w-4" />
               <span>Bağlantıyı Aç</span>
             </DropdownMenuItem>
-            {isAdmin && (
+            {isAdmin && onEditSong && onDeleteSong && (
               <>
                 <DropdownMenuItem onClick={() => onEditSong(song)}>
                   <Pencil className="mr-2 h-4 w-4" />

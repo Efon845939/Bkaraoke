@@ -26,7 +26,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+const capitalize = (s: string) => s.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
 
 const formSchema = z.object({
   name: z.string().min(2, "İsim en az 2 karakter olmalıdır.").transform(capitalize),
@@ -77,7 +77,7 @@ export function SongSubmissionForm({
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Adınız</FormLabel>
+                    <FormLabel>Adınız ve Soyadınız</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
