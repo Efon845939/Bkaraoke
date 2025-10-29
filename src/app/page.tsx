@@ -57,11 +57,11 @@ export default function Page() {
           <form onSubmit={submit} className="flex flex-col gap-4">
             <p className="text-sm text-white/80">Favori parçanı listeye ekle. İlk harfler otomatik büyütülür.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input className="retro-input-soft vhs-interact" placeholder="Ad" value={firstName} onChange={e=>setFirst(e.target.value)} />
-              <input className="retro-input-soft vhs-interact" placeholder="Soyad" value={lastName} onChange={e=>setLast(e.target.value)} />
+              <input className="retro-input-soft vhs-interact" placeholder="Ad (örn: Tarkan)" value={firstName} onChange={e=>setFirst(e.target.value)} />
+              <input className="retro-input-soft vhs-interact" placeholder="Soyad (örn: Tevetoğlu)" value={lastName} onChange={e=>setLast(e.target.value)} />
             </div>
-            <input className="retro-input-soft vhs-interact" placeholder="Şarkı Başlığı" value={songTitle} onChange={e=>setTitle(e.target.value)} />
-            <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL" value={songUrl} onChange={e=>setUrl(e.target.value)} />
+            <input className="retro-input-soft vhs-interact" placeholder="Şarkı Başlığı (örn: Kuzu Kuzu)" value={songTitle} onChange={e=>setTitle(e.target.value)} />
+            <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL (örn: https://youtube.com/...)" value={songUrl} onChange={e=>setUrl(e.target.value)} />
             {err && <div className="rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{err}</div>}
             <div className="flex justify-end">
               <button type="submit" disabled={busy} className="retro-btn-soft vhs-interact">{busy?"Gönderiliyor...":"Gönder"}</button>
