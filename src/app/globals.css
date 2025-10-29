@@ -87,20 +87,30 @@
   }
 }
 
+/* Retro input ve buton */
+.retro-input-soft {
+  @apply w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white
+         placeholder:text-white/50 outline-none transition;
+}
+.retro-input-soft:focus {
+  border-color: rgba(217,70,239,0.65);
+  box-shadow: 0 0 0 4px rgba(217,70,239,0.18), 0 0 32px rgba(59,130,246,0.25) inset;
+  transform: translateY(-1px);
+}
+.retro-btn-soft {
+  @apply inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-fuchsia-500 to-indigo-500
+         text-white font-bold px-5 py-3 shadow transition;
+}
+.retro-btn-soft:hover { transform: translateY(-1px); filter: saturate(1.1); }
+
+/* VHS etkileşim */
 @keyframes vhs-flick { 
-  0%,100% { filter: none; }
-  10% { filter: brightness(1.4) contrast(1.5) hue-rotate(8deg); }
-  30% { filter: brightness(0.9) contrast(1.2); }
-  60% { filter: brightness(1.2) contrast(1.7); }
+  0%,100% { filter: none; } 10% { filter: brightness(1.4) contrast(1.5) hue-rotate(8deg); }
+  30% { filter: brightness(0.9) contrast(1.2); } 60% { filter: brightness(1.2) contrast(1.7); }
 }
 .vhs-interact:focus, .vhs-interact:active { animation: vhs-flick .45s linear; }
 
-.vhs-interact:focus, 
-.vhs-interact:active {
-  animation: vhs-flicker 0.5s linear;
-  box-shadow: 0 0 12px rgba(217,70,239,0.6), 0 0 30px rgba(59,130,246,0.4);
-  outline: none;
-}
-.vhs-interact:focus-visible {
-  animation: vhs-flicker 0.5s linear;
+/* Arkaplan */
+body {
+  @apply bg-black text-white;
 }
