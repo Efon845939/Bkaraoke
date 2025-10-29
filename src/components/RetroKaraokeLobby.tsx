@@ -1,3 +1,4 @@
+
 "use client";
 import { useState } from "react";
 
@@ -30,11 +31,23 @@ export default function RetroKaraokeLobby({
     return null;
   };
 
-  async function submit() {
+  async function submit(e?: React.FormEvent) {
+    e?.preventDefault();
+
     setError(null);
     const v = validate();
     if (v) return setError(v);
+
     setBusy(true);
+
+    const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+      Promise.race([
+        p,
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error("İstek zaman aşımına uğradı (10s).")), ms)
+        ),
+      ]);
+
     try {
       const payload = {
         firstName: cap(firstName.trim()),
@@ -42,12 +55,32 @@ export default function RetroKaraokeLobby({
         songTitle: cap(songTitle.trim()),
         songUrl: songUrl.trim(),
       };
-      await handleSubmit?.(payload);
+      
+      if (handleSubmit) {
+        await withTimeout(
+          Promise.resolve(handleSubmit(payload)),
+          10000
+        );
+      } else {
+        // Fallback in case handleSubmit is not provided
+        console.warn("No handleSubmit provided, using internal fallback.");
+        const { addDoc, collection, serverTimestamp } = await import("firebase/firestore");
+        const { db } = await import("@/lib/firebase");
+        await withTimeout(
+          addDoc(collection(db, "song_requests"), {
+            ...payload,
+            status: "pending",
+            timestamp: serverTimestamp(),
+          }),
+          10000
+        );
+      }
+
       setToast("🎶 Şarkı isteğiniz alınmıştır. Katılımınız için teşekkürler!");
       setFirst(""); setLast(""); setTitle(""); setUrl("");
       setTimeout(() => setToast(null), 2600);
     } catch (e: any) {
-      setError(e?.message || "Gönderim sırasında bir hata oluştu.");
+      setError(e?.message || "Gönderim başarısız.");
     } finally {
       setBusy(false);
     }
@@ -78,7 +111,7 @@ export default function RetroKaraokeLobby({
 
       {/* ORTALAMA + TAM EKRAN PANEL */}
       <main className="w-full min-h-[calc(100vh-96px)] grid place-items-center py-8">
-        <div className="relative w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10 shadow-[0_40px_120px_rgba(168,85,247,0.25)]">
+        <form onSubmit={submit} className="relative w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10 shadow-[0_40px_120px_rgba(168,85,247,0.25)]">
           {/* Neon halo */}
           <div className="pointer-events-none absolute -inset-1 rounded-[32px] bg-gradient-to-r from-fuchsia-500/30 via-cyan-400/30 to-lime-400/30 blur-2xl -z-10" />
 
@@ -124,12 +157,12 @@ export default function RetroKaraokeLobby({
             )}
 
             <div className="flex justify-end">
-              <button onClick={submit} disabled={busy} className="retro-btn-soft">
+              <button type="submit" disabled={busy} className="retro-btn-soft">
                 {busy ? "Gönderiliyor..." : "Gönder"}
               </button>
             </div>
           </div>
-        </div>
+        </form>
       </main>
 
       {/* Toast */}

@@ -95,7 +95,8 @@ function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
   const [loading, setLoading] = useState(false);
   const ADMIN_PASS = "90'sKaraoke";
 
-  async function handleLogin() {
+  async function handleLogin(e?: React.FormEvent) {
+    e?.preventDefault();
     setError("");
     setLoading(true);
     setTimeout(() => {
@@ -129,33 +130,34 @@ function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
           Şifreyi gir ve 90’ların karaoke sahnesine geri dön.
         </p>
 
-        <input
-          type="password"
-          placeholder="Şifre"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-          className="w-full p-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400 transition"
-        />
+        <form onSubmit={handleLogin}>
+          <input
+            type="password"
+            placeholder="Şifre"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="w-full p-3 rounded-2xl bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400 transition"
+          />
 
-        {error && (
-          <div className="mt-3 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl py-2">
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="mt-3 text-sm text-red-300 bg-red-500/10 border border-red-400/30 rounded-xl py-2">
+              {error}
+            </div>
+          )}
 
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="mt-6 w-full py-3 rounded-2xl font-semibold bg-gradient-to-r from-fuchsia-500 to-indigo-500 hover:from-fuchsia-400 hover:to-indigo-400 transition shadow-[0_0_20px_rgba(217,70,239,0.4)]"
-        >
-          {loading ? "Giriş Yapılıyor..." : "Giriş"}
-        </button>
-         <Link href="/" passHref>
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-6 w-full py-3 rounded-2xl font-semibold bg-gradient-to-r from-fuchsia-500 to-indigo-500 hover:from-fuchsia-400 hover:to-indigo-400 transition shadow-[0_0_20px_rgba(217,70,239,0.4)]"
+          >
+            {loading ? "Giriş Yapılıyor..." : "Giriş"}
+          </button>
+           <Link href="/" passHref>
               <button className="mt-4 w-full py-2 rounded-2xl font-semibold bg-black/20 border border-white/15 text-white hover:bg-white/10 transition">
                 Lobiye Dön
               </button>
             </Link>
+        </form>
       </div>
 
       {/* VHS scanline efekti */}
@@ -264,5 +266,3 @@ function MemphisConfetti() {
     </svg>
   );
 }
-
-    
