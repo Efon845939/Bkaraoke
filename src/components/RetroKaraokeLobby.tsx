@@ -2,6 +2,7 @@
 "use client";
 import { useState } from "react";
 import { setLogLevel } from "firebase/firestore";
+import VHSStage from "./VHSStage";
 
 setLogLevel("debug"); // en üste bir kere
 
@@ -95,6 +96,7 @@ export default function RetroKaraokeLobby({
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden bg-black text-white">
+      <VHSStage intensity={0.10} sfxVolume={0.4} />
       {/* Arka plan */}
       <div className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_center,_rgba(168,85,247,0.25),_transparent_60%)]" />
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06] [background:repeating-linear-gradient(0deg,rgba(255,255,255,.7)_0,rgba(255,255,255,.7)_1px,transparent_1px,transparent_3px)]" />

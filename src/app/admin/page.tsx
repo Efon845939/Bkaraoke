@@ -6,6 +6,7 @@ import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/fi
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { Home } from "lucide-react";
+import VHSStage from "@/components/VHSStage";
 
 function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefresh: () => void; }) {
   const [songs, setSongs] = useState<any[]>([]);
@@ -33,6 +34,7 @@ function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefre
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-black text-white">
+      <VHSStage intensity={0.10} sfxVolume={0.4} />
       <div className="absolute inset-0 -z-20 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-fuchsia-600/30 via-indigo-700/20 to-black"></div>
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08] [background:repeating-linear-gradient(0deg,rgba(255,255,255,.8)_0,rgba(255,255,255,.8)_1px,transparent_1px,transparent_3px)]"></div>
       <MemphisConfetti />
@@ -45,10 +47,10 @@ function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefre
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handleRefresh} className="retro-btn-secondary">Yenile</button>
-            <button onClick={onLogout} className="retro-btn-destructive">Çıkış</button>
+            <button onClick={handleRefresh} className="retro-btn-secondary vhs-interact">Yenile</button>
+            <button onClick={onLogout} className="retro-btn-destructive vhs-interact">Çıkış</button>
             <Link href="/" passHref>
-              <button className="retro-btn-secondary flex items-center">
+              <button className="retro-btn-secondary flex items-center vhs-interact">
                 <Home className="mr-2 h-4 w-4" /> Lobiye Dön
               </button>
             </Link>
@@ -111,6 +113,7 @@ function AdminLogin({ onLogin }: { onLogin: (pass: string) => void }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white relative overflow-hidden">
+      <VHSStage intensity={0.10} sfxVolume={0.4} />
       {/* Arka plan efekti */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_center,_rgba(168,85,247,0.25),_transparent_70%)]" />
       <div className="absolute inset-0 -z-20 opacity-5 [background:repeating-linear-gradient(0deg,rgba(255,255,255,0.6)_0,rgba(255,255,255,0.6)_1px,transparent_1px,transparent_3px)]"></div>
