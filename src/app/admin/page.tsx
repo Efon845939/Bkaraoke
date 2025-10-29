@@ -1,30 +1,51 @@
-
 'use client';
 
 import { useState, useEffect } from "react";
-import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { Home } from "lucide-react";
 import VHSStage from "@/components/VHSStage";
 
+// localStorage'dan veri okumak ve yazmak için yardımcı fonksiyonlar
+const KEY = "karaoke_offline_requests";
+type Song = { id: string; firstName: string; lastName: string; songTitle: string; songUrl: string; status: "pending" | "approved" | "rejected"; ts: number };
+
+function loadSongsFromLocalStorage(): Song[] {
+  try {
+    const stored = localStorage.getItem(KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch (e) {
+    console.error("Failed to load songs from localStorage", e);
+    return [];
+  }
+}
+
+function saveSongsToLocalStorage(songs: Song[]) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(songs));
+  } catch (e) {
+    console.error("Failed to save songs to localStorage", e);
+  }
+}
+
+
 function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefresh: () => void; }) {
-  const [songs, setSongs] = useState<any[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
 
   useEffect(() => {
     loadSongs();
   }, []);
-
-  async function loadSongs() {
-    const q = query(collection(db, "song_requests"), orderBy("timestamp", "desc"));
-    const snap = await getDocs(q);
-    setSongs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  
+  function loadSongs() {
+      const loadedSongs = loadSongsFromLocalStorage();
+      // Tarihe göre sırala (en yeni en üstte)
+      setSongs(loadedSongs.sort((a, b) => b.ts - a.ts));
   }
 
-  async function updateStatus(id: string, status: "approved" | "rejected") {
-    await updateDoc(doc(db, "song_requests", id), { status });
-    // Optimistic UI update
-    setSongs(songs.map(s => s.id === id ? { ...s, status } : s));
+
+  function updateStatus(id: string, status: "approved" | "rejected") {
+    const updatedSongs = songs.map(s => s.id === id ? { ...s, status } : s);
+    setSongs(updatedSongs);
+    saveSongsToLocalStorage(updatedSongs);
   }
   
   const handleRefresh = () => {
@@ -62,7 +83,7 @@ function AdminDashboard({ onLogout, onRefresh }: { onLogout: () => void; onRefre
         <div className="relative mx-auto w-full">
            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-fuchsia-500 via-cyan-400 to-lime-400 blur-2xl opacity-30" />
            <div className="relative rounded-3xl border border-white/10 bg-white/10 backdrop-blur-lg p-6 sm:p-8 shadow-2xl">
-              <Badge90s text="Şarkı İstekleri" />
+              <Badge90s text="Şarkı İstekleri (Offline)" />
               <div className="mt-6 grid gap-4">
               {songs.map(s => (
                 <div key={s.id} className="border border-white/10 bg-white/5 backdrop-blur-sm p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
