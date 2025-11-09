@@ -99,7 +99,7 @@ export default function Page() {
         <div className="relative w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10 shadow-[0_40px_120px_rgba(168,85,247,0.25)]">
           <div className="pointer-events-none absolute -inset-1 rounded-[32px] bg-gradient-to-r from-fuchsia-500/30 via-cyan-400/30 to-lime-400/30 blur-2xl -z-10" />
           <form onSubmit={submit} className="flex flex-col gap-4">
-            <p className="text-sm text-white/80">Favori parçanı listeye ekle. İlk harfler otomatik büyütülür.</p>
+            <p className="text-sm text-white/80">Favori parçanı listeye ekle. İstekleriniz yerel olarak (çevrimdışı) kaydedilir.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input className="retro-input-soft vhs-interact" placeholder="Ad (örn: Tarkan)" value={firstName} onChange={e=>setFirst(e.target.value)} />
               <input className="retro-input-soft vhs-interact" placeholder="Soyad (örn: Tevetoğlu)" value={lastName} onChange={e=>setLast(e.target.value)} />
