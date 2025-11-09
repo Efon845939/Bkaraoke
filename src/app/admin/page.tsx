@@ -1,7 +1,6 @@
-
 "use client";
 import { useEffect, useState } from "react";
-import { collection, getDocs, updateDoc, doc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import VHSStage from "@/components/VHSStage";
 import Link from "next/link";

@@ -1,4 +1,3 @@
-
 "use client";
 import { useState } from "react";
 import { addDoc, collection, serverTimestamp, waitForPendingWrites } from "firebase/firestore";
@@ -6,9 +5,13 @@ import { db } from "@/lib/firebase";
 import VHSStage from "@/components/VHSStage";
 
 export default function Page() {
-  const [firstName,setFirst]=useState(""), [lastName,setLast]=useState("");
-  const [songTitle,setTitle]=useState(""), [songUrl,setUrl]=useState("");
-  const [busy,setBusy]=useState(false), [toast,setToast]=useState<string|null>(null), [err,setErr]=useState<string|null>(null);
+  const [firstName,setFirst]=useState("");
+  const [lastName,setLast]=useState("");
+  const [songTitle,setTitle]=useState("");
+  const [songUrl,setUrl]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [toast,setToast]=useState<string|null>(null);
+  const [err,setErr]=useState<string|null>(null);
 
   const cap=(s:string)=>s.replace(/\b\w/g,c=>c.toUpperCase());
   const validate=()=>{
@@ -35,7 +38,7 @@ export default function Page() {
       setFirst(""); setLast(""); setTitle(""); setUrl("");
       setTimeout(()=>setToast(null),2400);
     }catch(e:any){
-      console.error("[SUBMIT-ERROR] code=", e?.code, " message=", e?.message, e);
+      console.error("[SUBMIT-ERROR]", e);
       setErr(`${e?.code||"error"}: ${e?.message||"Gönderim başarısız."}`);
     }finally{ setBusy(false); }
   }
