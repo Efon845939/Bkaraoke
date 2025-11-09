@@ -2,7 +2,18 @@
 import { useEffect, useState, useCallback } from "react";
 import VHSStage from "@/components/VHSStage";
 import Link from "next/link";
-import { X, Edit } from "lucide-react";
+import { X, Edit, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 type Song = {
   id: string;
@@ -91,15 +102,16 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
   const [load, setLoad] = useState(false);
   const [visitedLinks, setVisitedLinks] = useState<Set<string>>(new Set());
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [deletingSong, setDeletingSong] = useState<Song | null>(null);
 
   const addLog = useCallback((action: string, details: string) => {
+    if (authLevel !== 'owner') return;
     const newLog: AuditLog = { id: crypto.randomUUID(), timestamp: Date.now(), user: authLevel, action, details };
     const currentLogs = loadFromStorage<AuditLog>(STORAGE_KEY_LOGS);
-    saveToStorage<AuditLog>(STORAGE_KEY_LOGS, [newLog, ...currentLogs]);
-    if(authLevel === 'owner') {
-      setLogs([newLog, ...currentLogs]);
-    }
-  }, [authLevel, logs]);
+    const updatedLogs = [newLog, ...currentLogs];
+    saveToStorage<AuditLog>(STORAGE_KEY_LOGS, updatedLogs);
+    setLogs(updatedLogs);
+  }, [authLevel]);
 
   const loadData = useCallback(() => {
     setLoad(true);
@@ -139,6 +151,14 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
     setEditingSong(null);
   };
 
+  const handleDeleteSong = (songToDelete: Song) => {
+    addLog(`Entry Deleted`, `${songToDelete.firstName}'s song "${songToDelete.songTitle}" was permanently deleted.`);
+    const updatedSongs = songs.filter((s) => s.id !== songToDelete.id);
+    saveToStorage(STORAGE_KEY_SONGS, updatedSongs);
+    setSongs(updatedSongs);
+    setDeletingSong(null);
+  };
+
 
   useEffect(() => {
     loadData();
@@ -173,7 +193,7 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
               <h2 className="text-xl font-bold mb-3 text-amber-300">Onay Bekleyenler ({pendingSongs.length})</h2>
               <div className="grid gap-2">
                 {pendingSongs.length > 0 ? (
-                  pendingSongs.map((s) => <SongRow key={s.id} s={s} onSetStatus={setStatus} onLinkClick={handleLinkClick} visited={visitedLinks.has(s.id)} onEdit={isOwner ? () => setEditingSong(s) : undefined}/>)
+                  pendingSongs.map((s) => <SongRow key={s.id} s={s} onSetStatus={setStatus} onLinkClick={handleLinkClick} visited={visitedLinks.has(s.id)} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
                 ) : (
                   <p className="text-white/70">Onay bekleyen istek yok.</p>
                 )}
@@ -184,7 +204,7 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
               <h2 className="text-xl font-bold mb-3 text-green-400">Onaylananlar ({approvedSongs.length})</h2>
               <div className="grid gap-2">
                 {approvedSongs.length > 0 ? (
-                  approvedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined}/>)
+                  approvedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
                 ) : (
                   <p className="text-white/70">Henüz onaylanan istek yok.</p>
                 )}
@@ -195,7 +215,7 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
               <h2 className="text-xl font-bold mb-3 text-red-400">Reddedilenler ({rejectedSongs.length})</h2>
               <div className="grid gap-2">
                 {rejectedSongs.length > 0 ? (
-                  rejectedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined}/>)
+                  rejectedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
                 ) : (
                   <p className="text-white/70">Henüz reddedilen istek yok.</p>
                 )}
@@ -220,12 +240,13 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
       </div>
       <VHSStage intensity={0.1} sfxVolume={0.35} />
       {editingSong && <EditSongModal song={editingSong} onSave={handleUpdateSong} onClose={() => setEditingSong(null)} />}
+      {deletingSong && <DeleteConfirmDialog song={deletingSong} onConfirm={() => handleDeleteSong(deletingSong)} onClose={() => setDeletingSong(null)} />}
     </div>
   );
 };
 
 // --- Row Components ---
-const SongRow = ({ s, onSetStatus, onLinkClick, visited, onEdit }: { s: Song; onSetStatus: (id: string, status: "approved" | "rejected") => void; onLinkClick: (id: string) => void; visited: boolean, onEdit?: () => void }) => (
+const SongRow = ({ s, onSetStatus, onLinkClick, visited, onEdit, onDelete }: { s: Song; onSetStatus: (id: string, status: "approved" | "rejected") => void; onLinkClick: (id: string) => void; visited: boolean, onEdit?: () => void, onDelete?: () => void }) => (
   <div className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-white/5 backdrop-blur">
     <div>
       <strong>{s.firstName} {s.lastName}</strong> — {s.songTitle}
@@ -235,13 +256,14 @@ const SongRow = ({ s, onSetStatus, onLinkClick, visited, onEdit }: { s: Song; on
     </div>
     <div className="flex gap-2 items-center">
       {onEdit && <button onClick={onEdit} className="p-2 text-white/60 hover:text-white"><Edit size={16} /></button>}
+      {onDelete && <button onClick={onDelete} className="p-2 text-red-400/60 hover:text-red-400"><Trash2 size={16} /></button>}
       <button onClick={() => onSetStatus(s.id, "approved")} disabled={!visited} className="rounded-xl px-3 py-2 bg-green-500/80 disabled:bg-gray-500/50 disabled:cursor-not-allowed" title={!visited ? "Önce linke tıklayın" : "Onayla"}>Onayla</button>
       <button onClick={() => onSetStatus(s.id, "rejected")} disabled={!visited} className="rounded-xl px-3 py-2 bg-red-500/80 disabled:bg-gray-500/50 disabled:cursor-not-allowed" title={!visited ? "Önce linke tıklayın" : "Reddet"}>Reddet</button>
     </div>
   </div>
 );
 
-const ReadOnlySongRow = ({ s, onEdit }: { s: Song; onEdit?: () => void; }) => (
+const ReadOnlySongRow = ({ s, onEdit, onDelete }: { s: Song; onEdit?: () => void; onDelete?: () => void; }) => (
   <div className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-black/20 backdrop-blur opacity-70">
     <div>
       <strong>{s.firstName} {s.lastName}</strong> — {s.songTitle}
@@ -249,6 +271,7 @@ const ReadOnlySongRow = ({ s, onEdit }: { s: Song; onEdit?: () => void; }) => (
     </div>
     <div className="flex items-center gap-2">
         {onEdit && <button onClick={onEdit} className="p-2 text-white/60 hover:text-white"><Edit size={16} /></button>}
+        {onDelete && <button onClick={onDelete} className="p-2 text-red-400/60 hover:text-red-400"><Trash2 size={16} /></button>}
         <div className={`text-sm font-bold ${s.status === "approved" ? "text-green-400" : "text-red-400"}`}>
             {s.status === "approved" ? "Onaylandı" : "Reddedildi"}
         </div>
@@ -266,7 +289,7 @@ const AuditLogRow = ({ log }: { log: AuditLog }) => (
   </div>
 );
 
-// --- Edit Modal ---
+// --- Modals ---
 const EditSongModal = ({ song, onSave, onClose }: { song: Song, onSave: (song: Song) => void, onClose: () => void }) => {
   const [formData, setFormData] = useState(song);
   
@@ -305,6 +328,26 @@ const EditSongModal = ({ song, onSave, onClose }: { song: Song, onSave: (song: S
     </div>
   )
 }
+
+const DeleteConfirmDialog = ({ song, onConfirm, onClose }: { song: Song, onConfirm: () => void, onClose: () => void }) => {
+  return (
+    <AlertDialog open onOpenChange={onClose}>
+      <AlertDialogContent className="bg-black border-red-500/50 text-white">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Silme Onayı</AlertDialogTitle>
+          <AlertDialogDescription>
+            <strong>{song.firstName} {song.lastName}</strong> adlı kullanıcının <strong>"{song.songTitle}"</strong> şarkı isteğini kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="border-white/20" onClick={onClose}>İptal</AlertDialogCancel>
+          <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={onConfirm}>Evet, Sil</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 
 // --- Main Page Component ---
 export default function AdminPage() {
