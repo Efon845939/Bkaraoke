@@ -1,31 +1,60 @@
 "use client";
 import { useEffect, useState } from "react";
-import { collection, getDocs, updateDoc, doc, query, orderBy, deleteDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import VHSStage from "@/components/VHSStage";
 import Link from "next/link";
+
+type Song = { 
+  id: string; 
+  firstName: string; 
+  lastName: string; 
+  songTitle: string; 
+  songUrl: string; 
+  status: "pending"|"approved"|"rejected"; 
+  timestamp: number 
+};
+
+const STORAGE_KEY = "karaoke_requests_offline";
+
+function loadSongsFromStorage(): Song[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveSongsToStorage(data: Song[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
 
 const ADMIN_PASS = "kara90ke";
 
 export default function AdminPage() {
   const [auth,setAuth]=useState(false);
   const [pw,setPw]=useState("");
-  const [rows,setRows]=useState<any[]>([]);
+  const [rows,setRows]=useState<Song[]>([]);
   const [load,setLoad]=useState(false);
-  const [err,setErr]=useState<string|null>(null);
 
-  async function loadSongs(){
-    setLoad(true); setErr(null);
-    try {
-      const snap = await getDocs(query(collection(db,"song_requests"), orderBy("timestamp","desc")));
-      setRows(snap.docs.map(d=>({ id:d.id, ...d.data() })));
-    } catch(e:any) {
-      console.error(e); setErr(e?.message||"Yükleme hatası");
-    } finally { setLoad(false); }
+  function loadSongs(){
+    setLoad(true);
+    const songs = loadSongsFromStorage();
+    // Sort by timestamp descending
+    songs.sort((a, b) => b.timestamp - a.timestamp);
+    setRows(songs);
+    setLoad(false);
   }
-  async function setStatus(id:string,status:"approved"|"rejected"){
-    await updateDoc(doc(db,"song_requests",id),{ status });
-    loadSongs();
+
+  function setStatus(id:string, status:"approved"|"rejected"){
+    const updatedRows = rows.map(row => {
+      if (row.id === id) {
+        return { ...row, status: status };
+      }
+      return row;
+    });
+    saveSongsToStorage(updatedRows);
+    setRows(updatedRows);
   }
 
   useEffect(()=>{ if(auth) loadSongs(); },[auth]);
@@ -51,14 +80,12 @@ export default function AdminPage() {
     <div className="min-h-screen p-6 relative">
       <div className="mx-auto w-[min(1100px,92%)]">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-black">Tüm İstekler</h1>
+          <h1 className="text-2xl font-black">Tüm İstekler (Çevrimdışı)</h1>
           <div className="flex gap-2">
             <button onClick={loadSongs} className="retro-btn-soft vhs-interact">{load?"Yükleniyor…":"Yenile"}</button>
             <button onClick={()=>setAuth(false)} className="rounded-2xl px-4 py-3 border border-white/20">Çıkış</button>
           </div>
         </div>
-
-        {err && <div className="rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 mb-3">{err}</div>}
 
         <div className="grid gap-2">
           {rows.map((s:any)=>(
