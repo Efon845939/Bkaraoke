@@ -14,14 +14,20 @@ if (typeof window !== "undefined") {
   // @ts-ignore
   self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
   
-  try {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!),
-      isTokenAutoRefreshEnabled: true,
-    });
-    console.log("App Check initialized");
-  } catch (e) {
-    console.error("Failed to initialize App Check", e);
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
+  if (siteKey) {
+    try {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+      console.log("App Check initialized successfully.");
+    } catch (e) {
+      console.error("Failed to initialize App Check", e);
+    }
+  } else {
+    console.warn("App Check not initialized: NEXT_PUBLIC_RECAPTCHA_SITE_KEY is not set.");
   }
 }
 
