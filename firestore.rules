@@ -1,34 +1,9 @@
-/**
- * @fileoverview Firestore Security Rules for the Song Request application.
- *
- * Core Philosophy:
- * This ruleset is in prototyping mode, prioritizing developer velocity.  It focuses on broad accessibility
- * to enable rapid iteration.  As such, read and write access to song requests is open to all authenticated users.
- *
- * Data Structure:
- * All song requests are stored in the `/song_requests/{songRequestId}` collection.
- *
- * Key Security Decisions:
- * - No user-specific ownership: All authenticated users can read and write any song request.
- * - No schema validation: Data validation is deferred to the application layer for faster prototyping.
- */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Allows anyone to read and write song requests.
-     * @path /song_requests/{songRequestId}
-     * @allow (read, write) Any authenticated user can perform these operations.
-     * @deny (none) This rule allows all reads and writes.
-     * @principle Open access for prototyping.
-     */
-    match /song_requests/{songRequestId} {
-      allow read: if true;
-      allow list: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if true;
+    match /song_requests/{id} {
+      allow read, write: if true;
     }
   }
 }

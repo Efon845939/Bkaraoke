@@ -5,6 +5,16 @@ import { addDoc, collection, serverTimestamp, waitForPendingWrites } from "fireb
 import { db } from "@/lib/firebase";
 import VHSStage from "@/components/VHSStage";
 
+if (typeof window !== "undefined") {
+  window.onunhandledrejection = (e: any) => {
+    const err: any = e?.reason || e;
+    const dump = Object.fromEntries(
+      Object.getOwnPropertyNames(err).map(k => [k, (err as any)[k]])
+    );
+    console.log("[UNHANDLED]", dump);
+  };
+}
+
 export default function Page() {
   const [firstName,setFirst]=useState(""), [lastName,setLast]=useState("");
   const [songTitle,setTitle]=useState(""), [songUrl,setUrl]=useState("");
@@ -35,8 +45,8 @@ export default function Page() {
       setFirst(""); setLast(""); setTitle(""); setUrl("");
       setTimeout(()=>setToast(null),2400);
     }catch(e:any){
+      console.error("[SUBMIT-ERROR] code=", e?.code, " message=", e?.message, " name=", e?.name, e);
       setErr(`${e?.code||"error"}: ${e?.message||"Gönderim başarısız."}`);
-      console.error(e);
     }finally{ setBusy(false); }
   }
 
