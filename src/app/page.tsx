@@ -3,6 +3,7 @@ import { useState } from "react";
 import { addDoc, collection, serverTimestamp, waitForPendingWrites } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import VHSStage from "@/components/VHSStage";
+import Link from "next/link";
 
 export default function Page() {
   const [firstName,setFirst]=useState("");
@@ -49,7 +50,7 @@ export default function Page() {
       <header className="mx-auto mt-6 w-[min(1100px,92%)]">
         <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-3 shadow-[0_0_40px_rgba(168,85,247,0.25)]">
           <h1 className="text-2xl sm:text-3xl font-black"><span className="text-fuchsia-400">90’lar</span> Karaoke</h1>
-          <a href="/admin" className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow">Yönetici Paneli</a>
+          <Link href="/admin" className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow">Yönetici Paneli</Link>
         </div>
       </header>
 
