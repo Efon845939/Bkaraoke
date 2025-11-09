@@ -14,7 +14,7 @@ type Song = {
 };
 
 const STORAGE_KEY = "karaoke_requests_offline";
-const ADMIN_PASS = "gizli_kara90ke";
+const ADMIN_PASS = "kara90ke";
 
 function loadSongsFromStorage(): Song[] {
   if (typeof window === "undefined") return [];
