@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import VHSStage from "@/components/VHSStage";
@@ -99,7 +100,7 @@ const LoginScreen = ({ onAuth }: { onAuth: (level: "admin" | "owner") => void })
 const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onLogout: () => void }) => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [load, setLoad] = useState(false);
+  const [load, setLoad] = useState(true);
   const [visitedLinks, setVisitedLinks] = useState<Set<string>>(new Set());
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [deletingSong, setDeletingSong] = useState<Song | null>(null);
@@ -186,56 +187,57 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
           </div>
         </div>
         
-        {/* --- Sections --- */}
-        <div className={isOwner ? "grid grid-cols-1 lg:grid-cols-2 gap-8" : ""}>
-          <div>
-            <section>
-              <h2 className="text-xl font-bold mb-3 text-amber-300">Onay Bekleyenler ({pendingSongs.length})</h2>
-              <div className="grid gap-2">
-                {pendingSongs.length > 0 ? (
-                  pendingSongs.map((s) => <SongRow key={s.id} s={s} onSetStatus={setStatus} onLinkClick={handleLinkClick} visited={visitedLinks.has(s.id)} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
-                ) : (
-                  <p className="text-white/70">Onay bekleyen istek yok.</p>
-                )}
-              </div>
-            </section>
-
-            <section className="mt-8">
-              <h2 className="text-xl font-bold mb-3 text-green-400">Onaylananlar ({approvedSongs.length})</h2>
-              <div className="grid gap-2">
-                {approvedSongs.length > 0 ? (
-                  approvedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
-                ) : (
-                  <p className="text-white/70">Henüz onaylanan istek yok.</p>
-                )}
-              </div>
-            </section>
-
-            <section className="mt-8">
-              <h2 className="text-xl font-bold mb-3 text-red-400">Reddedilenler ({rejectedSongs.length})</h2>
-              <div className="grid gap-2">
-                {rejectedSongs.length > 0 ? (
-                  rejectedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
-                ) : (
-                  <p className="text-white/70">Henüz reddedilen istek yok.</p>
-                )}
-              </div>
-            </section>
+        {load ? <p>Yükleniyor...</p> : (
+            <div className={isOwner ? "grid grid-cols-1 lg:grid-cols-2 gap-8" : ""}>
+            <div>
+              <section>
+                <h2 className="text-xl font-bold mb-3 text-amber-300">Onay Bekleyenler ({pendingSongs.length})</h2>
+                <div className="grid gap-2">
+                  {pendingSongs.length > 0 ? (
+                    pendingSongs.map((s) => <SongRow key={s.id} s={s} onSetStatus={setStatus} onLinkClick={handleLinkClick} visited={visitedLinks.has(s.id)} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
+                  ) : (
+                    <p className="text-white/70">Onay bekleyen istek yok.</p>
+                  )}
+                </div>
+              </section>
+  
+              <section className="mt-8">
+                <h2 className="text-xl font-bold mb-3 text-green-400">Onaylananlar ({approvedSongs.length})</h2>
+                <div className="grid gap-2">
+                  {approvedSongs.length > 0 ? (
+                    approvedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
+                  ) : (
+                    <p className="text-white/70">Henüz onaylanan istek yok.</p>
+                  )}
+                </div>
+              </section>
+  
+              <section className="mt-8">
+                <h2 className="text-xl font-bold mb-3 text-red-400">Reddedilenler ({rejectedSongs.length})</h2>
+                <div className="grid gap-2">
+                  {rejectedSongs.length > 0 ? (
+                    rejectedSongs.map((s) => <ReadOnlySongRow key={s.id} s={s} onEdit={isOwner ? () => setEditingSong(s) : undefined} onDelete={isOwner ? () => setDeletingSong(s) : undefined} />)
+                  ) : (
+                    <p className="text-white/70">Henüz reddedilen istek yok.</p>
+                  )}
+                </div>
+              </section>
+            </div>
+            
+            {isOwner && (
+              <section>
+                <h2 className="text-xl font-bold mb-3 text-cyan-300">Denetim Kayıtları (Audit Logs)</h2>
+                <div className="grid gap-2 max-h-[80vh] overflow-y-auto pr-2">
+                  {logs.length > 0 ? (
+                    logs.map((log) => <AuditLogRow key={log.id} log={log} />)
+                  ) : (
+                    <p className="text-white/70">Henüz denetim kaydı yok.</p>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
-          
-          {isOwner && (
-            <section>
-              <h2 className="text-xl font-bold mb-3 text-cyan-300">Denetim Kayıtları (Audit Logs)</h2>
-              <div className="grid gap-2 max-h-[80vh] overflow-y-auto pr-2">
-                {logs.length > 0 ? (
-                  logs.map((log) => <AuditLogRow key={log.id} log={log} />)
-                ) : (
-                  <p className="text-white/70">Henüz denetim kaydı yok.</p>
-                )}
-              </div>
-            </section>
-          )}
-        </div>
+        )}
 
       </div>
       <VHSStage intensity={0.1} sfxVolume={0.35} />
@@ -351,13 +353,22 @@ const DeleteConfirmDialog = ({ song, onConfirm, onClose }: { song: Song, onConfi
 
 // --- Main Page Component ---
 export default function AdminPage() {
-  const [authLevel, setAuthLevel] = useState<"none" | "admin" | "owner">("none");
+    const [authLevel, setAuthLevel] = useState<"none" | "admin" | "owner">("none");
+    const [isClient, setIsClient] = useState(false);
 
-  if (authLevel === "none") {
-    return <LoginScreen onAuth={setAuthLevel} />;
-  }
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
-  return <AdminPanel authLevel={authLevel} onLogout={() => setAuthLevel("none")} />;
+    if (!isClient) {
+        return null; // or a loading spinner
+    }
+
+    if (authLevel === "none") {
+        return <LoginScreen onAuth={setAuthLevel} />;
+    }
+
+    return <AdminPanel authLevel={authLevel} onLogout={() => setAuthLevel("none")} />;
 }
 
     
