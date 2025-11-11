@@ -38,6 +38,11 @@ export default function Page() {
   const [busy,setBusy]=useState(false);
   const [toast,setToast]=useState<string|null>(null);
   const [err,setErr]=useState<string|null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const cap=(s:string)=>s.trim().replace(/\b\w/g,c=>c.toUpperCase());
   const validate=()=>{
@@ -84,6 +89,10 @@ export default function Page() {
         setBusy(false); 
       }
     }, 500);
+  }
+
+  if (!isClient) {
+    return null;
   }
 
   return (
