@@ -1,3 +1,4 @@
+
 "use client";
 import { useEffect, useState } from "react";
 import VHSStage from "@/components/VHSStage";
@@ -92,7 +93,7 @@ export default function Page() {
   }
 
   if (!isClient) {
-    return null;
+    return <div className="min-h-screen bg-black" />;
   }
 
   return (
@@ -125,7 +126,9 @@ export default function Page() {
 
       {toast && <div className="fixed left-1/2 -translate-x-1/2 bottom-6 px-5 py-3 rounded-2xl bg-black/70 border border-white/12 shadow-[0_0_30px_rgba(168,85,247,0.45)]"><p className="font-semibold">{toast}</p></div>}
       
-      <VHSStage intensity={0.1} sfxVolume={0.4} />
+      {isClient && <VHSStage intensity={0.1} sfxVolume={0.4} />}
     </div>
   );
 }
+
+    

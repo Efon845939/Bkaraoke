@@ -90,7 +90,6 @@ const LoginScreen = ({ onAuth }: { onAuth: (level: "admin" | "owner") => void })
           <Link href="/" className="text-sm text-white/60 hover:text-white transition">Lobiye dön</Link>
         </div>
       </div>
-      <VHSStage intensity={0.1} sfxVolume={0.35} />
     </div>
   );
 };
@@ -240,7 +239,6 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
         )}
 
       </div>
-      <VHSStage intensity={0.1} sfxVolume={0.35} />
       {editingSong && <EditSongModal song={editingSong} onSave={handleUpdateSong} onClose={() => setEditingSong(null)} />}
       {deletingSong && <DeleteConfirmDialog song={deletingSong} onConfirm={() => handleDeleteSong(deletingSong)} onClose={() => setDeletingSong(null)} />}
     </div>
@@ -361,14 +359,22 @@ export default function AdminPage() {
     }, []);
 
     if (!isClient) {
-        return null; // or a loading spinner
+        return <div className="min-h-screen bg-black" />;
     }
 
-    if (authLevel === "none") {
+    const MainContent = () => {
+      if (authLevel === "none") {
         return <LoginScreen onAuth={setAuthLevel} />;
+      }
+      return <AdminPanel authLevel={authLevel} onLogout={() => setAuthLevel("none")} />;
     }
 
-    return <AdminPanel authLevel={authLevel} onLogout={() => setAuthLevel("none")} />;
+    return (
+      <>
+        <MainContent />
+        {isClient && <VHSStage intensity={0.1} sfxVolume={0.35} />}
+      </>
+    );
 }
 
     
