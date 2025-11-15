@@ -39,11 +39,6 @@ export default function Page() {
   const [busy,setBusy]=useState(false);
   const [toast,setToast]=useState<string|null>(null);
   const [err,setErr]=useState<string|null>(null);
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const cap=(s:string)=>s.trim().replace(/\b\w/g,c=>c.toUpperCase());
   const validate=()=>{
@@ -92,10 +87,6 @@ export default function Page() {
     }, 500);
   }
 
-  if (!isClient) {
-    return <div className="min-h-screen bg-black" />;
-  }
-
   return (
     <div className="min-h-screen relative overflow-hidden">
       <header className="mx-auto mt-6 w-[min(1100px,92%)]">
@@ -126,9 +117,7 @@ export default function Page() {
 
       {toast && <div className="fixed left-1/2 -translate-x-1/2 bottom-6 px-5 py-3 rounded-2xl bg-black/70 border border-white/12 shadow-[0_0_30px_rgba(168,85,247,0.45)]"><p className="font-semibold">{toast}</p></div>}
       
-      {isClient && <VHSStage intensity={0.1} sfxVolume={0.4} />}
+      <VHSStage intensity={0.1} sfxVolume={0.4} />
     </div>
   );
 }
-
-    

@@ -352,15 +352,6 @@ const DeleteConfirmDialog = ({ song, onConfirm, onClose }: { song: Song, onConfi
 // --- Main Page Component ---
 export default function AdminPage() {
     const [authLevel, setAuthLevel] = useState<"none" | "admin" | "owner">("none");
-    const [isClient, setIsClient] = useState(false);
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    if (!isClient) {
-        return <div className="min-h-screen bg-black" />;
-    }
 
     const MainContent = () => {
       if (authLevel === "none") {
@@ -372,9 +363,7 @@ export default function AdminPage() {
     return (
       <>
         <MainContent />
-        {isClient && <VHSStage intensity={0.1} sfxVolume={0.35} />}
+        <VHSStage intensity={0.1} sfxVolume={0.35} />
       </>
     );
 }
-
-    
