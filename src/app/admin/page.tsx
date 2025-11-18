@@ -93,7 +93,7 @@ const AdminPanel = () => {
         )}
       </div>
 
-      <VHSStage intensity={0.1} sfxVolume={0.35} />
+      <VHSStage intensity={0.1} sfxVolume={0} />
     </div>
   );
 };
@@ -118,7 +118,9 @@ const ReadOnlySongRow = ({ s }: { s: Song; }) => (
   <div className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-black/20 backdrop-blur opacity-70">
     <div>
       <strong>{s.studentName}</strong> — {s.songTitle}
-      <div className="text-sm text-white/70">{s.karaokeLink}</div>
+      <a href={s.karaokeLink} target="_blank" rel="noopener noreferrer" className="block text-sm text-fuchsia-300 hover:underline">
+        {s.karaokeLink}
+      </a>
     </div>
     <div className="flex items-center gap-2">
         <div className={`text-sm font-bold ${s.status === "approved" ? "text-green-400" : "text-red-400"}`}>
