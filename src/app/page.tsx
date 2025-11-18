@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import VHSStage from "@/components/VHSStage";
 import Link from "next/link";
 import { Mic } from "lucide-react";
+import { useFirebase } from "@/firebase";
 
-export default function Page() {
+function KaraokePage() {
   const [firstName, setFirst] = useState("");
   const [lastName, setLast] = useState("");
   const [songTitle, setTitle] = useState("");
@@ -13,8 +14,8 @@ export default function Page() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
-
   const [isClient, setIsClient] = useState(false);
+
   useEffect(() => {
     setIsClient(true);
     loadLog();
@@ -63,7 +64,6 @@ export default function Page() {
 
     setBusy(true);
 
-    // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 750));
 
     try {
@@ -83,7 +83,6 @@ export default function Page() {
       
       addToLog(`İSTEK EKLENDİ: "${newSong.songTitle}" by ${newSong.firstName} ${newSong.lastName}`);
 
-      // Reset form
       setFirst("");
       setLast("");
       setTitle("");
@@ -136,4 +135,11 @@ export default function Page() {
       {isClient && <VHSStage intensity={0.1} sfxVolume={0.4} />}
     </div>
   );
+}
+
+
+export default function Page() {
+  return (
+    <KaraokePage />
+  )
 }
