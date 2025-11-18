@@ -1,14 +1,29 @@
 
 "use client";
 import { useMemo, useState } from "react";
-import VHSStage from "@/components/VHSStage";
-import Link from "next/link";
 import {
   useCollection,
   useFirebase,
   useMemoFirebase,
+  updateDocumentNonBlocking,
+  deleteDocumentNonBlocking,
 } from "@/firebase";
 import { collection, doc, updateDoc } from "firebase/firestore";
+import Link from "next/link";
+import { Edit, Trash2 } from "lucide-react";
+import VHSStage from "@/components/VHSStage";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 type Song = {
   id: string;
@@ -19,9 +34,13 @@ type Song = {
   createdAt: any;
 };
 
+type Role = "admin" | "owner";
+
 // --- Admin Panel Component ---
-const AdminPanel = () => {
+const AdminPanel = ({ role }: { role: Role }) => {
   const { firestore } = useFirebase();
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [deletingSong, setDeletingSong] = useState<Song | null>(null);
 
   const songRequestsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -30,15 +49,35 @@ const AdminPanel = () => {
 
   const { data: songs, isLoading } = useCollection<Song>(songRequestsQuery);
 
-  const setStatus = async (id: string, status: "approved" | "rejected") => {
+  const setStatus = (id: string, status: "approved" | "rejected") => {
     if (!firestore) return;
     const songRef = doc(firestore, "song_requests", id);
-    await updateDoc(songRef, { status });
+    updateDocumentNonBlocking(songRef, { status });
+  };
+
+  const handleDelete = () => {
+    if (!firestore || !deletingSong) return;
+    const songRef = doc(firestore, "song_requests", deletingSong.id);
+    deleteDocumentNonBlocking(songRef);
+    setDeletingSong(null);
+  };
+  
+  const handleEdit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!firestore || !editingSong) return;
+    const formData = new FormData(e.currentTarget);
+    const updatedSong = {
+        studentName: formData.get("studentName") as string,
+        songTitle: formData.get("songTitle") as string,
+        karaokeLink: formData.get("karaokeLink") as string,
+    };
+    const songRef = doc(firestore, "song_requests", editingSong.id);
+    updateDocumentNonBlocking(songRef, updatedSong);
+    setEditingSong(null);
   };
 
   const sortedSongs = useMemo(() => {
     if (!songs) return [];
-    // Firestore timestamp objelerini Date objelerine çevirip sırala
     return [...songs].sort((a, b) => {
       const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
       const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
@@ -49,12 +88,13 @@ const AdminPanel = () => {
   const pendingSongs = sortedSongs.filter((s) => s.status === "pending");
   const approvedSongs = sortedSongs.filter((s) => s.status === "approved");
   const rejectedSongs = sortedSongs.filter((s) => s.status === "rejected");
+  const title = role === "owner" ? "Sahip Paneli" : "Yönetici Paneli";
 
   return (
     <div className="min-h-screen p-6 relative">
       <div className="mx-auto w-[min(1100px,92%)]">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-black">Yönetici Paneli</h1>
+          <h1 className="text-2xl font-black">{title}</h1>
           <Link
             href="/"
             className="rounded-2xl px-4 py-3 border border-white/20"
@@ -73,7 +113,14 @@ const AdminPanel = () => {
               </h2>
               <div className="grid gap-2">
                 {pendingSongs.map((s) => (
-                  <SongRow key={s.id} s={s} onSetStatus={setStatus} />
+                  <SongRow
+                    key={s.id}
+                    s={s}
+                    role={role}
+                    onSetStatus={setStatus}
+                    onEdit={() => setEditingSong(s)}
+                    onDelete={() => setDeletingSong(s)}
+                  />
                 ))}
               </div>
             </section>
@@ -84,7 +131,13 @@ const AdminPanel = () => {
               </h2>
               <div className="grid gap-2">
                 {approvedSongs.map((s) => (
-                  <ReadOnlySongRow key={s.id} s={s} />
+                  <ReadOnlySongRow
+                    key={s.id}
+                    s={s}
+                    role={role}
+                    onEdit={() => setEditingSong(s)}
+                    onDelete={() => setDeletingSong(s)}
+                  />
                 ))}
               </div>
             </section>
@@ -95,7 +148,13 @@ const AdminPanel = () => {
               </h2>
               <div className="grid gap-2">
                 {rejectedSongs.map((s) => (
-                  <ReadOnlySongRow key={s.id} s={s} />
+                  <ReadOnlySongRow
+                    key={s.id}
+                    s={s}
+                    role={role}
+                    onEdit={() => setEditingSong(s)}
+                    onDelete={() => setDeletingSong(s)}
+                  />
                 ))}
               </div>
             </section>
@@ -104,6 +163,43 @@ const AdminPanel = () => {
       </div>
 
       <VHSStage intensity={0.1} sfxVolume={0} />
+
+      {/* Edit Dialog */}
+      <AlertDialog open={!!editingSong} onOpenChange={(open) => !open && setEditingSong(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Şarkıyı Düzenle</AlertDialogTitle>
+            <AlertDialogDescription>Şarkı detaylarını güncelleyin.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <form onSubmit={handleEdit}>
+            <div className="flex flex-col gap-4 py-4">
+                <Input name="studentName" defaultValue={editingSong?.studentName} placeholder="İsim" />
+                <Input name="songTitle" defaultValue={editingSong?.songTitle} placeholder="Şarkı Başlığı" />
+                <Input name="karaokeLink" defaultValue={editingSong?.karaokeLink} placeholder="Karaoke Linki" />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction type="submit">Kaydet</AlertDialogAction>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={!!deletingSong} onOpenChange={(open) => !open && setDeletingSong(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Bu işlem geri alınamaz. "{deletingSong?.songTitle}" şarkısını listeden kalıcı olarak sileceksiniz.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>İptal</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Sil</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -111,10 +207,16 @@ const AdminPanel = () => {
 // --- Row Components ---
 const SongRow = ({
   s,
+  role,
   onSetStatus,
+  onEdit,
+  onDelete,
 }: {
   s: Song;
+  role: Role;
   onSetStatus: (id: string, status: "approved" | "rejected") => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) => (
   <div className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-white/5 backdrop-blur">
     <div>
@@ -141,11 +243,31 @@ const SongRow = ({
       >
         Reddet
       </button>
+      {role === "owner" && (
+        <>
+          <Button onClick={onEdit} size="icon" variant="ghost" className="h-8 w-8">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button onClick={onDelete} size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </>
+      )}
     </div>
   </div>
 );
 
-const ReadOnlySongRow = ({ s }: { s: Song }) => (
+const ReadOnlySongRow = ({
+  s,
+  role,
+  onEdit,
+  onDelete,
+}: {
+  s: Song;
+  role: Role;
+  onEdit: () => void;
+  onDelete: () => void;
+}) => (
   <div className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-black/20 backdrop-blur opacity-70">
     <div>
       <strong>{s.studentName}</strong> — {s.songTitle}
@@ -166,10 +288,19 @@ const ReadOnlySongRow = ({ s }: { s: Song }) => (
       >
         {s.status === "approved" ? "Onaylandı" : "Reddedildi"}
       </div>
+      {role === "owner" && (
+        <>
+          <Button onClick={onEdit} size="icon" variant="ghost" className="h-8 w-8">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button onClick={onDelete} size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </>
+      )}
     </div>
   </div>
 );
-
 
 // --- Login Form Component ---
 const LoginForm = ({ onLogin }: { onLogin: (password: string) => void }) => {
@@ -178,59 +309,68 @@ const LoginForm = ({ onLogin }: { onLogin: (password: string) => void }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === "owner") {
-      onLogin(password);
+    onLogin(password);
+  };
+
+  return (
+    <div className="min-h-screen grid place-items-center relative">
+      <div className="mx-auto w-[min(400px,90%)]">
+        <h1 className="text-2xl font-black mb-4">Erişim Paneli</h1>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError(null);
+            }}
+            placeholder="Parola"
+            className="retro-input-soft"
+          />
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button type="submit" className="retro-btn-soft">
+            Giriş Yap
+          </button>
+          <Link
+            href="/"
+            className="text-center text-sm text-neutral-400 hover:underline mt-2"
+          >
+            Lobiye Dön
+          </Link>
+        </form>
+      </div>
+      <VHSStage intensity={0.1} sfxVolume={0.35} />
+    </div>
+  );
+};
+
+// --- Main Page Component ---
+export default function AdminPage() {
+  const { firestore } = useFirebase();
+  const [role, setRole] = useState<Role | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  const handleLogin = (password: string) => {
+    if (password === "gizli_kara90ke") {
+      setRole("owner");
+      setError(null);
+    } else if (password === "kara90ke") {
+      setRole("admin");
+      setError(null);
     } else {
       setError("Yanlış parola.");
     }
   };
 
-  return (
-    <div className="min-h-screen grid place-items-center relative">
-        <div className="mx-auto w-[min(400px,90%)]">
-            <h1 className="text-2xl font-black mb-4">Yönetici Girişi</h1>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                <input 
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Parola"
-                    className="retro-input-soft"
-                />
-                {error && <p className="text-red-400 text-sm">{error}</p>}
-                <button type="submit" className="retro-btn-soft">Giriş Yap</button>
-                 <Link href="/" className="text-center text-sm text-neutral-400 hover:underline mt-2">
-                    Lobiye Dön
-                </Link>
-            </form>
-        </div>
-        <VHSStage intensity={0.1} sfxVolume={0.35} />
-    </div>
-  );
-};
-
-
-// --- Main Page Component ---
-export default function AdminPage() {
-  const { firestore } = useFirebase();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  
-  const handleLogin = (password: string) => {
-      // For now, we just check a hardcoded password.
-      // In a real app, this would involve a proper auth system.
-      if (password === "owner") {
-          setIsAuthenticated(true);
-      }
-  };
-
-  // If firebase is not initialized, show a loading screen or nothing
   if (!firestore) {
     return <div className="min-h-screen bg-black" />;
   }
 
-  if (!isAuthenticated) {
+  if (!role) {
     return <LoginForm onLogin={handleLogin} />;
   }
-  
-  return <AdminPanel />;
+
+  return <AdminPanel role={role} />;
 }
+
+    
