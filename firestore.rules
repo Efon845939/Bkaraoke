@@ -9,6 +9,7 @@
  * - /students/{studentId}: Stores student profiles. Only the student themselves can read/write their own profile.
  * - /roles_admin/{adminId}: Documents in this collection indicate admin privileges.
  * - /song_requests/{songRequestId}: Stores song requests. Each document contains the studentId of the requester.
+ * - /audit_logs/{logId}: Stores a log of all actions. Write-only for users, read-only for admins.
  *
  * Key Security Decisions:
  * - Students can only manage their own profiles.
@@ -84,6 +85,26 @@ service cloud.firestore {
       allow update: if request.auth != null;
        // Allow delete if the user is the owner or an admin.
       allow delete: if isOwner() || isAdmin();
+    }
+
+    /**
+     * @description Secures audit logs. Allows any authenticated user to create (log an action).
+     * @path /audit_logs/{logId}
+     * @allow (create) Any authenticated user can write to the audit log.
+     * @deny (list) Only admins can list audit logs.
+     * @principle Write-only for general users, read-only for admins to ensure log integrity.
+     */
+    match /audit_logs/{logId} {
+      function isAdmin() {
+        return request.auth != null && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+      
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      // Allow any authenticated user to create a log entry.
+      allow create: if request.auth != null;
+      allow update: if false; // Logs are immutable.
+      allow delete: if false; // Logs cannot be deleted.
     }
   }
 }

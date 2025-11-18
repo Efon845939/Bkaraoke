@@ -88,6 +88,42 @@
         "name",
         "email"
       ]
+    },
+    "AuditLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AuditLog",
+      "type": "object",
+      "description": "Represents a log of an action taken by an admin or owner.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the audit log entry."
+        },
+        "action": {
+          "type": "string",
+          "description": "The action that was performed (e.g., 'created', 'approved', 'deleted')."
+        },
+        "songTitle": {
+          "type": "string",
+          "description": "The title of the song the action was performed on."
+        },
+        "performedBy": {
+          "type": "string",
+          "description": "The role of the user who performed the action ('admin' or 'owner')."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of when the action was performed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "songTitle",
+        "performedBy",
+        "timestamp"
+      ]
     }
   },
   "auth": {
@@ -142,6 +178,22 @@
             {
               "name": "songRequestId",
               "description": "The unique identifier of the song request."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/audit_logs/{logId}",
+        "definition": {
+          "entityName": "AuditLog",
+          "schema": {
+            "$ref": "#/backend/entities/AuditLog"
+          },
+          "description": "Stores a log of all actions performed on song requests by admins or owners.",
+          "params": [
+            {
+              "name": "logId",
+              "description": "The unique identifier of the audit log entry."
             }
           ]
         }

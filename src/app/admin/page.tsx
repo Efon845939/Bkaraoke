@@ -8,7 +8,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from "@/firebase";
-import { collection, doc, updateDoc } from "firebase/firestore";
+import { collection, doc, addDoc, serverTimestamp } from "firebase/firestore";
 import Link from "next/link";
 import { Edit, Trash2 } from "lucide-react";
 import VHSStage from "@/components/VHSStage";
@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatDistanceToNow } from 'date-fns';
+import { tr } from 'date-fns/locale';
 
 type Song = {
   id: string;
@@ -33,6 +36,14 @@ type Song = {
   status: "pending" | "approved" | "rejected";
   createdAt: any;
 };
+
+type AuditLog = {
+  id: string;
+  action: string;
+  songTitle: string;
+  performedBy: Role;
+  timestamp: any;
+}
 
 type Role = "admin" | "owner";
 
@@ -47,18 +58,37 @@ const AdminPanel = ({ role }: { role: Role }) => {
     return collection(firestore, "song_requests");
   }, [firestore]);
 
-  const { data: songs, isLoading } = useCollection<Song>(songRequestsQuery);
+  const auditLogsQuery = useMemoFirebase(() => {
+    if (!firestore || role !== 'owner') return null;
+    return collection(firestore, "audit_logs");
+  }, [firestore, role]);
 
-  const setStatus = (id: string, status: "approved" | "rejected") => {
+  const { data: songs, isLoading: songsLoading } = useCollection<Song>(songRequestsQuery);
+  const { data: auditLogs, isLoading: logsLoading } = useCollection<AuditLog>(auditLogsQuery);
+
+  const logAction = (action: string, songTitle: string) => {
     if (!firestore) return;
-    const songRef = doc(firestore, "song_requests", id);
+    const logsCollection = collection(firestore, "audit_logs");
+    addDoc(logsCollection, {
+      action,
+      songTitle,
+      performedBy: role,
+      timestamp: serverTimestamp(),
+    });
+  };
+
+  const setStatus = (song: Song, status: "approved" | "rejected") => {
+    if (!firestore) return;
+    const songRef = doc(firestore, "song_requests", song.id);
     updateDocumentNonBlocking(songRef, { status });
+    logAction(`Durum "${status}" olarak değiştirildi`, song.songTitle);
   };
 
   const handleDelete = () => {
     if (!firestore || !deletingSong) return;
     const songRef = doc(firestore, "song_requests", deletingSong.id);
     deleteDocumentNonBlocking(songRef);
+    logAction('Silindi', deletingSong.songTitle);
     setDeletingSong(null);
   };
   
@@ -73,6 +103,7 @@ const AdminPanel = ({ role }: { role: Role }) => {
     };
     const songRef = doc(firestore, "song_requests", editingSong.id);
     updateDocumentNonBlocking(songRef, updatedSong);
+    logAction('Düzenlendi', editingSong.songTitle);
     setEditingSong(null);
   };
 
@@ -85,10 +116,20 @@ const AdminPanel = ({ role }: { role: Role }) => {
     });
   }, [songs]);
 
+  const sortedLogs = useMemo(() => {
+    if (!auditLogs) return [];
+    return [...auditLogs].sort((a, b) => {
+      const dateA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(0);
+      const dateB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(0);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [auditLogs]);
+
   const pendingSongs = sortedSongs.filter((s) => s.status === "pending");
   const approvedSongs = sortedSongs.filter((s) => s.status === "approved");
   const rejectedSongs = sortedSongs.filter((s) => s.status === "rejected");
   const title = role === "owner" ? "Sahip Paneli" : "Yönetici Paneli";
+  const isLoading = songsLoading || (role === 'owner' && logsLoading);
 
   return (
     <div className="min-h-screen p-6 relative">
@@ -106,59 +147,82 @@ const AdminPanel = ({ role }: { role: Role }) => {
         {isLoading && <p>Yükleniyor...</p>}
 
         {!isLoading && (
-          <div>
-            <section>
-              <h2 className="text-xl font-bold mb-3 text-neutral-300">
-                Onay Bekleyenler ({pendingSongs.length})
-              </h2>
-              <div className="grid gap-2">
-                {pendingSongs.map((s) => (
-                  <SongRow
-                    key={s.id}
-                    s={s}
-                    role={role}
-                    onSetStatus={setStatus}
-                    onEdit={() => setEditingSong(s)}
-                    onDelete={() => setDeletingSong(s)}
-                  />
-                ))}
-              </div>
-            </section>
+          <Tabs defaultValue="requests">
+            <TabsList>
+              <TabsTrigger value="requests">Şarkı İstekleri</TabsTrigger>
+              {role === 'owner' && <TabsTrigger value="audit">Denetim Kayıtları</TabsTrigger>}
+            </TabsList>
+            <TabsContent value="requests" className="mt-6">
+              <section>
+                <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                  Onay Bekleyenler ({pendingSongs.length})
+                </h2>
+                <div className="grid gap-2">
+                  {pendingSongs.map((s) => (
+                    <SongRow
+                      key={s.id}
+                      s={s}
+                      role={role}
+                      onSetStatus={setStatus}
+                      onEdit={() => setEditingSong(s)}
+                      onDelete={() => setDeletingSong(s)}
+                    />
+                  ))}
+                </div>
+              </section>
 
-            <section className="mt-8">
-              <h2 className="text-xl font-bold mb-3 text-neutral-400">
-                Onaylananlar ({approvedSongs.length})
-              </h2>
-              <div className="grid gap-2">
-                {approvedSongs.map((s) => (
-                  <ReadOnlySongRow
-                    key={s.id}
-                    s={s}
-                    role={role}
-                    onEdit={() => setEditingSong(s)}
-                    onDelete={() => setDeletingSong(s)}
-                  />
-                ))}
-              </div>
-            </section>
+              <section className="mt-8">
+                <h2 className="text-xl font-bold mb-3 text-neutral-400">
+                  Onaylananlar ({approvedSongs.length})
+                </h2>
+                <div className="grid gap-2">
+                  {approvedSongs.map((s) => (
+                    <ReadOnlySongRow
+                      key={s.id}
+                      s={s}
+                      role={role}
+                      onEdit={() => setEditingSong(s)}
+                      onDelete={() => setDeletingSong(s)}
+                    />
+                  ))}
+                </div>
+              </section>
 
-            <section className="mt-8">
-              <h2 className="text-xl font-bold mb-3 text-neutral-500">
-                Reddedilenler ({rejectedSongs.length})
-              </h2>
-              <div className="grid gap-2">
-                {rejectedSongs.map((s) => (
-                  <ReadOnlySongRow
-                    key={s.id}
-                    s={s}
-                    role={role}
-                    onEdit={() => setEditingSong(s)}
-                    onDelete={() => setDeletingSong(s)}
-                  />
-                ))}
-              </div>
-            </section>
-          </div>
+              <section className="mt-8">
+                <h2 className="text-xl font-bold mb-3 text-neutral-500">
+                  Reddedilenler ({rejectedSongs.length})
+                </h2>
+                <div className="grid gap-2">
+                  {rejectedSongs.map((s) => (
+                    <ReadOnlySongRow
+                      key={s.id}
+                      s={s}
+                      role={role}
+                      onEdit={() => setEditingSong(s)}
+                      onDelete={() => setDeletingSong(s)}
+                    />
+                  ))}
+                </div>
+              </section>
+            </TabsContent>
+            {role === 'owner' && (
+              <TabsContent value="audit" className="mt-6">
+                 <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                  Son Hareketler
+                </h2>
+                <div className="grid gap-2">
+                  {sortedLogs.map(log => (
+                    <div key={log.id} className="border border-white/15 rounded-2xl p-3 bg-white/5 backdrop-blur text-sm">
+                      <span className="font-bold text-fuchsia-300">{log.songTitle}</span> - <span className="text-neutral-300">{log.action}</span>
+                      <div className="text-xs text-neutral-400 mt-1">
+                        {log.performedBy === 'owner' ? 'Sahip' : 'Yönetici'} tarafından, {log.timestamp?.toDate ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: tr }) : 'az önce'}.
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            )}
+          </Tabs>
         )}
       </div>
 
@@ -214,7 +278,7 @@ const SongRow = ({
 }: {
   s: Song;
   role: Role;
-  onSetStatus: (id: string, status: "approved" | "rejected") => void;
+  onSetStatus: (song: Song, status: "approved" | "rejected") => void;
   onEdit: () => void;
   onDelete: () => void;
 }) => (
@@ -232,13 +296,13 @@ const SongRow = ({
     </div>
     <div className="flex gap-2 items-center">
       <button
-        onClick={() => onSetStatus(s.id, "approved")}
+        onClick={() => onSetStatus(s, "approved")}
         className="rounded-xl px-3 py-2 bg-green-500/20 text-green-300"
       >
         Onayla
       </button>
       <button
-        onClick={() => onSetStatus(s.id, "rejected")}
+        onClick={() => onSetStatus(s, "rejected")}
         className="rounded-xl px-3 py-2 bg-red-500/20 text-red-300"
       >
         Reddet
@@ -303,9 +367,8 @@ const ReadOnlySongRow = ({
 );
 
 // --- Login Form Component ---
-const LoginForm = ({ onLogin }: { onLogin: (password: string) => void }) => {
+const LoginForm = ({ onLogin, error }: { onLogin: (password: string) => void, error: string | null }) => {
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,10 +383,7 @@ const LoginForm = ({ onLogin }: { onLogin: (password: string) => void }) => {
           <input
             type="password"
             value={password}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              setError(null);
-            }}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="Parola"
             className="retro-input-soft"
           />
@@ -367,10 +427,8 @@ export default function AdminPage() {
   }
 
   if (!role) {
-    return <LoginForm onLogin={handleLogin} />;
+    return <LoginForm onLogin={handleLogin} error={error} />;
   }
 
   return <AdminPanel role={role} />;
 }
-
-    
