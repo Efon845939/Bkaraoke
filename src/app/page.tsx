@@ -99,10 +99,6 @@ export default function Page() {
     }
   }
 
-  if (!isClient) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen relative overflow-hidden">
       <header className="mx-auto mt-6 w-[min(1100px,92%)]">
@@ -116,12 +112,12 @@ export default function Page() {
       </header>
 
       <main className="w-full min-h-[calc(100vh-96px)] grid place-items-center py-8">
-        <div className="relative w-[min(600px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10">
+        <div className="relative mx-auto w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10">
           <form onSubmit={submit} className="flex flex-col gap-4">
             <p className="text-sm text-white/80">Favori parçanı listeye ekle. İstekler anında yönetici paneline düşer.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input className="retro-input-soft vhs-interact" placeholder="Öğrenci/Öğretmen Adı (örn: Tarkan)" value={firstName} onChange={e => setFirst(e.target.value)} />
-              <input className="retro-input-soft vhs-interact" placeholder="Öğrenci/Öğretmen Soyadı (örn: Tevetoğlu)" value={lastName} onChange={e => setLast(e.target.value)} />
+              <input className="retro-input-soft vhs-interact" placeholder="Öğrenci/Öğretmen Adı (örn: Gökçe Eyüboğlu)" value={firstName} onChange={e => setFirst(e.target.value)} />
+              <input className="retro-input-soft vhs-interact" placeholder="Öğrenci/Öğretmen Soyadı" value={lastName} onChange={e => setLast(e.target.value)} />
             </div>
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı Başlığı (örn: Kuzu Kuzu)" value={songTitle} onChange={e => setTitle(e.target.value)} />
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL (örn: https://youtube.com/...)" value={songUrl} onChange={e => setUrl(e.target.value)} />

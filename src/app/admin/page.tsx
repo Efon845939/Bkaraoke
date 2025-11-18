@@ -64,7 +64,7 @@ const LoginScreen = ({ onAuth }: { onAuth: (level: "admin" | "owner") => void })
           <Link href="/" className="text-sm text-white/60 hover:text-white transition">Lobiye dön</Link>
         </div>
       </div>
-      <VHSStage />
+      {isClient && <VHSStage />}
     </div>
   );
 };
@@ -137,6 +137,7 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
   };
 
   const handleDeleteSong = (songToDelete: Song) => {
+    if (!songToDelete) return;
     const updatedSongs = songs.filter(s => s.id !== songToDelete.id);
     const updatedLog = addToLog(`SİLİNDİ: "${songToDelete.songTitle}" by ${songToDelete.firstName} ${songToDelete.lastName}`, log);
     
@@ -200,7 +201,7 @@ const AdminPanel = ({ authLevel, onLogout }: { authLevel: "admin" | "owner", onL
 
       {editingSong && <EditSongModal song={editingSong} onSave={handleUpdateSong} onClose={() => setEditingSong(null)} />}
       {deletingSong && <DeleteConfirmDialog song={deletingSong} onConfirm={() => handleDeleteSong(deletingSong)} onClose={() => setDeletingSong(null)} />}
-      <VHSStage intensity={0.1} sfxVolume={0.35} />
+      {isClient && <VHSStage intensity={0.1} sfxVolume={0.35} />}
     </div>
   );
 };
@@ -297,13 +298,14 @@ const DeleteConfirmDialog = ({ song, onConfirm, onClose }: { song: Song, onConfi
 
 
 // --- Main Page Component ---
+// This ensures we only render the main content on the client, preventing hydration errors
+let isClient = false;
 export default function AdminPage() {
   const [authLevel, setAuthLevel] = useState<"none" | "admin" | "owner">("none");
 
-  // This ensures we only render the main content on the client, preventing hydration errors
-  const [isClient, setIsClient] = useState(false);
+  
   useEffect(() => {
-    setIsClient(true);
+    isClient = true;
     const storedAuth = sessionStorage.getItem("karaoke_auth");
     if (storedAuth === "owner" || storedAuth === "admin") {
       setAuthLevel(storedAuth);
