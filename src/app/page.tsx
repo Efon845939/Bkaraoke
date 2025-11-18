@@ -90,15 +90,15 @@ export default function Page() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       <header className="mx-auto mt-6 w-[min(1100px,92%)]">
-        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-3 shadow-[0_0_40px_rgba(168,85,247,0.25)]">
-          <h1 className="text-2xl sm:text-3xl font-black"><span className="text-fuchsia-400">90’lar</span> Karaoke</h1>
+        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-3 shadow-[0_0_40px_rgba(150,150,150,0.25)]">
+          <h1 className="text-2xl sm:text-3xl font-black"><span className="text-neutral-400">90’lar</span> Karaoke</h1>
           <Link href="/admin" className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow">Yönetici Paneli</Link>
         </div>
       </header>
 
       <main className="w-full min-h-[calc(100vh-96px)] grid place-items-center py-8">
-        <div className="relative w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10 shadow-[0_40px_120px_rgba(168,85,247,0.25)]">
-          <div className="pointer-events-none absolute -inset-1 rounded-[32px] bg-gradient-to-r from-fuchsia-500/30 via-cyan-400/30 to-lime-400/30 blur-2xl -z-10" />
+        <div className="relative w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10 shadow-[0_40px_120px_rgba(150,150,150,0.25)]">
+          <div className="pointer-events-none absolute -inset-1 rounded-[32px] bg-gradient-to-r from-neutral-500/30 via-neutral-400/30 to-neutral-300/30 blur-2xl -z-10" />
           <form onSubmit={submit} className="flex flex-col gap-4">
             <p className="text-sm text-white/80">Favori parçanı listeye ekle. İstekleriniz yerel olarak (çevrimdışı) kaydedilir.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -115,7 +115,7 @@ export default function Page() {
         </div>
       </main>
 
-      {toast && <div className="fixed left-1/2 -translate-x-1/2 bottom-6 px-5 py-3 rounded-2xl bg-black/70 border border-white/12 shadow-[0_0_30px_rgba(168,85,247,0.45)]"><p className="font-semibold">{toast}</p></div>}
+      {toast && <div className="fixed left-1/2 -translate-x-1/2 bottom-6 px-5 py-3 rounded-2xl bg-black/70 border border-white/12 shadow-[0_0_30px_rgba(150,150,150,0.45)]"><p className="font-semibold">{toast}</p></div>}
       
       <VHSStage intensity={0.1} sfxVolume={0.4} />
     </div>
