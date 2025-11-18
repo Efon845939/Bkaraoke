@@ -80,8 +80,8 @@ service cloud.firestore {
       allow list: if true;
       // Allow create if the user is authenticated and the studentId in the new document matches their UID.
       allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
-      // Allow update if the user is the owner or an admin.
-      allow update: if isOwner() || isAdmin();
+      // TEMPORARY: Allow any authenticated user to update (approve/reject) until a proper admin auth system is in place.
+      allow update: if request.auth != null;
        // Allow delete if the user is the owner or an admin.
       allow delete: if isOwner() || isAdmin();
     }
