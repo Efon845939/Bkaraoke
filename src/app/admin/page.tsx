@@ -1,6 +1,6 @@
 
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import VHSStage from "@/components/VHSStage";
 import Link from "next/link";
 import { X, Edit, Trash2 } from "lucide-react";
@@ -14,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useCollection, useFirebase } from "@/firebase";
+import { useCollection, useFirebase, useMemoFirebase } from "@/firebase";
 import { collection, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 
 type Song = {
@@ -30,7 +30,7 @@ type Song = {
 const AdminPanel = () => {
   const { firestore } = useFirebase();
 
-  const songRequestsQuery = useMemo(() => {
+  const songRequestsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'song_requests');
   }, [firestore]);
