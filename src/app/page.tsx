@@ -5,6 +5,7 @@ import VHSStage from "@/components/VHSStage";
 import Link from "next/link";
 import { Mic } from "lucide-react";
 import { useFirebase } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 function KaraokePage() {
   const [firstName, setFirst] = useState("");
@@ -13,12 +14,11 @@ function KaraokePage() {
   const [songUrl, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [log, setLog] = useState<string[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const { firestore } = useFirebase();
 
   useEffect(() => {
     setIsClient(true);
-    loadLog();
   }, []);
 
   const cap = (s: string) => s.trim().replace(/\b\w/g, c => c.toUpperCase());
@@ -33,28 +33,12 @@ function KaraokePage() {
     return null;
   };
 
-  const loadLog = () => {
-    try {
-      const storedLog = localStorage.getItem("karaoke_log");
-      if (storedLog) setLog(JSON.parse(storedLog));
-    } catch (e) {
-      console.error("Failed to load log from localStorage", e);
-    }
-  };
-
-  const addToLog = (action: string) => {
-    const newLogEntry = `${new Date().toISOString()} - ${action}`;
-    const updatedLog = [newLogEntry, ...log];
-    setLog(updatedLog);
-    try {
-      localStorage.setItem("karaoke_log", JSON.stringify(updatedLog));
-    } catch (e) {
-      console.error("Failed to save log to localStorage", e);
-    }
-  };
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!firestore) {
+      setErr("Veritabanı bağlantısı kurulamadı. Lütfen daha sonra tekrar deneyin.");
+      return;
+    }
     setErr(null);
     const validationError = validate();
     if (validationError) {
@@ -64,24 +48,20 @@ function KaraokePage() {
 
     setBusy(true);
 
-    await new Promise(resolve => setTimeout(resolve, 750));
-
     try {
-      const existingSongs = JSON.parse(localStorage.getItem("karaoke_songs") || "[]");
+      const songRequestsCollection = collection(firestore, "song_requests");
+      
       const newSong = {
-        id: Date.now().toString(),
-        firstName: cap(firstName),
-        lastName: cap(lastName),
+        studentName: `${cap(firstName)} ${cap(lastName)}`,
         songTitle: cap(songTitle),
-        songUrl: songUrl.trim(),
+        karaokeLink: songUrl.trim(),
         status: "pending",
-        timestamp: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+        // Temporary until auth is added
+        studentId: "anonymous_" + Date.now().toString(),
       };
-      
-      const updatedSongs = [...existingSongs, newSong];
-      localStorage.setItem("karaoke_songs", JSON.stringify(updatedSongs));
-      
-      addToLog(`İSTEK EKLENDİ: "${newSong.songTitle}" by ${newSong.firstName} ${newSong.lastName}`);
+
+      await addDoc(songRequestsCollection, newSong);
 
       setFirst("");
       setLast("");
@@ -126,13 +106,13 @@ function KaraokePage() {
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL (örn: https://youtube.com/...)" value={songUrl} onChange={e => setUrl(e.target.value)} />
             {err && <div className="rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{err}</div>}
             <div className="flex justify-end">
-              <button type="submit" disabled={busy} className="retro-btn-soft vhs-interact">{busy ? "Gönderiliyor..." : "Gönder"}</button>
+              <button type="submit" disabled={busy || !firestore} className="retro-btn-soft vhs-interact">{busy ? "Gönderiliyor..." : "Gönder"}</button>
             </div>
           </form>
         </div>
       </main>
       
-      {isClient && <VHSStage intensity={0.1} sfxVolume={0.4} />}
+      <VHSStage intensity={0.1} sfxVolume={0.4} />
     </div>
   );
 }
