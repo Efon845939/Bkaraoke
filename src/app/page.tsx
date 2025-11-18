@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import VHSStage from "@/components/VHSStage";
 import Link from "next/link";
 import { Mic } from "lucide-react";
-import { useFirebase } from "@/firebase";
+import { useFirebase, useUser } from "@/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { signInAnonymously } from "firebase/auth";
 
 function KaraokePage() {
   const [firstName, setFirst] = useState("");
@@ -15,11 +16,19 @@ function KaraokePage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const { firestore } = useFirebase();
+  const { firestore, auth } = useFirebase();
+  const { user, isUserLoading } = useUser();
 
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    // Automatically sign in anonymously if not already signed in
+    if (!isUserLoading && !user && auth) {
+      signInAnonymously(auth).catch((error) => {
+        console.error("Anonymous sign-in failed", error);
+        setErr("Kimlik doğrulama başarısız. Lütfen sayfayı yenileyin.");
+      });
+    }
+  }, [isUserLoading, user, auth]);
 
   const cap = (s: string) => s.trim().replace(/\b\w/g, c => c.toUpperCase());
   
@@ -35,8 +44,8 @@ function KaraokePage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!firestore) {
-      setErr("Veritabanı bağlantısı kurulamadı. Lütfen daha sonra tekrar deneyin.");
+    if (!firestore || !auth || !user) {
+      setErr("Veritabanı bağlantısı kurulamadı veya kimlik doğrulama başarısız. Lütfen sayfayı yenileyin.");
       return;
     }
     setErr(null);
@@ -57,8 +66,7 @@ function KaraokePage() {
         karaokeLink: songUrl.trim(),
         status: "pending",
         createdAt: serverTimestamp(),
-        // Temporary until auth is added
-        studentId: "anonymous_" + Date.now().toString(),
+        studentId: user.uid, // Use the authenticated user's UID
       };
 
       await addDoc(songRequestsCollection, newSong);
@@ -106,13 +114,13 @@ function KaraokePage() {
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL (örn: https://youtube.com/...)" value={songUrl} onChange={e => setUrl(e.target.value)} />
             {err && <div className="rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{err}</div>}
             <div className="flex justify-end">
-              <button type="submit" disabled={busy || !firestore} className="retro-btn-soft vhs-interact">{busy ? "Gönderiliyor..." : "Gönder"}</button>
+              <button type="submit" disabled={busy || isUserLoading || !user} className="retro-btn-soft vhs-interact">{busy ? "Gönderiliyor..." : "Gönder"}</button>
             </div>
           </form>
         </div>
       </main>
       
-      <VHSStage intensity={0.1} sfxVolume={0.4} />
+      <VHSStage intensity={0.1} sfxVolume={0.35} />
     </div>
   );
 }

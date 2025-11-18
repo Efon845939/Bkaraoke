@@ -50,10 +50,10 @@ service cloud.firestore {
      */
     match /roles_admin/{adminId} {
       function isAdmin() {
-        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+        return request.auth != null && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
       }
 
-      allow get: if request.auth != null && isAdmin();
+      allow get: if isAdmin();
       allow list: if false; // Listing is not allowed for security reasons.
       allow create: if false; // Only backend processes can create admin roles.
       allow update: if false; // Admin roles are not editable via client.
@@ -70,13 +70,20 @@ service cloud.firestore {
      */
     match /song_requests/{songRequestId} {
        function isAdmin() {
-        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+        return request.auth != null && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
       }
+       function isOwner() {
+        return request.auth != null && request.auth.uid == resource.data.studentId;
+      }
+
       allow get: if true;
       allow list: if true;
+      // Allow create if the user is authenticated and the studentId in the new document matches their UID.
       allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
-      allow update: if request.auth != null && (request.auth.uid == resource.data.studentId || isAdmin());
-      allow delete: if request.auth != null && (request.auth.uid == resource.data.studentId || isAdmin());
+      // Allow update if the user is the owner or an admin.
+      allow update: if isOwner() || isAdmin();
+       // Allow delete if the user is the owner or an admin.
+      allow delete: if isOwner() || isAdmin();
     }
   }
 }
