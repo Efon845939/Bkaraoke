@@ -1,0 +1,152 @@
+{
+  "entities": {
+    "SongRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SongRequest",
+      "type": "object",
+      "description": "Represents a song request submitted by a student.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the song request."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to the Student who requested the song. (Relationship: Student 1:N SongRequest)"
+        },
+        "songTitle": {
+          "type": "string",
+          "description": "The title of the requested song."
+        },
+        "karaokeLink": {
+          "type": "string",
+          "description": "Link to the karaoke video for the song.",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of when the song request was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "songTitle",
+        "karaokeLink",
+        "createdAt"
+      ]
+    },
+    "Student": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Student",
+      "type": "object",
+      "description": "Represents a student who can submit song requests.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the student."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the student."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the student.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    },
+    "Admin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Admin",
+      "type": "object",
+      "description": "Represents an administrator who can manage song requests.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the admin."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the admin."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the admin.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/students/{studentId}",
+        "definition": {
+          "entityName": "Student",
+          "schema": {
+            "$ref": "#/backend/entities/Student"
+          },
+          "description": "Stores student profiles. Enables path-based ownership for student data.",
+          "params": [
+            {
+              "name": "studentId",
+              "description": "The unique identifier of the student."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{adminId}",
+        "definition": {
+          "entityName": "Admin",
+          "schema": {
+            "$ref": "#/backend/entities/Admin"
+          },
+          "description": "Collection of admin user IDs. Existence in this collection grants admin privileges.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier of the admin."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/song_requests/{songRequestId}",
+        "definition": {
+          "entityName": "SongRequest",
+          "schema": {
+            "$ref": "#/backend/entities/SongRequest"
+          },
+          "description": "Stores song requests. Includes denormalized 'studentId' for authorization independence.",
+          "params": [
+            {
+              "name": "songRequestId",
+              "description": "The unique identifier of the song request."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support the Karaoke Queue application, focusing on secure song request submissions and administrative management. It prioritizes authorization independence by using a combination of path-based ownership for student data and a global roles collection for admin privileges.  The structure uses explicit collections for students, admins, and song requests, ensuring clear separation of concerns and simplifies security rule creation.\n\nStudents have path-based ownership of their data in `/students/{studentId}`. This enables straightforward security rules based on `request.auth.uid == studentId`.\n\nAdmins are managed via the `/roles_admin/{adminId}` collection. The existence of a document in this collection grants admin privileges.\n\nSong requests are stored in the `/song_requests/{songRequestId}` collection. Each song request includes the `studentId` of the user who requested it. This denormalization is critical for authorization independence, as it allows security rules to verify the request's validity without needing to read the student document. It also allows filtering song requests by student if needed. The admin role can manage these song requests if the user exists in the `/roles_admin/{adminId}` collection.\n\nThis design supports the QAPs by:\n\n*   Enabling secure `list` operations for song requests, as the rules can filter by `studentId` or allow admin access based on the admin role collection.\n*   Avoiding hierarchical authorization dependencies, allowing atomic operations and simplified security rules.\n\nThe invariants are maintained through:\n\n*   Path-based ownership for student data, ensuring data integrity.\n*   Denormalization of `studentId` in song requests, guaranteeing the association between a request and its owner."
+  }
+}

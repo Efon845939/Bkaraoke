@@ -1,9 +1,82 @@
-
+/**
+ * @file Firebase Security Rules for the Karaoke Queue application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for student data and uses a role-based model for admin privileges.
+ * Song requests are secured based on the student who created them or by an admin.
+ *
+ * Data Structure:
+ * - /students/{studentId}: Stores student profiles. Only the student themselves can read/write their own profile.
+ * - /roles_admin/{adminId}: Documents in this collection indicate admin privileges.
+ * - /song_requests/{songRequestId}: Stores song requests. Each document contains the studentId of the requester.
+ *
+ * Key Security Decisions:
+ * - Students can only manage their own profiles.
+ * - Listing of students is disallowed for privacy.
+ * - Admins, as determined by membership in the `/roles_admin` collection, can manage all song requests.
+ * - Song requests are publicly listable, but write access is restricted to the requesting student or an admin.
+ *
+ * Denormalization for Authorization:
+ * - Song requests contain a `studentId` field to allow verifying ownership without additional reads.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /song_requests/{id} {
-      allow read, write: if true;
+
+    /**
+     * @description Secure student profiles. Only the student themselves can read/write their own profile.
+     * @path /students/{studentId}
+     * @allow (create) User with UID 'student_abc' can create their own profile at /students/student_abc.
+     * @deny (create) User with UID 'other_user' cannot create a profile at /students/student_abc.
+     * @principle Enforces document ownership for student profiles.
+     */
+    match /students/{studentId} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == studentId;
+      }
+      allow get: if isOwner();
+      allow list: if false; // Disallowing listing for privacy.
+      allow create: if isOwner();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+
+    /**
+     * @description Manages admin roles. Existence in this collection grants admin privileges.
+     * @path /roles_admin/{adminId}
+     * @allow (get) Authenticated user with admin privileges can read this document.
+     * @deny (create) Non-authenticated user cannot create an admin role document.
+     * @principle Restricts admin role creation to a privileged process.
+     */
+    match /roles_admin/{adminId} {
+      function isAdmin() {
+        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+
+      allow get: if request.auth != null && isAdmin();
+      allow list: if false; // Listing is not allowed for security reasons.
+      allow create: if false; // Only backend processes can create admin roles.
+      allow update: if false; // Admin roles are not editable via client.
+      allow delete: if false; // Only backend processes can delete admin roles.
+    }
+
+    /**
+     * @description Secure song requests. Students can create their own requests; admins can manage all requests.
+     * @path /song_requests/{songRequestId}
+     * @allow (create) User with UID 'student_abc' can create a song request with studentId 'student_abc'.
+     * @allow (get) Any user can get any song request.
+     * @deny (update) User with UID 'student_xyz' cannot update a song request with studentId 'student_abc'.
+     * @principle Enforces ownership for song request creation and management, with admin override.
+     */
+    match /song_requests/{songRequestId} {
+       function isAdmin() {
+        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+      allow get: if true;
+      allow list: if true;
+      allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
+      allow update: if request.auth != null && (request.auth.uid == resource.data.studentId || isAdmin());
+      allow delete: if request.auth != null && (request.auth.uid == resource.data.studentId || isAdmin());
     }
   }
 }
