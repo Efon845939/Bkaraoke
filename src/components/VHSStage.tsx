@@ -5,18 +5,23 @@ export default function VHSStage({ intensity = 0.1, sfxVolume = 0.35 }:{ intensi
   const containerRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<AudioContext | null>(null);
 
-  function playBuzz(vol = sfxVolume, freq = 1200) {
+  function playBuzz(vol = sfxVolume, freq = 700) {
     try {
       if (!audioRef.current) audioRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       const ctx = audioRef.current!;
-      const dur = 0.09;
+      const dur = 0.05; // Shorter duration for a "snap"
       const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
       const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      for (let i = 0; i < data.length; i++) {
+        // Using a sharp decay instead of pure random noise
+        data[i] = Math.pow(1 - i / data.length, 3) * (Math.random() * 2 - 1);
+      }
       const src = ctx.createBufferSource(); src.buffer = buffer;
-      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = freq; bp.Q.value = 1.2;
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = freq; bp.Q.value = 5; // Higher Q for a more resonant "snap"
       const gain = ctx.createGain(); const t = ctx.currentTime;
-      gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(vol, t + 0.015); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      gain.gain.setValueAtTime(0, t); 
+      gain.gain.linearRampToValueAtTime(vol * 1.5, t + 0.01); // Sharper attack
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur); // Faster decay
       src.connect(bp); bp.connect(gain); gain.connect(ctx.destination); src.start(); src.stop(t + dur);
     } catch {}
   }
@@ -28,10 +33,10 @@ export default function VHSStage({ intensity = 0.1, sfxVolume = 0.35 }:{ intensi
   }
 
   useEffect(() => {
-    function onDown(e:MouseEvent){ playBuzz(sfxVolume, 1400); spawnSpark(e.clientX, e.clientY, false); }
+    function onDown(e:MouseEvent){ playBuzz(sfxVolume, 800); spawnSpark(e.clientX, e.clientY, false); }
     function onKey(e:KeyboardEvent){
       if (e.key.length === 1 || e.key === "Enter" || e.key === "Backspace") {
-        playBuzz(sfxVolume * 0.6, 1000);
+        playBuzz(sfxVolume * 0.6, 600);
         const ae = document.activeElement as HTMLElement | null;
         const r = ae?.getBoundingClientRect(); if (r) spawnSpark(r.left + r.width - 18, r.top + r.height / 2, true);
       }
