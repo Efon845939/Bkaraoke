@@ -95,12 +95,9 @@ service cloud.firestore {
      * @principle Write-only for general users, read-only for admins to ensure log integrity.
      */
     match /audit_logs/{logId} {
-      function isAdmin() {
-        return request.auth != null && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-      }
-      
-      allow get: if isAdmin();
-      allow list: if isAdmin();
+      // TEMPORARY: Allow any authenticated user to read logs until a proper admin role system is in place.
+      allow get: if request.auth != null;
+      allow list: if request.auth != null;
       // Allow any authenticated user to create a log entry.
       allow create: if request.auth != null;
       allow update: if false; // Logs are immutable.
