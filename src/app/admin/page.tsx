@@ -95,13 +95,13 @@ const AdminPanel = ({ role }: { role: Role }) => {
 
     lines.forEach(line => {
         const parts = line.split(';').map(p => p.trim());
-        if (parts.length === 3) {
-            const [studentName, songTitle, karaokeLink] = parts;
+        if (parts.length === 2) {
+            const [songTitle, karaokeLink] = parts;
 
-            if (studentName && songTitle && karaokeLink) {
+            if (songTitle && karaokeLink) {
                 const newSongRef = doc(collection(firestore, "song_requests"));
                 batch.set(newSongRef, {
-                    studentName,
+                    studentName: "Sahip Tarafından Eklendi",
                     songTitle,
                     karaokeLink,
                     status: "approved",
@@ -146,7 +146,7 @@ const AdminPanel = ({ role }: { role: Role }) => {
 };
 
 
-  const setStatus = (song: Song, status: "approved" | "rejected") => {
+  const setStatus = (song: Song, status: "approved" | "rejected" | "pending") => {
     if (!firestore) return;
     const songRef = doc(firestore, "song_requests", song.id);
     updateDocumentNonBlocking(songRef, { status });
@@ -251,6 +251,7 @@ const AdminPanel = ({ role }: { role: Role }) => {
                       key={s.id}
                       s={s}
                       role={role}
+                      onSetStatus={setStatus}
                       onEdit={() => setEditingSong(s)}
                       onDelete={() => setDeletingSong(s)}
                     />
@@ -268,6 +269,7 @@ const AdminPanel = ({ role }: { role: Role }) => {
                       key={s.id}
                       s={s}
                       role={role}
+                      onSetStatus={setStatus}
                       onEdit={() => setEditingSong(s)}
                       onDelete={() => setDeletingSong(s)}
                     />
@@ -283,12 +285,12 @@ const AdminPanel = ({ role }: { role: Role }) => {
                 <div className="flex flex-col gap-4">
                     <p className="text-sm text-neutral-400">
                         Excel veya Google E-Tablolar'dan kopyaladığınız şarkı listesini aşağıya yapıştırın. Her satır bir şarkı olmalı ve şu formatta olmalıdır: <br />
-                        <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">İsim Soyisim;Şarkı Adı;Karaoke Linki</code>
+                        <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">Şarkı Adı;Karaoke Linki</code>
                     </p>
                     <Textarea
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
-                        placeholder="Gökçe Eyüboğlu;Kuzu Kuzu;https://youtube.com/..."
+                        placeholder="Kuzu Kuzu;https://youtube.com/..."
                         className="retro-input-soft min-h-[200px]"
                         rows={10}
                     />
@@ -419,11 +421,13 @@ const SongRow = ({
 const ReadOnlySongRow = ({
   s,
   role,
+  onSetStatus,
   onEdit,
   onDelete,
 }: {
   s: Song;
   role: Role;
+  onSetStatus: (song: Song, status: "approved" | "rejected" | "pending") => void;
   onEdit: () => void;
   onDelete: () => void;
 }) => (
@@ -440,13 +444,36 @@ const ReadOnlySongRow = ({
       </a>
     </div>
     <div className="flex items-center gap-2">
-      <div
-        className={`text-sm font-bold ${
-          s.status === "approved" ? "text-green-400" : "text-red-400"
-        }`}
-      >
-        {s.status === "approved" ? "Onaylandı" : "Reddedildi"}
-      </div>
+      {role === "owner" ? (
+         <div className="flex gap-2 items-center">
+            <button
+              onClick={() => onSetStatus(s, "approved")}
+              className="rounded-xl px-3 py-2 bg-green-500/20 text-green-300 text-xs"
+            >
+              Onayla
+            </button>
+            <button
+              onClick={() => onSetStatus(s, "rejected")}
+              className="rounded-xl px-3 py-2 bg-red-500/20 text-red-300 text-xs"
+            >
+              Reddet
+            </button>
+             <button
+              onClick={() => onSetStatus(s, "pending")}
+              className="rounded-xl px-3 py-2 bg-yellow-500/20 text-yellow-300 text-xs"
+            >
+              Beklemeye Al
+            </button>
+        </div>
+      ) : (
+        <div
+            className={`text-sm font-bold ${
+            s.status === "approved" ? "text-green-400" : "text-red-400"
+            }`}
+        >
+            {s.status === "approved" ? "Onaylandı" : "Reddedildi"}
+        </div>
+      )}
       {role === "owner" && (
         <>
           <Button onClick={onEdit} size="icon" variant="ghost" className="h-8 w-8">
