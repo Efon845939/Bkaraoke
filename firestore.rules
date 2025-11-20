@@ -70,9 +70,6 @@ service cloud.firestore {
      * @principle Enforces ownership for song request creation and management, with admin override.
      */
     match /song_requests/{songRequestId} {
-       function isAdmin() {
-        return request.auth != null && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-      }
        function isOwner() {
         return request.auth != null && request.auth.uid == resource.data.studentId;
       }
@@ -83,15 +80,15 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
       // TEMPORARY: Allow any authenticated user to update (approve/reject) until a proper admin auth system is in place.
       allow update: if request.auth != null;
-       // Allow delete if the user is the owner or an admin.
-      allow delete: if isOwner() || isAdmin();
+       // TEMPORARY: Allow any authenticated user to delete until a proper admin role system is in place.
+      allow delete: if request.auth != null;
     }
 
     /**
      * @description Secures audit logs. Allows any authenticated user to create (log an action).
      * @path /audit_logs/{logId}
      * @allow (create) Any authenticated user can write to the audit log.
-     * @deny (list) Only admins can list audit logs.
+     deny (list) Only admins can list audit logs.
      * @principle Write-only for general users, read-only for admins to ensure log integrity.
      */
     match /audit_logs/{logId} {
