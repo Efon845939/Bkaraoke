@@ -8,7 +8,7 @@ import {
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
 } from "@/firebase";
-import { collection, doc, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import Link from "next/link";
 import { Edit, Trash2 } from "lucide-react";
 import VHSStage from "@/components/VHSStage";
@@ -25,6 +25,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
@@ -49,9 +51,12 @@ type Role = "admin" | "owner";
 
 // --- Admin Panel Component ---
 const AdminPanel = ({ role }: { role: Role }) => {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [deletingSong, setDeletingSong] = useState<Song | null>(null);
+  const [bulkText, setBulkText] = useState("");
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const songRequestsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -76,6 +81,70 @@ const AdminPanel = ({ role }: { role: Role }) => {
       timestamp: serverTimestamp(),
     });
   };
+  
+  const handleBulkAdd = async () => {
+    if (!firestore || !user || !bulkText.trim()) return;
+    setIsBulkSubmitting(true);
+    
+    const lines = bulkText.trim().split('\n');
+    const batch = writeBatch(firestore);
+    const logsBatch = writeBatch(firestore);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    lines.forEach(line => {
+        const parts = line.split(';').map(p => p.trim());
+        if (parts.length === 3) {
+            const [studentName, songTitle, karaokeLink] = parts;
+
+            if (studentName && songTitle && karaokeLink) {
+                const newSongRef = doc(collection(firestore, "song_requests"));
+                batch.set(newSongRef, {
+                    studentName,
+                    songTitle,
+                    karaokeLink,
+                    status: "approved",
+                    createdAt: serverTimestamp(),
+                    studentId: user.uid, // or a generic ID for bulk adds
+                });
+
+                const newLogRef = doc(collection(firestore, "audit_logs"));
+                logsBatch.set(newLogRef, {
+                  action: 'Toplu olarak eklendi ve onaylandı',
+                  songTitle: songTitle,
+                  performedBy: role,
+                  timestamp: serverTimestamp(),
+                });
+                successCount++;
+            } else {
+                errorCount++;
+            }
+        } else {
+            errorCount++;
+        }
+    });
+
+    try {
+        await batch.commit();
+        await logsBatch.commit();
+        toast({
+            title: "Toplu Ekleme Başarılı",
+            description: `${successCount} şarkı başarıyla eklendi. Hatalı satır sayısı: ${errorCount}.`,
+        });
+        setBulkText("");
+    } catch (error) {
+        console.error("Bulk add failed:", error);
+        toast({
+            variant: "destructive",
+            title: "Toplu Ekleme Başarısız",
+            description: "Şarkılar eklenirken bir hata oluştu.",
+        });
+    } finally {
+        setIsBulkSubmitting(false);
+    }
+};
+
 
   const setStatus = (song: Song, status: "approved" | "rejected") => {
     if (!firestore) return;
@@ -150,6 +219,7 @@ const AdminPanel = ({ role }: { role: Role }) => {
           <Tabs defaultValue="requests">
             <TabsList>
               <TabsTrigger value="requests">Şarkı İstekleri</TabsTrigger>
+              {role === 'owner' && <TabsTrigger value="bulk-add">Toplu Ekle</TabsTrigger>}
               {role === 'owner' && <TabsTrigger value="audit">Denetim Kayıtları</TabsTrigger>}
             </TabsList>
             <TabsContent value="requests" className="mt-6">
@@ -205,6 +275,31 @@ const AdminPanel = ({ role }: { role: Role }) => {
                 </div>
               </section>
             </TabsContent>
+             {role === 'owner' && (
+              <TabsContent value="bulk-add" className="mt-6">
+                 <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                  Şarkıları Toplu Ekle
+                </h2>
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm text-neutral-400">
+                        Excel veya Google E-Tablolar'dan kopyaladığınız şarkı listesini aşağıya yapıştırın. Her satır bir şarkı olmalı ve şu formatta olmalıdır: <br />
+                        <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">İsim Soyisim;Şarkı Adı;Karaoke Linki</code>
+                    </p>
+                    <Textarea
+                        value={bulkText}
+                        onChange={(e) => setBulkText(e.target.value)}
+                        placeholder="Gökçe Eyüboğlu;Kuzu Kuzu;https://youtube.com/..."
+                        className="retro-input-soft min-h-[200px]"
+                        rows={10}
+                    />
+                    <div className="flex justify-end">
+                        <Button onClick={handleBulkAdd} disabled={isBulkSubmitting}>
+                            {isBulkSubmitting ? "Ekleniyor..." : "Listeyi Ekle"}
+                        </Button>
+                    </div>
+                </div>
+              </TabsContent>
+            )}
             {role === 'owner' && (
               <TabsContent value="audit" className="mt-6">
                  <h2 className="text-xl font-bold mb-3 text-neutral-300">

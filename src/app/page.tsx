@@ -33,7 +33,7 @@ function KaraokePage() {
   const cap = (s: string) => s.trim().replace(/\b\w/g, c => c.toUpperCase());
   
   const validate = () => {
-    if (!firstName.trim() || !lastName.trim() || !songTitle.trim() || !songUrl.trim()) return "Lütfen tüm alanları doldurun.";
+    if (!firstName.trim() || !songTitle.trim() || !songUrl.trim()) return "Lütfen ad, şarkı başlığı ve URL alanlarını doldurun.";
     try {
       new URL(songUrl.trim());
     } catch (_) {
@@ -61,7 +61,7 @@ function KaraokePage() {
       const songRequestsCollection = collection(firestore, "song_requests");
       
       const newSong = {
-        studentName: `${cap(firstName)} ${cap(lastName)}`,
+        studentName: `${cap(firstName)} ${cap(lastName)}`.trim(),
         songTitle: cap(songTitle),
         karaokeLink: songUrl.trim(),
         status: "pending",
@@ -96,7 +96,7 @@ function KaraokePage() {
         <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-3">
           <div className="flex items-center gap-3">
             <Mic className="text-neutral-400 size-7" />
-            <h1 className="text-2xl sm:text-3xl font-black"><span className="text-neutral-400">90’lar</span> Karaoke</h1>
+            <h1 className="text-2xl sm:text-3xl font-black"><span className="text-neutral-400">B</span>Kara90ke</h1>
           </div>
           <Link href="/admin" className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow">Yönetici Paneli</Link>
         </div>
@@ -107,8 +107,8 @@ function KaraokePage() {
           <form onSubmit={submit} className="flex flex-col gap-4">
             <p className="text-sm text-white/80">Favori parçanı listeye ekle. İstekler anında yönetici paneline düşer.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <input className="retro-input-soft vhs-interact" placeholder="Öğrenci/Öğretmen Adı (örn: Gökçe)" value={firstName} onChange={e => setFirst(e.target.value)} />
-              <input className="retro-input-soft vhs-interact" placeholder="Öğrenci/Öğretmen Soyadı (örn: Eyüboğlu)" value={lastName} onChange={e => setLast(e.target.value)} />
+              <input className="retro-input-soft vhs-interact" placeholder="Adınız (örn: Gökçe)" value={firstName} onChange={e => setFirst(e.target.value)} />
+              <input className="retro-input-soft vhs-interact" placeholder="Soyadınız (isteğe bağlı)" value={lastName} onChange={e => setLast(e.target.value)} />
             </div>
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı Başlığı (örn: Kuzu Kuzu)" value={songTitle} onChange={e => setTitle(e.target.value)} />
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL (örn: https://youtube.com/...)" value={songUrl} onChange={e => setUrl(e.target.value)} />
