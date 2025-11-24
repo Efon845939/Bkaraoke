@@ -108,7 +108,7 @@ function KaraokePage() {
             <p className="text-sm text-white/80">Favori parçanı listeye ekle. İstekler anında yönetici paneline düşer.</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input className="retro-input-soft vhs-interact" placeholder="Adınız (örn: Gökçe)" value={firstName} onChange={e => setFirst(e.target.value)} />
-              <input className="retro-input-soft vhs-interact" placeholder="Soyadınız (isteğe bağlı)" value={lastName} onChange={e => setLast(e.target.value)} />
+              <input className="retro-input-soft vhs-interact" placeholder="Soyadınız (örn: Eyüboğlu)" value={lastName} onChange={e => setLast(e.target.value)} />
             </div>
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı Başlığı (örn: Kuzu Kuzu)" value={songTitle} onChange={e => setTitle(e.target.value)} />
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL (örn: https://youtube.com/...)" value={songUrl} onChange={e => setUrl(e.target.value)} />
