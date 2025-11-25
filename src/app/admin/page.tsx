@@ -7,6 +7,7 @@ import {
   useMemoFirebase,
   updateDocumentNonBlocking,
   deleteDocumentNonBlocking,
+  useUser,
 } from "@/firebase";
 import { collection, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import Link from "next/link";
@@ -196,7 +197,7 @@ Yaşar-Birtanem;https://www.youtube.com/watch?v=cOjyVsrWNFI&list=RDcOjyVarWNFI&s
     } finally {
         setIsBulkSubmitting(false);
     }
-};
+  };
 
 
   const setStatus = (song: Song, status: "approved" | "rejected" | "pending") => {

@@ -96,7 +96,7 @@ function KaraokePage() {
         <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-3">
           <div className="flex items-center gap-3">
             <Mic className="text-neutral-400 size-7" />
-            <h1 className="text-2xl sm:text-3xl font-black"><span className="text-neutral-400">B</span>Kara90ke</h1>
+            <h1 className="text-2xl sm:text-3xl font-black"><span className="text-neutral-400">B</span>Kara<span className="text-red-500">90</span>ke</h1>
           </div>
           <Link href="/admin" className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow">Yönetici Paneli</Link>
         </div>
@@ -131,3 +131,5 @@ export default function Page() {
     <KaraokePage />
   )
 }
+
+    
