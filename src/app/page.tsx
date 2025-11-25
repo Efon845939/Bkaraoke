@@ -137,9 +137,9 @@ function KaraokePage() {
                 </SheetTrigger>
                 <SheetContent side="bottom" className="bg-black/80 backdrop-blur-xl border-t-2 border-fuchsia-500/50 text-white">
                     <SheetHeader>
-                        <SheetTitle className="text-2xl font-black text-fuchsia-300">Onaylanan Şarkılar</SheetTitle>
+                        <SheetTitle className="text-2xl font-black text-fuchsia-300">Repertuvarımız</SheetTitle>
                         <SheetDescription className="text-neutral-400">
-                            İşte gecenin onaylanmış şarkı listesi. Linke tıklayarak doğrudan karaoke videosuna gidebilirsiniz.
+                            İşte gecenin repertuvarı. Linke tıklayarak doğrudan karaoke videosuna gidebilirsiniz.
                         </SheetDescription>
                     </SheetHeader>
                     <div className="grid gap-3 py-4 max-h-[60vh] overflow-y-auto pr-4">
