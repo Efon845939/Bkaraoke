@@ -1,12 +1,24 @@
 
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import VHSStage from "@/components/VHSStage";
 import Link from "next/link";
-import { Mic } from "lucide-react";
-import { useFirebase, useUser } from "@/firebase";
+import { Mic, Music } from "lucide-react";
+import { useFirebase, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { signInAnonymously } from "firebase/auth";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+
+type Song = {
+  id: string;
+  studentName: string;
+  songTitle: string;
+  karaokeLink: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: any;
+};
+
 
 function KaraokePage() {
   const [firstName, setFirst] = useState("");
@@ -18,6 +30,19 @@ function KaraokePage() {
   const [isClient, setIsClient] = useState(false);
   const { firestore, auth } = useFirebase();
   const { user, isUserLoading } = useUser();
+
+  const songRequestsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, "song_requests");
+  }, [firestore]);
+
+  const { data: songs, isLoading: songsLoading } = useCollection<Song>(songRequestsQuery);
+
+  const approvedSongs = useMemo(() => {
+    if (!songs) return [];
+    return songs.filter(s => s.status === 'approved');
+  }, [songs]);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -93,16 +118,57 @@ function KaraokePage() {
   return (
     <div className="min-h-screen relative overflow-hidden">
       <header className="mx-auto mt-6 w-[min(1100px,92%)]">
-        <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-3">
-          <div className="flex items-center gap-3">
-            <Mic className="text-neutral-400 size-7" />
-            <h1 className="text-2xl sm:text-3xl font-black"><span className="text-neutral-400">B</span>Kara<span className="text-red-500">90</span>ke</h1>
-          </div>
-          <Link href="/admin" className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow">Yönetici Paneli</Link>
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-4">
+            <div className="flex w-full items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Mic className="text-neutral-400 size-7" />
+                    <h1 className="text-2xl sm:text-3xl font-black">
+                        <span className="text-neutral-400">B</span>Kara
+                        <span className="text-red-500">90</span>ke
+                    </h1>
+                </div>
+                <Link href="/admin" className="rounded-2xl bg-white text-black px-4 py-2 text-sm font-semibold shadow">Yönetici Paneli</Link>
+            </div>
+             <Sheet>
+                <SheetTrigger asChild>
+                    <Button variant="outline" className="w-full sm:w-auto bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-300 hover:bg-fuchsia-500/20 hover:text-fuchsia-200">
+                        <Music className="mr-2 h-4 w-4" /> 90'lar Repertuvarımız
+                    </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="bg-black/80 backdrop-blur-xl border-t-2 border-fuchsia-500/50 text-white">
+                    <SheetHeader>
+                        <SheetTitle className="text-2xl font-black text-fuchsia-300">Onaylanan Şarkılar</SheetTitle>
+                        <SheetDescription className="text-neutral-400">
+                            İşte gecenin onaylanmış şarkı listesi. Linke tıklayarak doğrudan karaoke videosuna gidebilirsiniz.
+                        </SheetDescription>
+                    </SheetHeader>
+                    <div className="grid gap-3 py-4 max-h-[60vh] overflow-y-auto pr-4">
+                        {songsLoading ? (
+                             <p>Repertuvar yükleniyor...</p>
+                        ) : approvedSongs.length > 0 ? (
+                            approvedSongs.map((song) => (
+                                <div key={song.id} className="border border-white/15 rounded-xl p-3 bg-white/5">
+                                    <p className="font-bold text-neutral-100">{song.songTitle}</p>
+                                    <a 
+                                        href={song.karaokeLink} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-fuchsia-300 hover:underline break-all"
+                                    >
+                                        {song.karaokeLink}
+                                    </a>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-neutral-400">Henüz onaylanmış bir şarkı yok.</p>
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
         </div>
       </header>
 
-      <main className="w-full min-h-[calc(100vh-96px)] grid place-items-center py-8">
+      <main className="w-full min-h-[calc(100vh-150px)] grid place-items-center py-8">
         <div className="relative mx-auto w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10">
           <form onSubmit={submit} className="flex flex-col gap-4">
             <p className="text-sm text-white/80">Favori parçanı listeye ekle. İstekler anında yönetici paneline düşer.</p>
@@ -131,5 +197,3 @@ export default function Page() {
     <KaraokePage />
   )
 }
-
-    
