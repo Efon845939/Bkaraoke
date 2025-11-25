@@ -9,9 +9,9 @@ import {
   deleteDocumentNonBlocking,
   useUser,
 } from "@/firebase";
-import { collection, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { collection, doc, addDoc, serverTimestamp, writeBatch, getDocs, deleteDoc } from "firebase/firestore";
 import Link from "next/link";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import VHSStage from "@/components/VHSStage";
 import {
   AlertDialog,
@@ -116,6 +116,10 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
 );
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
   const { toast } = useToast();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showAddConfirm, setShowAddConfirm] = useState(false);
+  const [isDBActionRunning, setIsDBActionRunning] = useState(false);
+
 
   const songRequestsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -141,11 +145,23 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
     });
   };
   
-  const handleBulkAdd = async () => {
-    if (!firestore || !user || !bulkText.trim()) return;
-    setIsBulkSubmitting(true);
+  const handleBulkAdd = async (useDefaultList = false) => {
+    if (!firestore || !user) return;
+    setIsDBActionRunning(true);
     
-    const lines = bulkText.trim().split('\n');
+    const textToProcess = useDefaultList ? bulkText : (document.getElementById('bulk-textarea') as HTMLTextAreaElement)?.value || '';
+
+    if (!textToProcess.trim()) {
+        toast({
+            variant: "destructive",
+            title: "Liste Boş",
+            description: "Eklenecek şarkı bulunamadı.",
+        });
+        setIsDBActionRunning(false);
+        return;
+    }
+
+    const lines = textToProcess.trim().split('\n');
     const batch = writeBatch(firestore);
     const logsBatch = writeBatch(firestore);
 
@@ -165,7 +181,7 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
                     karaokeLink,
                     status: "approved",
                     createdAt: serverTimestamp(),
-                    studentId: user.uid, // or a generic ID for bulk adds
+                    studentId: user.uid,
                 });
 
                 const newLogRef = doc(collection(firestore, "audit_logs"));
@@ -191,7 +207,9 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
             title: "Toplu Ekleme Başarılı",
             description: `${successCount} şarkı başarıyla eklendi. Hatalı satır sayısı: ${errorCount}.`,
         });
-        setBulkText("");
+        if (!useDefaultList) {
+          setBulkText("");
+        }
     } catch (error) {
         console.error("Bulk add failed:", error);
         toast({
@@ -200,7 +218,36 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
             description: "Şarkılar eklenirken bir hata oluştu.",
         });
     } finally {
-        setIsBulkSubmitting(false);
+        setIsDBActionRunning(false);
+        setShowAddConfirm(false);
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    if (!firestore) return;
+    setIsDBActionRunning(true);
+    const querySnapshot = await getDocs(collection(firestore, "song_requests"));
+    const batch = writeBatch(firestore);
+    querySnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+    });
+
+    try {
+        await batch.commit();
+        toast({
+            title: "Liste Temizlendi",
+            description: "Tüm şarkılar başarıyla silindi.",
+        });
+    } catch (error) {
+        console.error("Delete all failed:", error);
+        toast({
+            variant: "destructive",
+            title: "Silme Başarısız",
+            description: "Şarkılar silinirken bir hata oluştu.",
+        });
+    } finally {
+        setIsDBActionRunning(false);
+        setShowDeleteConfirm(false);
     }
   };
 
@@ -335,6 +382,29 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
                   ))}
                 </div>
               </section>
+                {role === 'owner' && (
+                <section className="mt-12 border-t-2 border-red-500/30 pt-6">
+                    <h2 className="text-xl font-bold mb-3 text-red-400 flex items-center gap-2">
+                        <AlertTriangle /> Tehlikeli Alan
+                    </h2>
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                            <h3 className="font-bold text-white">Veritabanı Operasyonları</h3>
+                            <p className="text-sm text-red-300/80 mt-1">
+                                Bu işlemler geri alınamaz. Mevcut listeyi silmek veya varsayılan listeyi yeniden yüklemek için kullanın.
+                            </p>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                            <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} disabled={isDBActionRunning}>
+                                Tüm Listeyi Sil
+                            </Button>
+                            <Button variant="secondary" onClick={() => setShowAddConfirm(true)} disabled={isDBActionRunning}>
+                                Varsayılan Listeyi Ekle
+                            </Button>
+                        </div>
+                    </div>
+                </section>
+                )}
             </TabsContent>
              {role === 'owner' && (
               <TabsContent value="bulk-add" className="mt-6">
@@ -347,6 +417,7 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
                         <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">Şarkı Adı;Karaoke Linki</code>
                     </p>
                     <Textarea
+                        id="bulk-textarea"
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
                         placeholder="Kuzu Kuzu;https://youtube.com/..."
@@ -354,8 +425,8 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
                         rows={10}
                     />
                     <div className="flex justify-end">
-                        <Button onClick={handleBulkAdd} disabled={isBulkSubmitting}>
-                            {isBulkSubmitting ? "Ekleniyor..." : "Listeyi Ekle"}
+                        <Button onClick={() => handleBulkAdd(false)} disabled={isDBActionRunning}>
+                            {isDBActionRunning ? "Ekleniyor..." : "Metin Alanındaki Listeyi Ekle"}
                         </Button>
                     </div>
                 </div>
@@ -405,7 +476,7 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Delete Dialog */}
+      {/* Single Delete Dialog */}
       <AlertDialog open={!!deletingSong} onOpenChange={(open) => !open && setDeletingSong(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -420,6 +491,43 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+       {/* Delete All Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Tüm Şarkıları Silmek Üzeresiniz!</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      Bu işlem geri alınamaz. Veritabanındaki tüm şarkı istekleri kalıcı olarak silinecektir. Emin misiniz?
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>İptal</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAll} disabled={isDBActionRunning} className="bg-red-600 hover:bg-red-700">
+                      {isDBActionRunning ? "Siliniyor..." : "Evet, Tümünü Sil"}
+                  </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Add Default List Confirmation Dialog */}
+      <AlertDialog open={showAddConfirm} onOpenChange={setShowAddConfirm}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Varsayılan Listeyi Ekle?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      Bu işlem, "Toplu Ekle" sekmesindeki varsayılan listeyi veritabanına ekleyecektir. Bu, mevcut şarkıların üzerine yazmaz, sadece ekleme yapar.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>İptal</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleBulkAdd(true)} disabled={isDBActionRunning}>
+                      {isDBActionRunning ? "Ekleniyor..." : "Evet, Ekle"}
+                  </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 };
@@ -587,10 +695,11 @@ const LoginForm = ({ onLogin, error }: { onLogin: (password: string) => void, er
 
 // --- Main Page Component ---
 export default function AdminPage() {
-  const { firestore } = useFirebase();
+  const { firestore } = useFirebase(); // user'ı buradan kaldırıyoruz
   const [role, setRole] = useState<Role | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  // Basit parola kontrolüne geri dön
   const handleLogin = (password: string) => {
     if (password === "gizli_kara90ke") {
       setRole("owner");
@@ -603,13 +712,17 @@ export default function AdminPage() {
     }
   };
 
-  if (!firestore) {
-    return <div className="min-h-screen bg-black" />;
-  }
-
+  // Basit render mantığı
   if (!role) {
     return <LoginForm onLogin={handleLogin} error={error} />;
   }
+  
+  // `user` prop'unu AdminPanel'e geçerken geçici bir değer kullanıyoruz,
+  // çünkü artık firebase auth kullanmıyoruz ama AdminPanel bekliyor.
+  // Bu daha sonra temizlenebilir.
+  const fakeUser = { uid: role === 'owner' ? 'owner_user' : 'admin_user' };
 
   return <AdminPanel role={role} />;
 }
+
+    
