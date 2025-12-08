@@ -176,7 +176,7 @@ function KaraokePage() {
               <input className="retro-input-soft vhs-interact" placeholder="Adınız (örn: Gökçe)" value={firstName} onChange={e => setFirst(e.target.value)} />
               <input className="retro-input-soft vhs-interact" placeholder="Soyadınız (örn: Eyüboğlu)" value={lastName} onChange={e => setLast(e.target.value)} />
             </div>
-            <input className="retro-input-soft vhs-interact" placeholder="Şarkı Başlığı (örn: Kuzu Kuzu)" value={songTitle} onChange={e => setTitle(e.target.value)} />
+            <input className="retro-input-soft vhs-interact" placeholder="Yazar-Şarkı Başlığı (örn: Şebnem Ferah-Sil Baştan)" value={songTitle} onChange={e => setTitle(e.target.value)} />
             <input className="retro-input-soft vhs-interact" placeholder="Şarkı URL (örn: https://youtube.com/...)" value={songUrl} onChange={e => setUrl(e.target.value)} />
             {err && <div className="rounded-2xl border border-red-400/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{err}</div>}
             <div className="flex justify-end">

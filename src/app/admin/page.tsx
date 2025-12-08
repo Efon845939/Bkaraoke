@@ -30,6 +30,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
+import md5 from "crypto-js/md5";
+
 
 type Song = {
   id: string;
@@ -56,64 +58,119 @@ const AdminPanel = ({ role }: { role: Role }) => {
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [deletingSong, setDeletingSong] = useState<Song | null>(null);
   const [bulkText, setBulkText] = useState(
-`REM-Losing my religion;https://www.youtube.com/watch?v=gCrqBZlxSyA
-Bulutsuzluk Özlemi-Sözlerimi geri alamam;https://www.youtube.com/watch?v=jHULD4aZnS0
-Şebnem Ferah-Sil Baştan;https://www.youtube.com/watch?v=MGKQpfWrBx0&list=RDMGKQpfWrBx0&start_radio=1
-Gülşen-Be Adam;https://www.youtube.com/watch?v=AyXlebMMAWE&list=RDAyXlebMMAWE&start_radio=1
-Tarkan-Hepsi Senin Mi?;https://www.youtube.com/watch?v=20azTn_qfuE&list=RD20azTn_qfuE&start_radio=1
-Kenan Doğulu -Yaparım Bilirsin(hızlı Ebru Gündeş versiyon);https://www.youtube.com/watch?v=QRQ8uVC7E7o&list=RDQRQ8uVC7E7o&start_radio=1
-Hakan Peker-Karam;https://www.youtube.com/watch?v=tIgExFqyYMw&list=RDtIgExFqyYMw&start_radio=1
-Athena-Senden Benden Bizden;https://www.youtube.com/watch?v=vRgMG_nicjQ&list=RDvRgMG_nicjQ&start_radio=1
-Mustafa Sandal-Araba;https://www.youtube.com/watch?v=URebjWhKzBU&list=RDURebjWhKzBU&start_radio=1
-MFÖ-Ali Desidero;https://www.youtube.com/watch?v=w_EVxBKM92g&list=RDw_EVxBKM92g&start_radio=1
-MFÖ-Ele Güne Karşı;https://www.youtube.com/watch?v=dQcfBeNs5zE&list=RDdQcfBeNs5zE&start_radio=1
-Sertab Erener-Güle Güle Şekerim;https://www.youtube.com/watch?v=cx1BZTBh4RM&list=RDcx1BZTBh4RM&start_radio=1
-Levent Yüksel- Zalim;https://www.youtube.com/watch?v=Qj2Lq8k6LxI&list=RDQj2Lq8k6LxI&start_radio=1
-Nirvana-Smells Like Teen Spirit;https://www.youtube.com/watch?v=lMdvpJpaolE&list=RDlMdvpJpaolE&start_radio=1
-Barış Manço-Gibi gibi;https://www.youtube.com/watch?v=_aRtZSQNTqo&list=RD_aRtZSQNTqo&start_radio=1
-Barış Manço-Can bedenden çıkmayınca;https://www.youtube.com/watch?v=3WAtON5odlQ&list=RD3WAtON5odlQ&start_radio=1
-Barış Manço-Bal Böceği;https://www.youtube.com/watch?v=ofVxLHe6ki4&list=RDofVxLHe6ki4&start_radio=1
-Duman-Köprüaltı;https://www.youtube.com/watch?v=7-6C8kVHd-g&list=RD7-6C8kVHd-g&start_radio=1
-Yaşar-Divane;https://www.youtube.com/watch?v=n_wF-KqriE8&list=RDn_wF-KqriE8&start_radio=1
-Dido- Thank you;https://www.youtube.com/watch?v=vg79oI8qrmg&list=RDvg79oI8qrmg&start_radio=1
-Cem Karaca-Resimdeki gözyaşları;https://www.youtube.com/watch?v=l7n7vraGJZ0&list=RDl7n7vraGJZ0&start_radio=1
-Sting-Shape of my Heart;https://www.youtube.com/watch?v=I-0VumW0XkE&list=RDI-0VumW0XkE&start_radio=1
-Ricky Martin-Livin' la vida loca;https://www.youtube.com/watch?v=tOAs-c5jiuQ&list=RDtOAs-c5jiuQ&start_radio=1
-Celine Dion-All by myself;https://www.youtube.com/watch?v=eiTOcxAmyLA&list=RDeiTOcxAmyLA&start_radio=1
-Metallica-Nothing else matters;https://www.youtube.com/watch?v=LcK5u0usw6Y&list=RDLcK5u0usw6Y&start_radio=1
-Spice Girls- Wannabe;https://www.youtube.com/watch?v=BTDPZQGqjY8&list=RDBTDPZQGqjY8&start_radio=1
-No Doubt-Don't speak;https://www.youtube.com/watch?v=JtiocB8PYPs&list=RDJtiocB8PYPs&start_radio=1
-Duman-Her Şeyi Yak;https://youtu.be/zWn7HoueR-U?si=PKe9_jH0Xj56QAnk
-Scorpions-Still loving you;https://youtu.be/41wclfz5maI?si=zabTwk99b_7L9F8N
-Scorpions-Wind of change;https://youtu.be/AAPRtwEp82c?si=_8ePDddxuY9mK2sm
-Destiny's Child- Bills,bills,bills;https://youtu.be/nVhX4pt1rcs?si=Qvp-9rGCkk-WMuxv
-Goo Goo Dolls-Iris;https://www.youtube.com/watch?v=OqtWMNZS-M0
-Ayna-Yeniden de Sevebiliriz Akdeniz;https://www.youtube.com/watch?v=h-STdtHTXgM
-Barış Manço-Alla beni pulla beni;https://youtu.be/h20Vt7qR_68?si=u7KCiq_XkObiEwc9
-Yonca Evcimik-Abone;https://youtu.be/DPyxh_VJi8o?si=HXbHXnCMsnf-7HOi
-Michael Jackson-They Don't Care About Us;https://www.youtube.com/watch?v=nG8FZ9yRev8&list=RDnG8FZ9yRev8&start_radio=1
-Rusted Root-Send Me On My Way;https://www.youtube.com/watch?v=fEpfsVDPImI&list=RDfEpfsVDPImI&start_radio=1
-Rengin-Aldatıldık;https://www.youtube.com/watch?v=mpam4HHjPGU&list=RDmpam4HHjPGU&start_radio=1
-Mustafa Sandal - Jest Oldu;https://www.youtube.com/watch?v=50J5jzWXJ4k&list=RD50J5jzWXJ4k&start_radio=1
-TARKAN - Kuzu Kuzu;https://www.youtube.com/watch?v=pgx5w9JA4og&list=RDpgx5w9JA4og&start_radio=1
-Yeni Türkü- Aşk Yeniden;https://www.youtube.com/watch?v=FcCR6rclFhQ&list=RDFcCR6rclFhQ&start_radio=1
-Kenan Doğulu- Tutamıyorum Zamanı;https://www.youtube.com/watch?v=6mDd9eobWMs&list=RD6mDd9eobWMs&start_radio=1
-Gülşen - Ne Kavgam Bitti Ne Sevdam;https://www.youtube.com/watch?v=mxswOcVZtuw&list=RDmxswOcVZtuw&start_radio=1
-Levent Yüksel- Medcezir;https://www.youtube.com/watch?v=bd0zPXNhBFg&list=RDbd0zPXNhBFg&start_radio=1
-Harun Kolçak- Gir Kanıma;https://www.youtube.com/watch?v=G41rhu-wIfg&list=RDG41rhu-wIfg&start_radio=1
-Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bJYbdZ6isUs&list=RDbJYbdZ6isUs&start_radio=1
-Hakan Peker - Ateşini Yolla Bana;https://www.youtube.com/watch?v=jfj2IoC6Rks&list=RDjfj2IoC6Rks&start_radio=1
-Serdar Ortaç - Karabiberim;https://www.youtube.com/watch?v=-_aF_HO2O-o&list=RD-_aF_HO2O-o&start_radio=1
-Serdar Ortaç - Ben Adam Olmam;https://www.youtube.com/watch?v=aZDuOpabeng&list=RDaZDuOpabeng&start_radio=1
-Burak Kut - Benimle Oynama;https://www.youtube.com/watch?v=6eFytaWQOVI&list=RD6eFytaWQOVI&start_radio=1
-Destan-Cilveloy;https://www.youtube.com/watch?v=JMDvSCZ9pBc&list=RDJMDvSCZ9pBc&start_radio=1
-Yaşar-Birtanem;https://www.youtube.com/watch?v=cOjyVsrWNFI&list=RDcOjyVsrWNFI&start_radio=1
-Mirkelam-Her gece;https://www.youtube.com/watch?v=ZxNLeYymtUc&list=RDZxNLeYymtUc&start_radio=1
-Harun Kolçak-Vermem Seni;https://www.youtube.com/watch?v=v2yBoX4eF7k&list=RDv2yBoX4eF7k&start_radio=1
-Candan Erçetin-sevdim sevilmedim;https://www.youtube.com/watch?v=r5iE1ato0fk&list=RDr5iE1ato0fk&start_radio=1
-Serdar Ortaç - Gamzelim;https://www.youtube.com/watch?v=15-jhCeLBj8&list=RD15-jhCeLBj8&start_radio=1
-Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RDQ2YlgVRqC-U&start_radio=1`
+`REM-Losing My Religion;https://www.youtube.com/watch?v=Efa6BAWPm9o
+Bulutsuzluk Özlemi-Sözlerimi Geri Alamam;https://www.youtube.com/watch?v=RMu2HUTGe2c
+Şebnem Ferah-Sil Baştan;https://www.youtube.com/watch?v=yjGigzkkXMM
+Gülşen-Be Adam;https://www.youtube.com/watch?v=liaMcRqwOKs
+Tarkan-Hepsi Senin Mi?;https://www.youtube.com/watch?v=GB5J_2jWxMQ
+Kenan Doğulu -Yaparım Bilirsin (Hızlı Ebru Gündeş versiyon);https://www.youtube.com/watch?v=7JJH5GZPJNw
+Hakan Peker-Karam;https://www.youtube.com/watch?v=xQBIAUU4NVk
+Athena-Senden Benden Bizden;https://www.youtube.com/watch?v=ODzwocw9z28
+Mustafa Sandal-Araba;https://www.youtube.com/watch?v=-lcfABgHKfs
+MFÖ-Ali Desidero;https://www.youtube.com/watch?v=inwiXmzKun8
+MFÖ-Ele Güne Karşı;https://www.youtube.com/watch?v=4DZbURvoDEc
+Sertab Erener-Güle Güle Şekerim;https://www.youtube.com/watch?v=rAAfQOLMZmo
+Levent Yüksel- Zalim;https://www.youtube.com/watch?v=R0KCc9-0i6E
+Nirvana-Smells Like Teen Spirit;https://www.youtube.com/watch?v=Q6SHkQMFVlc
+Barış Manço-Gibi gibi;https://youtu.be/vqFb0kCvE5o?si=gCQR2wk_Qlh-mB5R
+Barış Manço-Can Bedenden Çıkmayınca;https://youtu.be/RTpyeclPZuU?si=7cOshfxvkl3OEy5F
+Barış Manço-Bal Böceği;https://youtu.be/YXmSNwYIw7Q?si=kLyrMl6DlwUpiMpP
+Duman-Köprüaltı;https://www.youtube.com/watch?v=2J75v4Y9h7k
+Yaşar-Divane;https://www.youtube.com/watch?v=WiFFLGyT59I
+Dido-Thank You;https://m.youtube.com/watch?v=1TO48Cnl66w
+Cem Karaca-Resimdeki Gözyaşları;https://www.youtube.com/watch?v=LfnX9nujOQ0
+Sting-Shape of My Heart;https://youtu.be/NlwIDxCjL-8?si=VI-T85Dnw0HwCS5A
+Ricky Martin-Livin' La Vida Loca;https://www.youtube.com/watch?v=CN5hQOI__10
+Celine Dion-All By Myself;https://www.youtube.com/watch?v=NGrLb6W5YOM
+Metallica-Nothing Else Matters;https://www.youtube.com/watch?v=ozXZnwYTMbs
+Spice Girls-Wannabe;https://www.youtube.com/watch?v=gJLIiF15wjQ&list=RDgJLIiF15wjQ&start_radio=1
+No Doubt-Don't Speak;https://www.youtube.com/watch?v=1leInEAlbjY
+Duman-Her Şeyi Yak;https://www.youtube.com/watch?v=pc5SQI85Y-M
+Scorpions-Still Loving You;https://www.youtube.com/watch?v=O5Kw41JAfG4
+Scorpions-Wind of Change;https://www.youtube.com/watch?v=F_-ZuVy76yg
+Destiny's Child-Bills,Bills,Bills;https://www.youtube.com/watch?v=NiF6-0UTqtc
+Goo Goo Dolls-Iris;https://www.youtube.com/watch?v=xK4ZqrLys_k
+Ayna-Yeniden de Sevebiliriz Akdeniz;https://www.youtube.com/watch?v=eKANhic0mFc
+Barış Manço-Alla Beni Pulla Beni;https://www.youtube.com/watch?v=GUKIEjmQ1Bc
+Yonca Evcimik-Abone;https://www.youtube.com/watch?v=dO_FYA_YcS4&list=RDdO_FYA_YcS4&start_radio=1
+Michael Jackson-They Don't Care About Us;https://www.youtube.com/watch?v=GsHZBisKwxg
+Rusted Root-Send Me On My Way;https://www.youtube.com/watch?v=rwHv2XlIC_w
+Rengin-Aldatıldık;https://www.youtube.com/watch?v=cbLp3GNjfd0&list=RDcbLp3GNjfd0&start_radio=1
+Mustafa Sandal-Jest Oldu;https://www.youtube.com/watch?v=GEQBBJ4Es2Y&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=1
+TARKAN - Kuzu Kuzu;https://www.youtube.com/watch?v=NAHRpEqgcL4&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=2
+Yeni Türkü- Aşk Yeniden;https://www.youtube.com/watch?v=_NdZIknMk1w&list=RD_NdZIknMk1w&start_radio=1
+Kenan Doğulu- Tutamıyorum Zamanı;https://www.youtube.com/watch?v=xGzDUYPr0GQ&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=4
+Gülşen - Ne Kavgam Bitti Ne Sevdam;https://www.youtube.com/watch?v=_kBMsB32Fg8&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=5
+Levent Yüksel- Medcezir;https://www.youtube.com/watch?v=QJ_HX8t9YXI&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=13
+Harun Kolçak- Gir Kanıma;https://www.youtube.com/watch?v=hK73i75SnQw&list=RDhK73i75SnQw&start_radio=1
+Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4qwyul0&list=PLxyIA5E2lVC6Rv_7xZ881HselvQh80WHG
+Hakan Peker - Ateşini Yolla Bana;https://www.youtube.com/watch?v=3uZL9NEOiro&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=25
+Serdar Ortaç - Karabiberim;https://www.youtube.com/watch?v=Cg16C85FyEQ&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=26
+Serdar Ortaç - Ben Adam Olmam;https://www.youtube.com/watch?v=IxBEG2JRm3I&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=27
+Burak Kut - Benimle Oynama;https://www.youtube.com/watch?v=vgqHhAwlYmg&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=33
+Destan-Cilveloy;https://www.youtube.com/watch?v=btn09hwF3pc&list=RDbtn09hwF3pc&start_radio=1
+Yaşar-Birtanem;https://www.youtube.com/watch?v=MRsF_H_6w48&list=RDMRsF_H_6w48&start_radio=1
+Mirkelam-Her Gece;https://www.youtube.com/watch?v=7w9IDP_OR9M&list=RD7w9IDP_OR9M&start_radio=1
+Harun Kolçak-Vermem Seni;https://www.youtube.com/watch?v=9qsxPw2OlDA&list=RD9qsxPw2OlDA&start_radio=1
+Candan Erçetin-Sevdim Sevilmedim;https://www.youtube.com/watch?v=mtLwmoYxD34&list=RDmtLwmoYxD34&start_radio=1
+Serdar Ortaç - Gamzelim;https://www.youtube.com/watch?v=UGhQ90SHECQ&list=RDUGhQ90SHECQ&start_radio=1
+Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RDQ2YlgVRqC-U&start_radio=1
+Reyhan Karaca - Sevdik Sevdalandık;https://www.youtube.com/watch?v=6ahjwoNB01c&list=RD6ahjwoNB01c&start_radio=1
+Kenan Doğulu-Ben Güzelden Anlarım;https://www.youtube.com/watch?v=BBZneZ36xzQ&list=RDBBZneZ36xzQ&start_radio=1
+Bendeniz - Gönül Yareler İçinde;https://www.youtube.com/watch?v=h1d_1xTot30&list=RDh1d_1xTot30&start_radio=1
+Ajda Pekkan-Bambaşka Biri;https://www.youtube.com/watch?v=FrjWcu1c0-4&list=RDFrjWcu1c0-4&start_radio=1
+Emel Müftüoğlu - Hovarda;https://www.youtube.com/watch?v=O1wyl6sbZyI&list=RDO1wyl6sbZyI&start_radio=1
+Ajda Pekkan-Haykıracak Nefesim Kalmasa Bile;https://www.youtube.com/watch?v=G81e4utp3Mo&list=RDG81e4utp3Mo&start_radio=1
+Yıldız Tilbe - Sana Değer;https://www.youtube.com/watch?v=_Qw1l1BbJwM&list=RD_Qw1l1BbJwM&start_radio=1
+Ajda Pekkan-Palavra Palavra;https://www.youtube.com/watch?v=VgK7sFO4kaw&list=RDVgK7sFO4kaw&start_radio=1
+Mirkelam - Tavla;https://www.youtube.com/watch?v=vE62W7vbKjs&list=RDvE62W7vbKjs&start_radio=1
+Ajda Pekkan-Yaz Yaz Yaz;https://www.youtube.com/watch?v=93wsynxLMLk&list=RD93wsynxLMLk&start_radio=1
+Seda Sayan-Ah Geceler;https://www.youtube.com/watch?v=DfpeVaTy82M&list=RDDfpeVaTy82M&start_radio=1
+Tarkan - Ölürüm Sana;https://www.youtube.com/watch?v=LJ9FpMXJmwY&list=RDLJ9FpMXJmwY&start_radio=1
+Ajda Pekkan-Eline,Gözüne,Dizine Dursun;https://www.youtube.com/watch?v=K87LGdaCh-c&list=RDK87LGdaCh-c&start_radio=1
+Aşkın Nur Yengi-Ay İnanmıyorum;https://www.youtube.com/watch?v=zFM9Jq31UEY&list=RDzFM9Jq31UEY&start_radio=1
+Sinan Erkoç - Havam Yerinde;https://www.youtube.com/watch?v=QhL3lXjtB5U&list=RDQhL3lXjtB5U&start_radio=1
+Sertab Erener - Zor Kadın;https://www.youtube.com/watch?v=kQMWd7oyFlo&list=RDkQMWd7oyFlo&start_radio=1
+Sezen Aksu - Seni Yerler;https://www.youtube.com/watch?v=IVE00F-2ZCw&list=RDIVE00F-2ZCw&start_radio=1
+Ebru Gündeş-Fırtınalar;https://www.youtube.com/watch?v=a8-RshlYFGA&list=RDa8-RshlYFGA&start_radio=1
+Mansur Ark - Maalesef;https://www.youtube.com/watch?v=dPNj8kJP31A&list=RDdPNj8kJP31A&start_radio=1
+Mustafa Sandal - Aya Benzer;https://www.youtube.com/watch?v=VlEOPZNTeTc&list=RDVlEOPZNTeTc&start_radio=1
+Sezen Aksu - Kaçın Kurası;https://www.youtube.com/watch?v=352QSI4nsQk&list=RD352QSI4nsQk&start_radio=1
+Burak Kut - Yaşandı Bitti;https://www.youtube.com/watch?v=Fx4ccla8O7Y&list=RDFx4ccla8O7Y&start_radio=1
+Nükhet Duru-Mahmure;https://www.youtube.com/watch?v=oNOUy-TYHoI&list=RDoNOUy-TYHoI&start_radio=1
+Atilla Taş-Zennube;https://www.youtube.com/watch?v=Lhpj4SvgC_8&list=RDLhpj4SvgC_8&start_radio=1
+Yonca Evcimik-Bandıra Bandıra;https://www.youtube.com/watch?v=y7uDYFxXwcg&list=RDy7uDYFxXwcg&start_radio=1
+Çelik - Ateşteyim;https://www.youtube.com/watch?v=zPBxIp_kMpM&list=RDzPBxIp_kMpM&start_radio=1
+Candan Erçetin-Umrumda Değil;https://www.youtube.com/watch?v=JBElQJbWdF0&list=RDJBElQJbWdF0&start_radio=1
+Mustafa Sandal - Gidenlerden;https://www.youtube.com/watch?v=u3L6gByQnrI&list=RDu3L6gByQnrI&start_radio=1
+Seyyal Taner - Alladı Pulladı;https://www.youtube.com/watch?v=titaJ2mXoCM&list=RDtitaJ2mXoCM&start_radio=1
+Mustafa Sandal-Bu Kız Beni Görmeli;https://www.youtube.com/watch?v=9Fde8AckZzs&list=RD9Fde8AckZzs&start_radio=1
+Sezen Aksu-Onu Alma Beni Al;https://www.youtube.com/watch?v=uAxlVEDv860&list=RDuAxlVEDv860&start_radio=1
+Sezen Aksu- Hadi Bakalım;https://www.youtube.com/watch?v=HSVseiOjAPw&list=RDHSVseiOjAPw&start_radio=1
+Tarkan-Kıl Oldum;https://www.youtube.com/watch?v=pB-gSNevlnk&list=RDpB-gSNevlnk&start_radio=1
+Çelik- Hercai;https://www.youtube.com/watch?v=4tnyQ8lYH_k&list=RD4tnyQ8lYH_k&start_radio=1
+İzel- Ah Yandım;https://www.youtube.com/watch?v=YHDacCdTLwE&list=RDYHDacCdTLwE&start_radio=1
+Ege- Delice Bir Sevda;https://www.youtube.com/watch?v=-lycRoJk954&list=RD-lycRoJk954&start_radio=1
+Burak Kut- Bebeğim;https://www.youtube.com/watch?v=XXnGLMWdr-4&list=RDXXnGLMWdr-4&start_radio=1
+Sibel Alaş- Adam;https://www.youtube.com/watch?v=ThufvaUVi1Q&list=RDThufvaUVi1Q&start_radio=1
+Oya- Bora- Sevmek Zamanı;https://www.youtube.com/watch?v=w7LqXb1Qm1U&list=RDw7LqXb1Qm1U&start_radio=1
+Tarkan-Kış Güneşi;https://www.youtube.com/watch?v=-CxauCeQ_SQ&list=RD-CxauCeQ_SQ&start_radio=1
+Doğuş- Uyan;https://www.youtube.com/watch?v=XxPPkc_M-YU&list=PLxyIA5E2lVC6Rv_7xZ881HselvQh80WHG&index=16
+Rafet El Roman- Sorma Neden;https://www.youtube.com/watch?v=0VlfPTGpLCs&list=PLxyIA5E2lVC6Rv_7xZ881HselvQh80WHG&index=22
+Ferda Anıl Yarkın- Sonuna Kadar;https://www.youtube.com/watch?v=slTJhCBXUpQ&list=PLxyIA5E2lVC6Rv_7xZ881HselvQh80WHG&index=25
+Asya-Vurulmuşum Sana;https://www.youtube.com/watch?v=ZaPF2hPgDlc&list=RDZaPF2hPgDlc&start_radio=1
+Asya-Beni Aldattın;https://www.youtube.com/watch?v=rRdZbb2_eYc&list=RDrRdZbb2_eYc&start_radio=1
+Asya - Pişmanım;https://www.youtube.com/watch?v=oO8mBHaZBkA&list=RDoO8mBHaZBkA&start_radio=1
+Nilüfer- Mavilim;https://www.youtube.com/watch?v=17we-e5wjc8&list=RD17we-e5wjc8&start_radio=1
+Nilüfer- Haram Geceler;https://www.youtube.com/watch?v=Bco67TlT9p0&list=RDBco67TlT9p0&start_radio=1
+Nilüfer- Gözlerinin Hapsindeyim;https://www.youtube.com/watch?v=JHF561IZwfo&list=RDJHF561IZwfo&start_radio=1
+Nilüfer & Kayahan- Yemin Ettim;https://www.youtube.com/watch?v=PSCI5u3O7ZE&list=RDPSCI5u3O7ZE&start_radio=1
+Nilüfer- Ve Melankoli;https://www.youtube.com/watch?v=itH2_T5yCAs&list=RDitH2_T5yCAs&start_radio=1
+Nilüfer- Son Arzum;https://www.youtube.com/watch?v=gwtiHjOixDQ&list=RDgwtiHjOixDQ&start_radio=1
+Nilüfer- Başıma Gelenler;https://www.youtube.com/watch?v=M_2ufwpZNI0&list=RDM_2ufwpZNI0&start_radio=1
+Aşkın Nur Yengi - Yalancı Bahar;https://www.youtube.com/watch?v=kGkezfjlDlQ&list=RDkGkezfjlDlQ&start_radio=1`
 );
+
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
   const { toast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -420,7 +477,7 @@ Ayşegül Aldinç-Allimallah;https://www.youtube.com/watch?v=Q2YlgVRqC-U&list=RD
                         id="bulk-textarea"
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
-                        placeholder="Kuzu Kuzu;https://youtube.com/..."
+                        placeholder="Şebnem Ferah-Sil Baştan;https://youtube.com/..."
                         className="retro-input-soft min-h-[200px]"
                         rows={10}
                     />
@@ -697,20 +754,26 @@ const LoginForm = ({ onLogin, error }: { onLogin: (password: string) => void, er
 export default function AdminPage() {
   const { firestore } = useFirebase(); // user'ı buradan kaldırıyoruz
   const [role, setRole] = useState<Role | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Basit parola kontrolüne geri dön
-  const handleLogin = (password: string) => {
-    if (password === "gizli_kara90ke") {
-      setRole("owner");
-      setError(null);
-    } else if (password === "kara90ke") {
-      setRole("admin");
-      setError(null);
-    } else {
-      setError("Yanlış parola.");
-    }
-  };
+const [error, setError] = useState<string | null>(null);
+
+// Düz şifrelerin MD5 hash'leri
+const OWNER_HASH = "5e9d51bd8397efaa719e3bd5d8e8410d";   // gizli_kara90ke
+const ADMIN_HASH = "b4470385ae6f3aa166295d0920df17d3";   // kara90ke
+
+const handleLogin = (password: string) => {
+  const hashed = md5(password).toString();
+
+  if (hashed === OWNER_HASH) {
+    setRole("owner");
+    setError(null);
+  } else if (hashed === ADMIN_HASH) {
+    setRole("admin");
+    setError(null);
+  } else {
+    setError("Yanlış parola.");
+  }
+};
+
 
   // Basit render mantığı
   if (!role) {
