@@ -757,8 +757,8 @@ export default function AdminPage() {
 const [error, setError] = useState<string | null>(null);
 
 // Düz şifrelerin MD5 hash'leri
-const OWNER_HASH = "5e9d51bd8397efaa719e3bd5d8e8410d";   // gizli_kara90ke
-const ADMIN_HASH = "b4470385ae6f3aa166295d0920df17d3";   // kara90ke
+const OWNER_HASH = "0a8a46f5c4a84c9f35cf8f8a231d1936";   // gizli_kara90ke
+const ADMIN_HASH = "bfbb9631e2d34e8875654a7402a19f1b";   // kara90ke
 
 const handleLogin = (password: string) => {
   const hashed = md5(password).toString();
