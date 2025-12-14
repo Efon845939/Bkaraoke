@@ -316,43 +316,271 @@ Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4q
   const isLoading = songsLoading || (role === "owner" && logsLoading);
 
   return (
-    <div className="min-h-screen p-6 relative">
-      <div className="mx-auto w-[min(1100px,92%)]">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-black">{title}</h1>
-          <Link
-            href="/"
-            className="rounded-2xl px-4 py-3 border border-white/20"
-          >
-            Lobiye Dön
-          </Link>
-        </div>
-
-        {isLoading && <p>Yükleniyor...</p>}
-
-        {!isLoading && (
-          <Tabs defaultValue="requests">
-            <TabsList>
-              <TabsTrigger value="requests">Şarkı İstekleri</TabsTrigger>
-              {role === "owner" && (
-                <TabsTrigger value="bulk-add">Toplu Ekle</TabsTrigger>
-              )}
-              {role === "owner" && (
-                <TabsTrigger value="audit">Denetim Kayıtları</TabsTrigger>
-              )}
-            </TabsList>
-
-            {/* ... senin mevcut JSX'in aynı şekilde devam ediyor ... */}
-            {/* Burayı kısaltmıyorum diye tüm sayfa zaten devasa; senin dosyan aynen duruyor */}
-            {/* Buradan sonrası senin kodunda olduğu gibi devam etmeli */}
-
-          </Tabs>
-        )}
+  <div className="min-h-screen p-6 relative">
+    <div className="mx-auto w-[min(1100px,92%)]">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-black">{title}</h1>
+        <Link href="/" className="rounded-2xl px-4 py-3 border border-white/20">
+          Lobiye Dön
+        </Link>
       </div>
 
-      <VHSStage intensity={0.1} sfxVolume={0} />
+      {isLoading && <p>Yükleniyor...</p>}
+
+      {!isLoading && (
+        <Tabs defaultValue="requests">
+          <TabsList>
+            <TabsTrigger value="requests">Şarkı İstekleri</TabsTrigger>
+            {role === "owner" && <TabsTrigger value="bulk-add">Toplu Ekle</TabsTrigger>}
+            {role === "owner" && <TabsTrigger value="audit">Denetim Kayıtları</TabsTrigger>}
+          </TabsList>
+
+          {/* ✅ 1) ŞARKI İSTEKLERİ */}
+          <TabsContent value="requests" className="mt-6">
+            <section>
+              <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                Onay Bekleyenler ({pendingSongs.length})
+              </h2>
+              <div className="grid gap-2">
+                {pendingSongs.map((s) => (
+                  <SongRow
+                    key={s.id}
+                    s={s}
+                    role={role}
+                    onSetStatus={setStatus}
+                    onEdit={() => setEditingSong(s)}
+                    onDelete={() => setDeletingSong(s)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <h2 className="text-xl font-bold mb-3 text-neutral-400">
+                Onaylananlar ({approvedSongs.length})
+              </h2>
+              <div className="grid gap-2">
+                {approvedSongs.map((s) => (
+                  <ReadOnlySongRow
+                    key={s.id}
+                    s={s}
+                    role={role}
+                    onSetStatus={setStatus}
+                    onEdit={() => setEditingSong(s)}
+                    onDelete={() => setDeletingSong(s)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <h2 className="text-xl font-bold mb-3 text-neutral-500">
+                Reddedilenler ({rejectedSongs.length})
+              </h2>
+              <div className="grid gap-2">
+                {rejectedSongs.map((s) => (
+                  <ReadOnlySongRow
+                    key={s.id}
+                    s={s}
+                    role={role}
+                    onSetStatus={setStatus}
+                    onEdit={() => setEditingSong(s)}
+                    onDelete={() => setDeletingSong(s)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {role === "owner" && (
+              <section className="mt-12 border-t-2 border-red-500/30 pt-6">
+                <h2 className="text-xl font-bold mb-3 text-red-400 flex items-center gap-2">
+                  <AlertTriangle /> Tehlikeli Alan
+                </h2>
+
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-white">Veritabanı Operasyonları</h3>
+                    <p className="text-sm text-red-300/80 mt-1">
+                      Bu işlemler geri alınamaz. Mevcut listeyi silmek veya varsayılan listeyi yeniden yüklemek için kullanın.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      variant="destructive"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={isDBActionRunning}
+                    >
+                      Tüm Listeyi Sil
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setShowAddConfirm(true)}
+                      disabled={isDBActionRunning}
+                    >
+                      Varsayılan Listeyi Ekle
+                    </Button>
+                  </div>
+                </div>
+              </section>
+            )}
+          </TabsContent>
+
+          {/* ✅ 2) TOPLU EKLE */}
+          {role === "owner" && (
+            <TabsContent value="bulk-add" className="mt-6">
+              <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                Şarkıları Toplu Ekle
+              </h2>
+
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-neutral-400">
+                  Excel veya Google E-Tablolar'dan kopyaladığınız şarkı listesini aşağıya yapıştırın.
+                  Her satır şu formatta olmalı:
+                  <br />
+                  <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">
+                    Şarkı Adı;Karaoke Linki
+                  </code>
+                </p>
+
+                <Textarea
+                  id="bulk-textarea"
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder="Şebnem Ferah-Sil Baştan;https://youtube.com/..."
+                  className="retro-input-soft min-h-[200px]"
+                  rows={10}
+                />
+
+                <div className="flex justify-end">
+                  <Button onClick={() => handleBulkAdd(false)} disabled={isDBActionRunning}>
+                    {isDBActionRunning ? "Ekleniyor..." : "Metin Alanındaki Listeyi Ekle"}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+          )}
+
+          {/* ✅ 3) DENETİM KAYITLARI */}
+          {role === "owner" && (
+            <TabsContent value="audit" className="mt-6">
+              <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                Son Hareketler
+              </h2>
+
+              <div className="grid gap-2">
+                {sortedLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className="border border-white/15 rounded-2xl p-3 bg-white/5 backdrop-blur text-sm"
+                  >
+                    <span className="font-bold text-fuchsia-300">{log.songTitle}</span>{" "}
+                    - <span className="text-neutral-300">{log.action}</span>
+
+                    <div className="text-xs text-neutral-400 mt-1">
+                      {log.performedBy === "owner" ? "Sahip" : "Yönetici"} tarafından,{" "}
+                      {log.timestamp?.toDate
+                        ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: tr })
+                        : "az önce"}
+                      .
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
+      )}
     </div>
-  );
+
+    <VHSStage intensity={0.1} sfxVolume={0} />
+
+    {/* Edit Dialog */}
+    <AlertDialog open={!!editingSong} onOpenChange={(open) => !open && setEditingSong(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Şarkıyı Düzenle</AlertDialogTitle>
+          <AlertDialogDescription>Şarkı detaylarını güncelleyin.</AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <form onSubmit={handleEdit}>
+          <div className="flex flex-col gap-4 py-4">
+            <Input name="studentName" defaultValue={editingSong?.studentName} placeholder="İsim" />
+            <Input name="songTitle" defaultValue={editingSong?.songTitle} placeholder="Şarkı Başlığı" />
+            <Input name="karaokeLink" defaultValue={editingSong?.karaokeLink} placeholder="Karaoke Linki" />
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction type="submit">Kaydet</AlertDialogAction>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Single Delete Dialog */}
+    <AlertDialog open={!!deletingSong} onOpenChange={(open) => !open && setDeletingSong(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Bu işlem geri alınamaz. "{deletingSong?.songTitle}" şarkısını listeden kalıcı olarak sileceksiniz.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>İptal</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+            Sil
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Delete All Confirmation Dialog */}
+    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Tüm Şarkıları Silmek Üzeresiniz!</AlertDialogTitle>
+          <AlertDialogDescription>
+            Bu işlem geri alınamaz. Veritabanındaki tüm şarkı istekleri kalıcı olarak silinecektir. Emin misiniz?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>İptal</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDeleteAll}
+            disabled={isDBActionRunning}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isDBActionRunning ? "Siliniyor..." : "Evet, Tümünü Sil"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Add Default List Confirmation Dialog */}
+    <AlertDialog open={showAddConfirm} onOpenChange={setShowAddConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Varsayılan Listeyi Ekle?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Bu işlem mevcut şarkıların üzerine yazmaz, sadece ekleme yapar.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel>İptal</AlertDialogCancel>
+          <AlertDialogAction onClick={() => handleBulkAdd(true)} disabled={isDBActionRunning}>
+            {isDBActionRunning ? "Ekleniyor..." : "Evet, Ekle"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </div>
+);
+
 };
 
 // --- Login Form Component ---
