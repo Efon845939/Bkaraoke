@@ -1,104 +1,79 @@
-/**
- * @file Firebase Security Rules for the Karaoke Queue application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for student data and uses a role-based model for admin privileges.
- * Song requests are secured based on the student who created them or by an admin.
- *
- * Data Structure:
- * - /students/{studentId}: Stores student profiles. Only the student themselves can read/write their own profile.
- * - /roles_admin/{adminId}: Documents in this collection indicate admin privileges.
- * - /song_requests/{songRequestId}: Stores song requests. Each document contains the studentId of the requester.
- * - /audit_logs/{logId}: Stores a log of all actions. Write-only for users, read-only for admins.
- *
- * Key Security Decisions:
- * - Students can only manage their own profiles.
- * - Listing of students is disallowed for privacy.
- * - Admins, as determined by membership in the `/roles_admin` collection, can manage all song requests.
- * - Song requests are publicly listable, but write access is restricted to the requesting student or an admin.
- *
- * Denormalization for Authorization:
- * - Song requests contain a `studentId` field to allow verifying ownership without additional reads.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Secure student profiles. Only the student themselves can read/write their own profile.
-     * @path /students/{studentId}
-     * @allow (create) User with UID 'student_abc' can create their own profile at /students/student_abc.
-     * @deny (create) User with UID 'other_user' cannot create a profile at /students/student_abc.
-     * @principle Enforces document ownership for student profiles.
-     */
+    ///// ORTAK YARDIMCI FONKSİYONLAR /////
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(studentId) {
+      return isSignedIn() && request.auth.uid == studentId;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    ///// ÖĞRENCİ PROFİLLERİ /////
+    // /students/{studentId}
     match /students/{studentId} {
-      function isOwner() {
-        return request.auth != null && request.auth.uid == studentId;
-      }
-      allow get: if isOwner();
-      allow list: if false; // Disallowing listing for privacy.
-      allow create: if isOwner();
-      allow update: if isOwner();
-      allow delete: if isOwner();
+      // Sadece kendi profilini görebilir ve düzenleyebilir.
+      allow get, create, update, delete: if isOwner(studentId);
+
+      // Listeleme yasak (tüm öğrencileri çekemesin)
+      allow list: if false;
     }
 
-    /**
-     * @description Manages admin roles. Existence in this collection grants admin privileges.
-     * @path /roles_admin/{adminId}
-     * @allow (get) Authenticated user with admin privileges can read this document.
-     * @deny (create) Non-authenticated user cannot create an admin role document.
-     * @principle Restricts admin role creation to a privileged process.
-     */
+    ///// ADMIN ROLLERİ /////
+    // /roles_admin/{adminId}
     match /roles_admin/{adminId} {
-      function isAdmin() {
-        return request.auth != null && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-      }
-
+      // Admin kendi rol dokümanını görebilir (isteğe göre kapatılabilir)
       allow get: if isAdmin();
-      allow list: if false; // Listing is not allowed for security reasons.
-      allow create: if false; // Only backend processes can create admin roles.
-      allow update: if false; // Admin roles are not editable via client.
-      allow delete: if false; // Only backend processes can delete admin roles.
+
+      // Listeleme ve değişiklik tamamen kapalı (sadece backend / console ile)
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
-    /**
-     * @description Secure song requests. Students can create their own requests; admins can manage all requests.
-     * @path /song_requests/{songRequestId}
-     * @allow (create) User with UID 'student_abc' can create a song request with studentId 'student_abc'.
-     * @allow (get) Any user can get any song request.
-     * @deny (update) User with UID 'student_xyz' cannot update a song request with studentId 'student_abc'.
-     * @principle Enforces ownership for song request creation and management, with admin override.
-     */
+    ///// ŞARKI İSTEKLERİ /////
+    // /song_requests/{songRequestId}
     match /song_requests/{songRequestId} {
-       function isOwner() {
-        return request.auth != null && request.auth.uid == resource.data.studentId;
-      }
 
+      // Herkes listeyi görebilir (sırayı ekranda göstermek için)
       allow get: if true;
       allow list: if true;
-      // Allow create if the user is authenticated and the studentId in the new document matches their UID.
-      allow create: if request.auth != null && request.resource.data.studentId == request.auth.uid;
-      // TEMPORARY: Allow any authenticated user to update (approve/reject) until a proper admin auth system is in place.
-      allow update: if request.auth != null;
-       // TEMPORARY: Allow any authenticated user to delete until a proper admin role system is in place.
-      allow delete: if request.auth != null;
+
+      // Yeni istek: sadece giriş yapmış kullanıcı ve kendi UID’sini studentId olarak yazıyorsa
+      allow create: if isSignedIn()
+                    && request.resource.data.studentId == request.auth.uid;
+
+      // Güncelleme / silme:
+      // - Dokümanın sahibi
+      // - VEYA admin
+      allow update, delete: if isSignedIn()
+                            && (
+                              isOwner(resource.data.studentId)
+                              || isAdmin()
+                            );
     }
 
-    /**
-     * @description Secures audit logs. Allows any authenticated user to create (log an action).
-     * @path /audit_logs/{logId}
-     * @allow (create) Any authenticated user can write to the audit log.
-     deny (list) Only admins can list audit logs.
-     * @principle Write-only for general users, read-only for admins to ensure log integrity.
-     */
+    ///// DENETİM LOG KAYITLARI /////
+    // /audit_logs/{logId}
     match /audit_logs/{logId} {
-      // TEMPORARY: Allow any authenticated user to read logs until a proper admin role system is in place.
-      allow get: if request.auth != null;
-      allow list: if request.auth != null;
-      // Allow any authenticated user to create a log entry.
-      allow create: if request.auth != null;
-      allow update: if false; // Logs are immutable.
-      allow delete: if false; // Logs cannot be deleted.
+
+      // Log oluşturma: herhangi giriş yapmış kullanıcı (istemci tarafı log basabilir)
+      allow create: if isSignedIn();
+
+      // Logları görme / listeleme: SADECE admin
+      allow get, list: if isAdmin();
+
+      // Loglar değiştirilemez ve silinemez
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }
