@@ -1,36 +1,32 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
-
-import {setGlobalOptions} from "firebase-functions";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 initializeApp();
 
+/**
+ * song_requests içine yeni kayıt gelince owner'a notification yazar.
+ */
+export const notifyOwnerOnSongRequest = onDocumentCreated(
+  "song_requests/{requestId}",
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+    const data = snap.data() as any;
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+    const studentName = (data.studentName ?? "Biri").toString();
+    const songTitle = (data.songTitle ?? "Bilinmeyen Şarkı").toString();
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+    const message = `${studentName} — ${songTitle} isteği gönderdi`;
+
+    await getFirestore().collection("notifications").add({
+      to: "owner",
+      type: "new_song_request",
+      message,
+      requestId: snap.id,
+      createdAt: FieldValue.serverTimestamp(),
+      read: false
+    });
+  }
+);
