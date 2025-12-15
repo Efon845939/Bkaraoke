@@ -66,61 +66,16 @@ type Role = "admin" | "owner";
 // --- Admin Panel Component ---
 const AdminPanel = ({ role }: { role: Role }) => {
   const { firestore, user } = useFirebase();
+  const { toast } = useToast();
+
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [deletingSong, setDeletingSong] = useState<Song | null>(null);
 
+  // Buraya kendi uzun listenizi koyabilirsiniz ama mutlaka düzgün ` ile bitsin.
   const [bulkText, setBulkText] = useState(
-    `REM-Losing My Religion;https://www.youtube.com/watch?v=Efa6BAWPm9o
-Bulutsuzluk Özlemi-Sözlerimi Geri Alamam;https://www.youtube.com/watch?v=RMu2HUTGe2c
-Şebnem Ferah-Sil Baştan;https://www.youtube.com/watch?v=yjGigzkkXMM
-Gülşen-Be Adam;https://www.youtube.com/watch?v=liaMcRqwOKs
-Tarkan-Hepsi Senin Mi?;https://www.youtube.com/watch?v=GB5J_2jWxMQ
-Kenan Doğulu -Yaparım Bilirsin (Hızlı Ebru Gündeş versiyon);https://www.youtube.com/watch?v=7JJH5GZPJNw
-Hakan Peker-Karam;https://www.youtube.com/watch?v=xQBIAUU4NVk
-Athena-Senden Benden Bizden;https://www.youtube.com/watch?v=ODzwocw9z28
-Mustafa Sandal-Araba;https://www.youtube.com/watch?v=-lcfABgHKfs
-MFÖ-Ali Desidero;https://www.youtube.com/watch?v=inwiXmzKun8
-MFÖ-Ele Güne Karşı;https://www.youtube.com/watch?v=4DZbURvoDEc
-Sertab Erener-Güle Güle Şekerim;https://www.youtube.com/watch?v=rAAfQOLMZmo
-Levent Yüksel- Zalim;https://www.youtube.com/watch?v=R0KCc9-0i6E
-Nirvana-Smells Like Teen Spirit;https://www.youtube.com/watch?v=Q6SHkQMFVlc
-Barış Manço-Gibi gibi;https://youtu.be/vqFb0kCvE5o?si=gCQR2wk_Qlh-mB5R
-Barış Manço-Can Bedenden Çıkmayınca;https://youtu.be/RTpyeclPZuU?si=7cOshfxvkl3OEy5F
-Barış Manço-Bal Böceği;https://youtu.be/YXmSNwYIw7Q?si=kLyrMl6DlwUpiMpP
-Duman-Köprüaltı;https://www.youtube.com/watch?v=2J75v4Y9h7k
-Yaşar-Divane;https://www.youtube.com/watch?v=WiFFLGyT59I
-Dido-Thank You;https://m.youtube.com/watch?v=1TO48Cnl66w
-Cem Karaca-Resimdeki Gözyaşları;https://www.youtube.com/watch?v=LfnX9nujOQ0
-Sting-Shape of My Heart;https://youtu.be/NlwIDxCjL-8?si=VI-T85Dnw0HwCS5A
-Ricky Martin-Livin' La Vida Loca;https://www.youtube.com/watch?v=CN5hQOI__10
-Celine Dion-All By Myself;https://www.youtube.com/watch?v=NGrLb6W5YOM
-Metallica-Nothing Else Matters;https://www.youtube.com/watch?v=ozXZnwYTMbs
-Spice Girls-Wannabe;https://www.youtube.com/watch?v=gJLIiF15wjQ&list=RDgJLIiF15wjQ&start_radio=1
-No Doubt-Don't Speak;https://www.youtube.com/watch?v=1leInEAlbjY
-Duman-Her Şeyi Yak;https://www.youtube.com/watch?v=pc5SQI85Y-M
-Scorpions-Still Loving You;https://www.youtube.com/watch?v=O5Kw41JAfG4
-Scorpions-Wind of Change;https://www.youtube.com/watch?v=F_-ZuVy76yg
-Destiny's Child-Bills,Bills,Bills;https://www.youtube.com/watch?v=NiF6-0UTqtc
-Goo Goo Dolls-Iris;https://www.youtube.com/watch?v=xK4ZqrLys_k
-Ayna-Yeniden de Sevebiliriz Akdeniz;https://www.youtube.com/watch?v=eKANhic0mFc
-Barış Manço-Alla Beni Pulla Beni;https://www.youtube.com/watch?v=GUKIEjmQ1Bc
-Yonca Evcimik-Abone;https://www.youtube.com/watch?v=dO_FYA_YcS4&list=RDdO_FYA_YcS4&start_radio=1
-Michael Jackson-They Don't Care About Us;https://www.youtube.com/watch?v=GsHZBisKwxg
-Rusted Root-Send Me On My Way;https://www.youtube.com/watch?v=rwHv2XlIC_w
-Rengin-Aldatıldık;https://www.youtube.com/watch?v=cbLp3GNjfd0&list=RDcbLp3GNjfd0&start_radio=1
-Mustafa Sandal-Jest Oldu;https://www.youtube.com/watch?v=GEQBBJ4Es2Y&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=1
-TARKAN - Kuzu Kuzu;https://www.youtube.com/watch?v=NAHRpEqgcL4&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=2
-Yeni Türkü- Aşk Yeniden;https://www.youtube.com/watch?v=_NdZIknMk1w&list=RD_NdZIknMk1w&start_radio=1
-Kenan Doğulu- Tutamıyorum Zamanı;https://www.youtube.com/watch?v=xGzDUYPr0GQ&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=4
-Gülşen - Ne Kavgam Bitti Ne Sevdam;https://www.youtube.com/watch?v=_kBMsB32Fg8&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=5
-Levent Yüksel- Medcezir;https://www.youtube.com/watch?v=QJ_HX8t9YXI&list=PL3hSAzZjtT1NHRKLU9gEw5U4fh_kmwsGO&index=13
-Harun Kolçak- Gir Kanıma;https://www.youtube.com/watch?v=hK73i75SnQw&list=RDhK73i75SnQw&start_radio=1
-Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4qwyul0&list=PLxyIA5E2lVC6Rv_7xZ881HselvQh80WHG
-...`
+    `REM-Losing My Religion;https://www.youtube.com/watch?v=Efa6BAWPm9o`
   );
 
-  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
-  const { toast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showAddConfirm, setShowAddConfirm] = useState(false);
   const [isDBActionRunning, setIsDBActionRunning] = useState(false);
@@ -140,7 +95,7 @@ Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4q
   const { data: auditLogs, isLoading: logsLoading } =
     useCollection<AuditLog>(auditLogsQuery);
 
-  // ✅ TAM DOĞRU YER: songs + toast hazır → owner toast hook'u çalıştır
+  // ✅ Owner panel açıkken yeni istek gelince toast
   useOwnerSongRequestToast({ role, songs, toast });
 
   const logAction = (action: string, songTitle: string) => {
@@ -215,10 +170,12 @@ Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4q
     try {
       await batch.commit();
       await logsBatch.commit();
+
       toast({
         title: "Toplu Ekleme Başarılı",
-        description: `${successCount} şarkı başarıyla eklendi. Hatalı satır sayısı: ${errorCount}.`,
+        description: `${successCount} şarkı eklendi. Hatalı satır: ${errorCount}.`,
       });
+
       if (!useDefaultList) setBulkText("");
     } catch (error) {
       console.error("Bulk add failed:", error);
@@ -236,24 +193,23 @@ Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4q
   const handleDeleteAll = async () => {
     if (!firestore) return;
     setIsDBActionRunning(true);
+
     const querySnapshot = await getDocs(collection(firestore, "song_requests"));
     const batch = writeBatch(firestore);
-    querySnapshot.forEach((docSnap) => {
-      batch.delete(docSnap.ref);
-    });
+    querySnapshot.forEach((docSnap) => batch.delete(docSnap.ref));
 
     try {
       await batch.commit();
       toast({
         title: "Liste Temizlendi",
-        description: "Tüm şarkılar başarıyla silindi.",
+        description: "Tüm şarkılar silindi.",
       });
     } catch (error) {
       console.error("Delete all failed:", error);
       toast({
         variant: "destructive",
         title: "Silme Başarısız",
-        description: "Şarkılar silinirken bir hata oluştu.",
+        description: "Şarkılar silinirken hata oluştu.",
       });
     } finally {
       setIsDBActionRunning(false);
@@ -279,12 +235,14 @@ Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4q
   const handleEdit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore || !editingSong) return;
+
     const formData = new FormData(e.currentTarget);
     const updatedSong = {
       studentName: formData.get("studentName") as string,
       songTitle: formData.get("songTitle") as string,
       karaokeLink: formData.get("karaokeLink") as string,
     };
+
     const songRef = doc(firestore, "song_requests", editingSong.id);
     updateDocumentNonBlocking(songRef, updatedSong);
     logAction("Düzenlendi", editingSong.songTitle);
@@ -312,276 +270,407 @@ Demet Sağıroğlu - Arnavut Kaldırımı;https://www.youtube.com/watch?v=bdso4q
   const pendingSongs = sortedSongs.filter((s) => s.status === "pending");
   const approvedSongs = sortedSongs.filter((s) => s.status === "approved");
   const rejectedSongs = sortedSongs.filter((s) => s.status === "rejected");
+
   const title = role === "owner" ? "Sahip Paneli" : "Yönetici Paneli";
   const isLoading = songsLoading || (role === "owner" && logsLoading);
 
   return (
-  <div className="min-h-screen p-6 relative">
-    <div className="mx-auto w-[min(1100px,92%)]">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-black">{title}</h1>
-        <Link href="/" className="rounded-2xl px-4 py-3 border border-white/20">
-          Lobiye Dön
-        </Link>
-      </div>
+    <div className="min-h-screen p-6 relative">
+      <div className="mx-auto w-[min(1100px,92%)]">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-black">{title}</h1>
+          <Link href="/" className="rounded-2xl px-4 py-3 border border-white/20">
+            Lobiye Dön
+          </Link>
+        </div>
 
-      {isLoading && <p>Yükleniyor...</p>}
+        {isLoading && <p>Yükleniyor...</p>}
 
-      {!isLoading && (
-        <Tabs defaultValue="requests">
-          <TabsList>
-            <TabsTrigger value="requests">Şarkı İstekleri</TabsTrigger>
-            {role === "owner" && <TabsTrigger value="bulk-add">Toplu Ekle</TabsTrigger>}
-            {role === "owner" && <TabsTrigger value="audit">Denetim Kayıtları</TabsTrigger>}
-          </TabsList>
+        {!isLoading && (
+          <Tabs defaultValue="requests">
+            <TabsList>
+              <TabsTrigger value="requests">Şarkı İstekleri</TabsTrigger>
+              {role === "owner" && <TabsTrigger value="bulk-add">Toplu Ekle</TabsTrigger>}
+              {role === "owner" && <TabsTrigger value="audit">Denetim Kayıtları</TabsTrigger>}
+            </TabsList>
 
-          {/* ✅ 1) ŞARKI İSTEKLERİ */}
-          <TabsContent value="requests" className="mt-6">
-            <section>
-              <h2 className="text-xl font-bold mb-3 text-neutral-300">
-                Onay Bekleyenler ({pendingSongs.length})
-              </h2>
-              <div className="grid gap-2">
-                {pendingSongs.map((s) => (
-                  <SongRow
-                    key={s.id}
-                    s={s}
-                    role={role}
-                    onSetStatus={setStatus}
-                    onEdit={() => setEditingSong(s)}
-                    onDelete={() => setDeletingSong(s)}
-                  />
-                ))}
-              </div>
-            </section>
-
-            <section className="mt-8">
-              <h2 className="text-xl font-bold mb-3 text-neutral-400">
-                Onaylananlar ({approvedSongs.length})
-              </h2>
-              <div className="grid gap-2">
-                {approvedSongs.map((s) => (
-                  <ReadOnlySongRow
-                    key={s.id}
-                    s={s}
-                    role={role}
-                    onSetStatus={setStatus}
-                    onEdit={() => setEditingSong(s)}
-                    onDelete={() => setDeletingSong(s)}
-                  />
-                ))}
-              </div>
-            </section>
-
-            <section className="mt-8">
-              <h2 className="text-xl font-bold mb-3 text-neutral-500">
-                Reddedilenler ({rejectedSongs.length})
-              </h2>
-              <div className="grid gap-2">
-                {rejectedSongs.map((s) => (
-                  <ReadOnlySongRow
-                    key={s.id}
-                    s={s}
-                    role={role}
-                    onSetStatus={setStatus}
-                    onEdit={() => setEditingSong(s)}
-                    onDelete={() => setDeletingSong(s)}
-                  />
-                ))}
-              </div>
-            </section>
-
-            {role === "owner" && (
-              <section className="mt-12 border-t-2 border-red-500/30 pt-6">
-                <h2 className="text-xl font-bold mb-3 text-red-400 flex items-center gap-2">
-                  <AlertTriangle /> Tehlikeli Alan
+            <TabsContent value="requests" className="mt-6">
+              <section>
+                <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                  Onay Bekleyenler ({pendingSongs.length})
                 </h2>
-
-                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-white">Veritabanı Operasyonları</h3>
-                    <p className="text-sm text-red-300/80 mt-1">
-                      Bu işlemler geri alınamaz. Mevcut listeyi silmek veya varsayılan listeyi yeniden yüklemek için kullanın.
-                    </p>
-                  </div>
-
-                  <div className="flex gap-2 items-center">
-                    <Button
-                      variant="destructive"
-                      onClick={() => setShowDeleteConfirm(true)}
-                      disabled={isDBActionRunning}
-                    >
-                      Tüm Listeyi Sil
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      onClick={() => setShowAddConfirm(true)}
-                      disabled={isDBActionRunning}
-                    >
-                      Varsayılan Listeyi Ekle
-                    </Button>
-                  </div>
+                <div className="grid gap-2">
+                  {pendingSongs.map((s) => (
+                    <SongRow
+                      key={s.id}
+                      s={s}
+                      role={role}
+                      onSetStatus={setStatus}
+                      onEdit={() => setEditingSong(s)}
+                      onDelete={() => setDeletingSong(s)}
+                    />
+                  ))}
                 </div>
               </section>
-            )}
-          </TabsContent>
 
-          {/* ✅ 2) TOPLU EKLE */}
-          {role === "owner" && (
-            <TabsContent value="bulk-add" className="mt-6">
-              <h2 className="text-xl font-bold mb-3 text-neutral-300">
-                Şarkıları Toplu Ekle
-              </h2>
-
-              <div className="flex flex-col gap-4">
-                <p className="text-sm text-neutral-400">
-                  Excel veya Google E-Tablolar'dan kopyaladığınız şarkı listesini aşağıya yapıştırın.
-                  Her satır şu formatta olmalı:
-                  <br />
-                  <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">
-                    Şarkı Adı;Karaoke Linki
-                  </code>
-                </p>
-
-                <Textarea
-                  id="bulk-textarea"
-                  value={bulkText}
-                  onChange={(e) => setBulkText(e.target.value)}
-                  placeholder="Şebnem Ferah-Sil Baştan;https://youtube.com/..."
-                  className="retro-input-soft min-h-[200px]"
-                  rows={10}
-                />
-
-                <div className="flex justify-end">
-                  <Button onClick={() => handleBulkAdd(false)} disabled={isDBActionRunning}>
-                    {isDBActionRunning ? "Ekleniyor..." : "Metin Alanındaki Listeyi Ekle"}
-                  </Button>
+              <section className="mt-8">
+                <h2 className="text-xl font-bold mb-3 text-neutral-400">
+                  Onaylananlar ({approvedSongs.length})
+                </h2>
+                <div className="grid gap-2">
+                  {approvedSongs.map((s) => (
+                    <ReadOnlySongRow
+                      key={s.id}
+                      s={s}
+                      role={role}
+                      onSetStatus={setStatus}
+                      onEdit={() => setEditingSong(s)}
+                      onDelete={() => setDeletingSong(s)}
+                    />
+                  ))}
                 </div>
-              </div>
-            </TabsContent>
-          )}
+              </section>
 
-          {/* ✅ 3) DENETİM KAYITLARI */}
-          {role === "owner" && (
-            <TabsContent value="audit" className="mt-6">
-              <h2 className="text-xl font-bold mb-3 text-neutral-300">
-                Son Hareketler
-              </h2>
+              <section className="mt-8">
+                <h2 className="text-xl font-bold mb-3 text-neutral-500">
+                  Reddedilenler ({rejectedSongs.length})
+                </h2>
+                <div className="grid gap-2">
+                  {rejectedSongs.map((s) => (
+                    <ReadOnlySongRow
+                      key={s.id}
+                      s={s}
+                      role={role}
+                      onSetStatus={setStatus}
+                      onEdit={() => setEditingSong(s)}
+                      onDelete={() => setDeletingSong(s)}
+                    />
+                  ))}
+                </div>
+              </section>
 
-              <div className="grid gap-2">
-                {sortedLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="border border-white/15 rounded-2xl p-3 bg-white/5 backdrop-blur text-sm"
-                  >
-                    <span className="font-bold text-fuchsia-300">{log.songTitle}</span>{" "}
-                    - <span className="text-neutral-300">{log.action}</span>
+              {role === "owner" && (
+                <section className="mt-12 border-t-2 border-red-500/30 pt-6">
+                  <h2 className="text-xl font-bold mb-3 text-red-400 flex items-center gap-2">
+                    <AlertTriangle /> Tehlikeli Alan
+                  </h2>
 
-                    <div className="text-xs text-neutral-400 mt-1">
-                      {log.performedBy === "owner" ? "Sahip" : "Yönetici"} tarafından,{" "}
-                      {log.timestamp?.toDate
-                        ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: tr })
-                        : "az önce"}
-                      .
+                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-white">Veritabanı Operasyonları</h3>
+                      <p className="text-sm text-red-300/80 mt-1">
+                        Bu işlemler geri alınamaz. Mevcut listeyi silmek veya varsayılan listeyi yeniden yüklemek için kullanın.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <Button
+                        variant="destructive"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={isDBActionRunning}
+                      >
+                        Tüm Listeyi Sil
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setShowAddConfirm(true)}
+                        disabled={isDBActionRunning}
+                      >
+                        Varsayılan Listeyi Ekle
+                      </Button>
                     </div>
                   </div>
-                ))}
-              </div>
+                </section>
+              )}
             </TabsContent>
-          )}
-        </Tabs>
-      )}
-    </div>
 
-    <VHSStage intensity={0.1} sfxVolume={0} />
+            {role === "owner" && (
+              <TabsContent value="bulk-add" className="mt-6">
+                <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                  Şarkıları Toplu Ekle
+                </h2>
 
-    {/* Edit Dialog */}
-    <AlertDialog open={!!editingSong} onOpenChange={(open) => !open && setEditingSong(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Şarkıyı Düzenle</AlertDialogTitle>
-          <AlertDialogDescription>Şarkı detaylarını güncelleyin.</AlertDialogDescription>
-        </AlertDialogHeader>
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm text-neutral-400">
+                    Her satır şu formatta olmalı:
+                    <br />
+                    <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">
+                      Şarkı Adı;Karaoke Linki
+                    </code>
+                  </p>
 
-        <form onSubmit={handleEdit}>
-          <div className="flex flex-col gap-4 py-4">
-            <Input name="studentName" defaultValue={editingSong?.studentName} placeholder="İsim" />
-            <Input name="songTitle" defaultValue={editingSong?.songTitle} placeholder="Şarkı Başlığı" />
-            <Input name="karaokeLink" defaultValue={editingSong?.karaokeLink} placeholder="Karaoke Linki" />
-          </div>
+                  <Textarea
+                    id="bulk-textarea"
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    placeholder="Şebnem Ferah-Sil Baştan;https://youtube.com/..."
+                    className="retro-input-soft min-h-[200px]"
+                    rows={10}
+                  />
+
+                  <div className="flex justify-end">
+                    <Button onClick={() => handleBulkAdd(false)} disabled={isDBActionRunning}>
+                      {isDBActionRunning ? "Ekleniyor..." : "Metin Alanındaki Listeyi Ekle"}
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            )}
+
+            {role === "owner" && (
+              <TabsContent value="audit" className="mt-6">
+                <h2 className="text-xl font-bold mb-3 text-neutral-300">
+                  Son Hareketler
+                </h2>
+
+                <div className="grid gap-2">
+                  {sortedLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="border border-white/15 rounded-2xl p-3 bg-white/5 backdrop-blur text-sm"
+                    >
+                      <span className="font-bold text-fuchsia-300">{log.songTitle}</span>{" "}
+                      - <span className="text-neutral-300">{log.action}</span>
+                      <div className="text-xs text-neutral-400 mt-1">
+                        {log.performedBy === "owner" ? "Sahip" : "Yönetici"} tarafından,{" "}
+                        {log.timestamp?.toDate
+                          ? formatDistanceToNow(log.timestamp.toDate(), { addSuffix: true, locale: tr })
+                          : "az önce"}
+                        .
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
+      </div>
+
+      <VHSStage intensity={0.1} sfxVolume={0} />
+
+      {/* Edit Dialog */}
+      <AlertDialog open={!!editingSong} onOpenChange={(open) => !open && setEditingSong(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Şarkıyı Düzenle</AlertDialogTitle>
+            <AlertDialogDescription>Şarkı detaylarını güncelleyin.</AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <form onSubmit={handleEdit}>
+            <div className="flex flex-col gap-4 py-4">
+              <Input name="studentName" defaultValue={editingSong?.studentName} placeholder="İsim" />
+              <Input name="songTitle" defaultValue={editingSong?.songTitle} placeholder="Şarkı Başlığı" />
+              <Input name="karaokeLink" defaultValue={editingSong?.karaokeLink} placeholder="Karaoke Linki" />
+            </div>
+
+            <AlertDialogFooter>
+              <AlertDialogCancel>İptal</AlertDialogCancel>
+              <AlertDialogAction type="submit">Kaydet</AlertDialogAction>
+            </AlertDialogFooter>
+          </form>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Single Delete Dialog */}
+      <AlertDialog open={!!deletingSong} onOpenChange={(open) => !open && setDeletingSong(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu işlem geri alınamaz. "{deletingSong?.songTitle}" şarkısını listeden kalıcı olarak sileceksiniz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
           <AlertDialogFooter>
             <AlertDialogCancel>İptal</AlertDialogCancel>
-            <AlertDialogAction type="submit">Kaydet</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Sil
+            </AlertDialogAction>
           </AlertDialogFooter>
-        </form>
-      </AlertDialogContent>
-    </AlertDialog>
+        </AlertDialogContent>
+      </AlertDialog>
 
-    {/* Single Delete Dialog */}
-    <AlertDialog open={!!deletingSong} onOpenChange={(open) => !open && setDeletingSong(null)}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Emin misiniz?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Bu işlem geri alınamaz. "{deletingSong?.songTitle}" şarkısını listeden kalıcı olarak sileceksiniz.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+      {/* Delete All Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tüm Şarkıları Silmek Üzeresiniz!</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu işlem geri alınamaz. Veritabanındaki tüm şarkı istekleri kalıcı olarak silinecektir. Emin misiniz?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>İptal</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-            Sil
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAll}
+              disabled={isDBActionRunning}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDBActionRunning ? "Siliniyor..." : "Evet, Tümünü Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-    {/* Delete All Confirmation Dialog */}
-    <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Tüm Şarkıları Silmek Üzeresiniz!</AlertDialogTitle>
-          <AlertDialogDescription>
-            Bu işlem geri alınamaz. Veritabanındaki tüm şarkı istekleri kalıcı olarak silinecektir. Emin misiniz?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+      {/* Add Default List Confirmation Dialog */}
+      <AlertDialog open={showAddConfirm} onOpenChange={setShowAddConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Varsayılan Listeyi Ekle?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bu işlem mevcut şarkıların üzerine yazmaz, sadece ekleme yapar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel>İptal</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleDeleteAll}
-            disabled={isDBActionRunning}
-            className="bg-red-600 hover:bg-red-700"
+          <AlertDialogFooter>
+            <AlertDialogCancel>İptal</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkAdd(true)} disabled={isDBActionRunning}>
+              {isDBActionRunning ? "Ekleniyor..." : "Evet, Ekle"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
+// --- Row Components ---
+const SongRow = ({
+  s,
+  role,
+  onSetStatus,
+  onEdit,
+  onDelete,
+}: {
+  s: Song;
+  role: Role;
+  onSetStatus: (song: Song, status: "approved" | "rejected") => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) => (
+  <div className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-white/5 backdrop-blur">
+    <div>
+      <strong>{s.studentName}</strong> — {s.songTitle}
+      <a
+        href={s.karaokeLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block text-sm text-fuchsia-300 hover:underline"
+      >
+        {s.karaokeLink}
+      </a>
+    </div>
+    <div className="flex gap-2 items-center">
+      <button
+        onClick={() => onSetStatus(s, "approved")}
+        className="rounded-xl px-3 py-2 bg-green-500/20 text-green-300"
+      >
+        Onayla
+      </button>
+      <button
+        onClick={() => onSetStatus(s, "rejected")}
+        className="rounded-xl px-3 py-2 bg-red-500/20 text-red-300"
+      >
+        Reddet
+      </button>
+
+      {role === "owner" && (
+        <>
+          <Button onClick={onEdit} size="icon" variant="ghost" className="h-8 w-8">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={onDelete}
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-red-400 hover:text-red-300"
           >
-            {isDBActionRunning ? "Siliniyor..." : "Evet, Tümünü Sil"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
-    {/* Add Default List Confirmation Dialog */}
-    <AlertDialog open={showAddConfirm} onOpenChange={setShowAddConfirm}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Varsayılan Listeyi Ekle?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Bu işlem mevcut şarkıların üzerine yazmaz, sadece ekleme yapar.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel>İptal</AlertDialogCancel>
-          <AlertDialogAction onClick={() => handleBulkAdd(true)} disabled={isDBActionRunning}>
-            {isDBActionRunning ? "Ekleniyor..." : "Evet, Ekle"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </>
+      )}
+    </div>
   </div>
 );
 
-};
+const ReadOnlySongRow = ({
+  s,
+  role,
+  onSetStatus,
+  onEdit,
+  onDelete,
+}: {
+  s: Song;
+  role: Role;
+  onSetStatus: (song: Song, status: "approved" | "rejected" | "pending") => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) => (
+  <div className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-black/20 backdrop-blur opacity-70">
+    <div>
+      <strong>{s.studentName}</strong> — {s.songTitle}
+      <a
+        href={s.karaokeLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block text-sm text-fuchsia-300 hover:underline"
+      >
+        {s.karaokeLink}
+      </a>
+    </div>
+
+    <div className="flex items-center gap-2">
+      {role === "owner" ? (
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => onSetStatus(s, "approved")}
+            className="rounded-xl px-3 py-2 bg-green-500/20 text-green-300 text-xs"
+          >
+            Onayla
+          </button>
+          <button
+            onClick={() => onSetStatus(s, "rejected")}
+            className="rounded-xl px-3 py-2 bg-red-500/20 text-red-300 text-xs"
+          >
+            Reddet
+          </button>
+          <button
+            onClick={() => onSetStatus(s, "pending")}
+            className="rounded-xl px-3 py-2 bg-yellow-500/20 text-yellow-300 text-xs"
+          >
+            Beklemeye Al
+          </button>
+        </div>
+      ) : (
+        <div
+          className={`text-sm font-bold ${
+            s.status === "approved" ? "text-green-400" : "text-red-400"
+          }`}
+        >
+          {s.status === "approved" ? "Onaylandı" : "Reddedildi"}
+        </div>
+      )}
+
+      {role === "owner" && (
+        <>
+          <Button onClick={onEdit} size="icon" variant="ghost" className="h-8 w-8">
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={onDelete}
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-red-400 hover:text-red-300"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </>
+      )}
+    </div>
+  </div>
+);
 
 // --- Login Form Component ---
 const LoginForm = ({
@@ -632,8 +721,10 @@ export default function AdminPage() {
   const [role, setRole] = useState<Role | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const OWNER_HASH = "0a8a46f5c4a84c9f35cf8f8a231d1936"; // gizli_bkara90ke
-  const ADMIN_HASH = "bfbb9631e2d34e8875654a7402a19f1b"; // bkara90ke
+  // owner: gizli_bkara90ke
+  const OWNER_HASH = "0a8a46f5c4a84c9f35cf8f8a231d1936";
+  // admin: bkara90ke
+  const ADMIN_HASH = "bfbb9631e2d34e8875654a7402a19f1b";
 
   const handleLogin = (password: string) => {
     const hashed = md5(password).toString();
