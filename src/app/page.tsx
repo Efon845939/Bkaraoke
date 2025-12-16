@@ -21,16 +21,37 @@ type Song = {
   id: string;
   studentName: string;
   songTitle: string;
-  karaokeLink: string;
+  songLink?: string;     // ✅ normal
+  karaokeLink: string;   // ✅ karaoke
   status: "pending" | "approved" | "rejected";
   createdAt: any;
 };
+
+// Türkçe’de random büyük harf çıkmasın diye ASCII regex’i çöpe atıyoruz.
+function capTR(input: string) {
+  const s = (input || "").trim();
+  if (!s) return "";
+
+  // Kelimeleri boşluklara göre ayır, her kelimenin ilk harfini TR lower/upper ile düzelt.
+  // "BaşTan" gibi saçmalıklar bu sayede biter.
+  return s
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => {
+      const wl = w.toLocaleLowerCase("tr-TR");
+      return wl.charAt(0).toLocaleUpperCase("tr-TR") + wl.slice(1);
+    })
+    .join(" ");
+}
 
 function KaraokePage() {
   const [firstName, setFirst] = useState("");
   const [lastName, setLast] = useState("");
   const [songTitle, setTitle] = useState("");
+
+  // ✅ artık kullanıcıdan “normal link” alıyoruz (tek input)
   const [songUrl, setUrl] = useState("");
+
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
@@ -54,7 +75,6 @@ function KaraokePage() {
   useEffect(() => {
     setIsClient(true);
 
-    // Automatically sign in anonymously if not already signed in
     if (!isUserLoading && !user && auth) {
       signInAnonymously(auth).catch((error) => {
         console.error("Anonymous sign-in failed", error);
@@ -62,8 +82,6 @@ function KaraokePage() {
       });
     }
   }, [isUserLoading, user, auth]);
-
-  const cap = (s: string) => s.trim().replace(/\b\w/g, (c) => c.toUpperCase());
 
   const validate = () => {
     if (!firstName.trim() || !songTitle.trim() || !songUrl.trim())
@@ -79,9 +97,7 @@ function KaraokePage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!firestore || !auth || !user) {
-      setErr(
-        "Veritabanı bağlantısı kurulamadı veya kimlik doğrulama başarısız. Lütfen sayfayı yenileyin."
-      );
+      setErr("Veritabanı bağlantısı veya kimlik doğrulama yok. Sayfayı yenileyin.");
       return;
     }
     setErr(null);
@@ -98,9 +114,14 @@ function KaraokePage() {
       const songRequestsCollection = collection(firestore, "song_requests");
 
       const newSong = {
-        studentName: `${cap(firstName)} ${cap(lastName)}`.trim(),
-        songTitle: cap(songTitle),
-        karaokeLink: songUrl.trim(),
+        studentName: `${capTR(firstName)} ${capTR(lastName)}`.trim(),
+        songTitle: capTR(songTitle),
+
+        // ✅ kullanıcı “normal link” gönderiyor.
+        // Karaoke linkini admin/owner sonradan ekler (veya bulk ile basar).
+        songLink: songUrl.trim(),
+        karaokeLink: songUrl.trim(), // fallback: yoksa aynı kalsın, owner sonra düzeltir.
+
         status: "pending",
         createdAt: serverTimestamp(),
         studentId: user.uid,
@@ -129,8 +150,6 @@ function KaraokePage() {
       <header className="mx-auto mt-6 w-[min(1100px,92%)]">
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur px-4 sm:px-6 py-4">
           <div className="flex w-full items-center justify-between">
-            
-            {/* ✅ HEADER “LOGO TEXT” BLOĞU: TAMAMI TIKLANABİLİR, ANA SAYFAYA DÖNER */}
             <Link
               href="/"
               aria-label="Ana sayfaya dön"
@@ -170,25 +189,46 @@ function KaraokePage() {
                   Repertuvarımız
                 </SheetTitle>
                 <SheetDescription className="text-neutral-400">
-                  İşte gecenin repertuvarı. Linke tıklayarak doğrudan karaoke videosuna gidebilirsiniz.
+                  Hem normal link hem karaoke link var. Karaoke yoksa owner/admin düzeltir.
                 </SheetDescription>
               </SheetHeader>
 
               <div className="grid gap-3 py-4 max-h-[60vh] overflow-y-auto pr-4">
                 {songsLoading ? (
-                  <p>Repertuvar yükleniyor...</p>
-                ) : approvedSongs.length > 0 ? (
+                  <p className="text-neutral-400">Yükleniyor…</p>
+                ) : approvedSongs.length ? (
                   approvedSongs.map((song) => (
-                    <div key={song.id} className="border border-white/15 rounded-xl p-3 bg-white/5">
-                      <p className="font-bold text-neutral-100">{song.songTitle}</p>
-                      <a
-                        href={song.karaokeLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-fuchsia-300 hover:underline break-all"
-                      >
-                        {song.karaokeLink}
-                      </a>
+                    <div
+                      key={song.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                    >
+                      <div className="font-bold text-neutral-100">
+                        {song.songTitle}
+                      </div>
+
+                      <div className="mt-2 grid gap-1 text-sm">
+                        {song.songLink ? (
+                          <a
+                            href={song.songLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-300 hover:underline"
+                          >
+                            Normal link
+                          </a>
+                        ) : (
+                          <span className="text-neutral-500">Normal link yok</span>
+                        )}
+
+                        <a
+                          href={song.karaokeLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-fuchsia-300 hover:underline"
+                        >
+                          Karaoke link
+                        </a>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -204,7 +244,7 @@ function KaraokePage() {
         <div className="relative mx-auto w-[min(1100px,92%)] rounded-[28px] border border-white/12 bg-white/10 backdrop-blur-xl p-6 sm:p-10">
           <form onSubmit={submit} className="flex flex-col gap-4">
             <p className="text-sm text-white/80">
-              Favori parçanı listeye ekle. İstekler anında yönetici paneline düşer.
+              Favori parçanı iste. (Owner/admin onaylayınca repertuvara düşer.)
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
