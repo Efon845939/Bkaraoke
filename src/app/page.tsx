@@ -7,7 +7,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 import { useCollection, useFirebase, useMemoFirebase, useUser } from "@/firebase";
 import { Music2, Trophy } from "lucide-react";
-import VhsOverlay from "@/components/VhsOverlay";
+import VhsOverlay from "@/components/VHSStage";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,

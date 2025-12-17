@@ -21,7 +21,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 
-import VhsOverlay from "@/components/VhsOverlay";
+import VhsOverlay from "@/components/VHSStage";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
