@@ -202,8 +202,10 @@ function buildDefaultBulkAsTextareaValue() {
   return DEFAULT_BULK_TEXT.map((line) => {
     const parts = line.split("\t").map((p) => p.trim());
     const title = parts[0] || "";
-    const karaoke = parts[2] || parts[1] || "";
-    return `${title};${karaoke}`;
+    const normal = parts[1] || "";
+    const karaoke = parts[2] || "";
+    return `${title};${normal};${karaoke}`;
+
   }).join("\n");
 }
 
