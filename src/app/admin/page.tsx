@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { signInAnonymously } from "firebase/auth";
+import md5 from "crypto-js/md5";
+
 
 import {
   useCollection,
@@ -331,32 +333,26 @@ export default function AdminPage() {
 
   // Login: (senin mevcut mantığın) md5 check burada olmalıydı. Bende aynı şekilde bıraktım:
   function handleLogin(pw: string) {
-    // Burada senin projendeki md5 kontrolü neyse aynısını kullan.
-    // pasted.txt’deki hash’leri birebir koruyorum:
-    // owner: 5e9d51bd8397efaa719e3bd5d8e8410d
-    // admin: b4470385ae6f3aa166295d0920df17d3
-    // Not: md5 fonksiyonun projede nerede ise onu çağır.
-    // Şimdilik çok “temiz” söyleyeyim: Yanlış parola -> hata.
-    // (Senin projende zaten md5 var, burada tekrar yazmıyorum.)
-    // Aşağıyı kendi md5 fonksiyon çağrınla bırakman lazım.
+  const hashed = md5(pw).toString();
 
-    // @ts-expect-error - projende md5 helper var
-    const hashed = window.md5 ? window.md5(pw).toString() : pw;
-
-    if (hashed === "5e9d51bd8397efaa719e3bd5d8e8410d") {
-      setRole("owner");
-      setLoginError(null);
-      setBulkText(buildDefaultBulkAsTextareaValue());
-      return;
-    }
-    if (hashed === "b4470385ae6f3aa166295d0920df17d3") {
-      setRole("admin");
-      setLoginError(null);
-      return;
-    }
-
-    setLoginError("Yanlış parola.");
+  // owner: gizli_bkara90ke
+  if (hashed === "0a8a46f5c4a84c9f35cf8f8a231d1936") {
+    setRole("owner");
+    setLoginError(null);
+    setBulkText(buildDefaultBulkAsTextareaValue());
+    return;
   }
+
+  // admin: bkara90ke
+  if (hashed === "bfbb9631e2d34e8875654a7402a19f1b") {
+    setRole("admin");
+    setLoginError(null);
+    return;
+  }
+
+  setLoginError("Yanlış parola.");
+}
+
 
   if (!role) {
     return <AccessPanel onLogin={handleLogin} error={loginError} />;
