@@ -1,8 +1,15 @@
+// src/firebase/config.ts
 export const firebaseConfig = {
-  "projectId": "studio-9394930341-3ca2a",
-  "appId": "1:113155233999:web:49a9419a34ef8ed18e3fba",
-  "apiKey": "AIzaSyDfFUbxfX309WA2rND7uLR28fmIKQig_8c",
-  "authDomain": "studio-9394930341-3ca2a.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "113155233999"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
 };
+
+export function assertFirebaseEnv() {
+  for (const [k, v] of Object.entries(firebaseConfig)) {
+    if (!v) throw new Error(`Missing env: ${k}`);
+  }
+}
