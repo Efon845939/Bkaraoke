@@ -22,11 +22,13 @@ type Song = {
   id: string;
   studentName: string;
   songTitle: string;
+  songLink?: string | null;
   karaokeLink: string;
   status: "pending" | "approved" | "rejected";
   createdAt?: any;
   studentId?: string;
 };
+
 
 function normalizeText(s: string) {
   return (s || "").replace(/\s+/g, " ").trim();
@@ -184,6 +186,17 @@ export default function Page() {
                       className="border border-white/15 rounded-xl p-3 bg-white/5"
                     >
                       <p className="font-bold text-neutral-100">{s.songTitle}</p>
+                      {s.songLink ? (
+  <a
+    href={s.songLink}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-sm text-sky-300 hover:underline break-all"
+  >
+    {s.songLink}
+  </a>
+) : null}
+
                       <a
                         href={s.karaokeLink}
                         target="_blank"
