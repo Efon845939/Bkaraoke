@@ -246,13 +246,13 @@ export default function Page() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input
                 className="retro-input-soft vhs-interact border-pink-500/20 focus:border-pink-500/60"
-                placeholder="Adınız (örn: Kerem)"
+                placeholder="Adınız (örn: Gökçe)"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
               />
               <input
                 className="retro-input-soft vhs-interact border-pink-500/20 focus:border-pink-500/60"
-                placeholder="Soyadınız (örn: Bürsin)"
+                placeholder="Soyadınız (örn: Eyüboğlu)"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
               />
@@ -267,7 +267,7 @@ export default function Page() {
 
             <input
               className="retro-input-soft vhs-interact border-pink-500/20 focus:border-pink-500/60"
-              placeholder="Şarkı URL (YouTube)"
+              placeholder="Şarkı URL (https://youtube/...)"
               value={songUrl}
               onChange={(e) => setSongUrl(e.target.value)}
             />
