@@ -124,7 +124,7 @@ export default function Page() {
       setLastName("");
       setSongTitle("");
       setSongUrl("");
-      alert("Şarkı isteğiniz başarıyla listeye eklendi. Aşkla söyle! 💘");
+      alert("Şarkı isteğiniz başarıyla listeye eklendi. Sevgiyle söyle! 💘");
     } catch (err: any) {
       console.error("[SUBMIT-ERROR]", err);
       setError(`Gönderim başarısız: ${err?.message || "Bilinmeyen hata"}`);
