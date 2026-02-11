@@ -5,7 +5,6 @@ import Link from "next/link";
 import { signInAnonymously } from "firebase/auth";
 import md5 from "crypto-js/md5";
 
-
 import {
   useCollection,
   useFirebase,
@@ -34,12 +33,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShieldAlert, Pencil, Trash2 } from "lucide-react";
+import { ShieldAlert, Pencil, Trash2, Heart, Music, MicVocal, Save, UploadCloud } from "lucide-react";
 import { formatDistance } from "date-fns";
 import { tr } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+// --- TİP TANIMLAMALARI ---
 
 type Role = "owner" | "admin";
+type Category = "90lar" | "sevgililer";
 
 type Song = {
   id: string;
@@ -48,10 +52,10 @@ type Song = {
   songLink?: string;
   karaokeLink: string;
   status: "pending" | "approved" | "rejected";
+  category?: Category; // Şarkının hangi listeye ait olduğu
   createdAt?: any;
   studentId?: string;
 };
-
 
 type AuditLog = {
   id: string;
@@ -60,6 +64,8 @@ type AuditLog = {
   performedBy: Role;
   timestamp: any;
 };
+
+// --- YARDIMCI FONKSİYONLAR ---
 
 const isProbablyUrl = (s: string) => {
   try {
@@ -74,13 +80,19 @@ function normalizeLine(s: string) {
   return (s || "").replace(/\r/g, "").trim();
 }
 
-/**
- * DEFAULT_BULK_TEXT:
- * Format: "Yazar-Şarkı\tNormalLink\tKaraokeLink"
- *
- * Admin sayfasında "Varsayılan Listeyi Ekle" basınca bu liste DB'ye "approved" olarak gider.
- */
-const DEFAULT_BULK_TEXT = [
+function buildBulkText(list: readonly string[]) {
+  return list.map((line) => {
+    const parts = line.split("\t").map((p) => p.trim());
+    const title = parts[0] || "";
+    const normal = parts[1] || "";
+    const karaoke = parts[2] || "";
+    return `${title};${normal};${karaoke}`;
+  }).join("\n");
+}
+
+// --- SABİT LİSTELER (KOD UZUNLUĞU İÇİN VE YEDEK OLARAK BURADA TUTUYORUZ) ---
+
+const DEFAULT_90S_TEXT = [
   "REM-Losing My Religion\thttps://www.youtube.com/watch?v=Efa6BAWPm9o\thttps://www.youtube.com/watch?v=gCrqBZlxSyA",
   "Bulutsuzluk Özlemi-Sözlerimi Geri Alamam\thttps://www.youtube.com/watch?v=RMu2HUTGe2c\thttps://www.youtube.com/watch?v=jHULD4aZnS0",
   "Şebnem Ferah-Sil Baştan\thttps://www.youtube.com/watch?v=yjGigzkkXMM\thttps://www.youtube.com/watch?v=MGKQpfWrBx0&list=RDMGKQpfWrBx0&start_radio=1",
@@ -191,23 +203,61 @@ const DEFAULT_BULK_TEXT = [
   "Nilüfer- Ve Melankoli\thttps://www.youtube.com/watch?v=itH2_T5yCAs&list=RDitH2_T5yCAs&start_radio=1\thttps://www.youtube.com/watch?v=0eAb2H5FtUo&list=RD0eAb2H5FtUo&start_radio=1",
   "Nilüfer- Son Arzum\thttps://www.youtube.com/watch?v=gwtiHjOixDQ&list=RDgwtiHjOixDQ&start_radio=1\thttps://www.youtube.com/watch?v=kBgJw3Pm7FU&list=RDkBgJw3Pm7FU&start_radio=1",
   "Nilüfer- Başıma Gelenler\thttps://www.youtube.com/watch?v=M_2ufwpZNI0&list=RDM_2ufwpZNI0&start_radio=1\t",
-  "Aşkın Nur Yengi - Yalancı Bahar\thttps://www.youtube.com/watch?v=kGkezfjlDlQ&list=RDkGkezfjlDlQ&start_radio=1\thttps://www.youtube.com/watch?v=v5XZOGFOoOE&list=RDv5XZOGFOoOE&start_radio=1",
+  "Aşkın Nur Yengi - Yalancı Bahar\thttps://www.youtube.com/watch?v=kGkezfjlDlQ&list=RDkGkezfjlDlQ&start_radio=1\thttps://www.youtube.com/watch?v=v5XZOGFOoOE&list=RDv5XZOGFOoOE&start_radio=1"
 ] as const;
 
-
-function buildDefaultBulkAsTextareaValue() {
-  // Admin bulk textbox formatı: "Şarkı Adı;Karaoke Linki"
-  // Bizim default list: "Başlık\tNormal\tKaraoke"
-  // Buradan karaoke linkini alıp textarea formatına çeviriyoruz.
-  return DEFAULT_BULK_TEXT.map((line) => {
-    const parts = line.split("\t").map((p) => p.trim());
-    const title = parts[0] || "";
-    const normal = parts[1] || "";
-    const karaoke = parts[2] || "";
-    return `${title};${normal};${karaoke}`;
-
-  }).join("\n");
-}
+const VALENTINES_BULK_TEXT = [
+  "Ajda Pekkan - Haykıracak Nefesim\thttps://www.youtube.com/watch?v=wLK_5CAxKSU&list=RDwLK_5CAxKSU&start_radio=1\thttps://www.youtube.com/watch?v=wLK_5CAxKSU&list=RDwLK_5CAxKSU&start_radio=1",
+  "Ajda Pekkan - O Benim Dünyam\thttps://www.youtube.com/watch?v=tGNyZizCM9Q&list=RDtGNyZizCM9Q&start_radio=1\thttps://www.youtube.com/watch?v=tGNyZizCM9Q&list=RDtGNyZizCM9Q&start_radio=1",
+  "Aydilge - Hayat Şaşırtır\thttps://www.youtube.com/watch?v=guaFAgYSHGw&list=RDguaFAgYSHGw&start_radio=1\thttps://www.youtube.com/watch?v=guaFAgYSHGw&list=RDguaFAgYSHGw&start_radio=1",
+  "Barış Manço - Kara Sevda\thttps://www.youtube.com/watch?v=CNESvV5dkR0&list=RDCNESvV5dkR0&start_radio=1\thttps://www.youtube.com/watch?v=CNESvV5dkR0&list=RDCNESvV5dkR0&start_radio=1",
+  "Bayhan - Müjgan\thttps://www.youtube.com/watch?v=1Bv2eNPw800\thttps://www.youtube.com/watch?v=1Bv2eNPw800",
+  "Cem Adrian & Hande Mehan - Sen Benim Şarkılarımsın\thttps://www.youtube.com/watch?v=ej3uxV8UGNs&list=RDej3uxV8UGNs&start_radio=1\thttps://www.youtube.com/watch?v=ej3uxV8UGNs&list=RDej3uxV8UGNs&start_radio=1",
+  "Delisin Delisin - Delisin Delisin\thttps://www.youtube.com/watch?v=0k1fPhPc5_Y&list=RD0k1fPhPc5_Y&start_radio=1\thttps://www.youtube.com/watch?v=0k1fPhPc5_Y&list=RD0k1fPhPc5_Y&start_radio=1",
+  "Duman - Senden Daha Güzel\thttps://www.youtube.com/watch?v=29zZEqlC8do&list=RD29zZEqlC8do&start_radio=1\thttps://www.youtube.com/watch?v=29zZEqlC8do&list=RD29zZEqlC8do&start_radio=1",
+  "EDA BABA - Her Şey Seninle Güzel\thttps://www.youtube.com/watch?v=Wb5BbhqOR_M&list=RDWb5BbhqOR_M&start_radio=1\thttps://www.youtube.com/watch?v=Wb5BbhqOR_M&list=RDWb5BbhqOR_M&start_radio=1",
+  "Emre Aydın feat. Model - Bir Pazar Kahvaltısı\thttps://www.youtube.com/watch?v=TWg45aMljXI&list=RDTWg45aMljXI&start_radio=1\thttps://www.youtube.com/watch?v=TWg45aMljXI&list=RDTWg45aMljXI&start_radio=1",
+  "Eric Clapton - Layla\thttps://www.youtube.com/watch?v=KQdyx9as_qY&list=RDKQdyx9as_qY&start_radio=1\thttps://www.youtube.com/watch?v=KQdyx9as_qY&list=RDKQdyx9as_qY&start_radio=1",
+  "Erol Evgin - Sevdan Olmasa\thttps://www.youtube.com/watch?v=aNbr6YDYFrY&list=RDaNbr6YDYFrY&start_radio=1\thttps://www.youtube.com/watch?v=aNbr6YDYFrY&list=RDaNbr6YDYFrY&start_radio=1",
+  "Ezhel - Felaket (Zeynep Bastık ile)\thttps://www.youtube.com/watch?v=QowuXJmz1pw&list=RDQowuXJmz1pw&start_radio=1\thttps://www.youtube.com/watch?v=QowuXJmz1pw&list=RDQowuXJmz1pw&start_radio=1",
+  "Ferdi Tayfur / Zakkum - Hatıran Yeter\thttps://www.youtube.com/watch?v=Oz5zO4MNCUM\thttps://www.youtube.com/watch?v=Oz5zO4MNCUM",
+  "Feridun Düzağaç - Alev Alev\thttps://www.youtube.com/watch?v=gz5GNmO9prQ&list=RDgz5GNmO9prQ&start_radio=1\thttps://www.youtube.com/watch?v=gz5GNmO9prQ&list=RDgz5GNmO9prQ&start_radio=1",
+  "Frank Sinatra - Fly Me To The Moon\thttps://www.youtube.com/watch?v=VvjWl7lvrnk&list=RDVvjWl7lvrnk&start_radio=1\thttps://www.youtube.com/watch?v=VvjWl7lvrnk&list=RDVvjWl7lvrnk&start_radio=1",
+  "George Michael - Careless Whisper\thttps://www.youtube.com/watch?v=1TIeDbnzp9M&list=RD1TIeDbnzp9M&start_radio=1\thttps://www.youtube.com/watch?v=1TIeDbnzp9M&list=RD1TIeDbnzp9M&start_radio=1",
+  "Göksel - Uzaktan\thttps://www.youtube.com/watch?v=rjLuGtlPjG4&list=RDrjLuGtlPjG4&start_radio=1\thttps://www.youtube.com/watch?v=rjLuGtlPjG4&list=RDrjLuGtlPjG4&start_radio=1",
+  "Gökhan Türkmen - Aşk\thttps://www.youtube.com/watch?v=ohTjmCwM3bs\thttps://www.youtube.com/watch?v=ohTjmCwM3bs",
+  "Grover Washington Jr ft. Bill Withers - Just The Two Of Us\thttps://www.youtube.com/watch?v=yIyW2lcapHs&list=RDyIyW2lcapHs&start_radio=1\thttps://www.youtube.com/watch?v=yIyW2lcapHs&list=RDyIyW2lcapHs&start_radio=1",
+  "Gripin - Aşk Nereden Nereye\thttps://www.youtube.com/watch?v=egMNzG0-etE&list=RDegMNzG0-etE&start_radio=1\thttps://www.youtube.com/watch?v=egMNzG0-etE&list=RDegMNzG0-etE&start_radio=1",
+  "Gülşen - Sarışınım\thttps://www.youtube.com/watch?v=CRsjpwIuOmo&list=RDCRsjpwIuOmo&start_radio=1\thttps://www.youtube.com/watch?v=CRsjpwIuOmo&list=RDCRsjpwIuOmo&start_radio=1",
+  "Gülay - Cesaretin Var mı Aşka\thttps://www.youtube.com/watch?v=vCTDUNNDkgI&list=RDvCTDUNNDkgI&start_radio=1\thttps://www.youtube.com/watch?v=vCTDUNNDkgI&list=RDvCTDUNNDkgI&start_radio=1",
+  "Hadise - Düm Tek Tek\thttps://www.youtube.com/watch?v=T2py3gmU_LE&list=RDT2py3gmU_LE&start_radio=1\thttps://www.youtube.com/watch?v=T2py3gmU_LE&list=RDT2py3gmU_LE&start_radio=1",
+  "İbrahim Tatlıses / Kalben - Haydi Söyle\thttps://www.youtube.com/watch?v=EzC5uhEtsPE&list=RDEzC5uhEtsPE&start_radio=1\thttps://www.youtube.com/watch?v=EzC5uhEtsPE&list=RDEzC5uhEtsPE&start_radio=1",
+  "İrem Derici - Kalbimin Tek Sahibine\thttps://www.youtube.com/watch?v=vbF3_W_E2CU\thttps://www.youtube.com/watch?v=vbF3_W_E2CU",
+  "Kenan Doğulu - Tutamıyorum Zamanı\thttps://www.youtube.com/watch?v=pfk6loZryY0&list=RDpfk6loZryY0&start_radio=1\thttps://www.youtube.com/watch?v=pfk6loZryY0&list=RDpfk6loZryY0&start_radio=1",
+  "Mabel Matiz / Yıldız Tilbe - Aşk Yok Olmaktır\thttps://www.youtube.com/watch?v=fctQe8sb1e0\thttps://www.youtube.com/watch?v=fctQe8sb1e0",
+  "Mahsun Kırmızıgül - Dinle\thttps://www.youtube.com/watch?v=rZvRAm32nFY&list=RDrZvRAm32nFY&start_radio=1\thttps://www.youtube.com/watch?v=rZvRAm32nFY&list=RDrZvRAm32nFY&start_radio=1",
+  "Mazhar Alanson - Ah Bu Ben\thttps://www.youtube.com/watch?v=GvL91Tgrlew&list=RDGvL91Tgrlew&start_radio=1\thttps://www.youtube.com/watch?v=GvL91Tgrlew&list=RDGvL91Tgrlew&start_radio=1",
+  "Mazhar Alanson - Yandım Yandım\thttps://www.youtube.com/watch?v=hN25wWblGvU&list=RDhN25wWblGvU&start_radio=1\thttps://www.youtube.com/watch?v=hN25wWblGvU&list=RDhN25wWblGvU&start_radio=1",
+  "Model - Mey\thttps://www.youtube.com/watch?v=157dV_w2n7k&list=RD157dV_w2n7k&start_radio=1\thttps://www.youtube.com/watch?v=157dV_w2n7k&list=RD157dV_w2n7k&start_radio=1",
+  "mor ve ötesi - Aşk İçinde\thttps://www.youtube.com/watch?v=y5uGxKFyYmk&list=RDy5uGxKFyYmk&start_radio=1\thttps://www.youtube.com/watch?v=y5uGxKFyYmk&list=RDy5uGxKFyYmk&start_radio=1",
+  "Nil Karaibrahimgil - Kanatlarım Var Ruhumda\thttps://www.youtube.com/watch?v=UgW2tEip_98&list=RDUgW2tEip_98&start_radio=1\thttps://www.youtube.com/watch?v=UgW2tEip_98&list=RDUgW2tEip_98&start_radio=1",
+  "Rafet El Roman - Seni Seviyorum\thttps://www.youtube.com/watch?v=tcYTDd-r1LY&list=RDtcYTDd-r1LY&start_radio=1\thttps://www.youtube.com/watch?v=tcYTDd-r1LY&list=RDtcYTDd-r1LY&start_radio=1",
+  "Sezen Aksu - Ne Kavgam Bitti Ne Sevdam\thttps://www.youtube.com/watch?v=VrFDggkkzF4&list=RDVrFDggkkzF4&start_radio=1\thttps://www.youtube.com/watch?v=VrFDggkkzF4&list=RDVrFDggkkzF4&start_radio=1",
+  "Sertab Erener - Aşk\thttps://www.youtube.com/watch?v=1UXYcgYqsCQ&list=RD1UXYcgYqsCQ&start_radio=1\thttps://www.youtube.com/watch?v=1UXYcgYqsCQ&list=RD1UXYcgYqsCQ&start_radio=1",
+  "Sertab Erener - Rengarenk\thttps://www.youtube.com/watch?v=-B7zwpMNLIY&list=RD-B7zwpMNLIY&start_radio=1\thttps://www.youtube.com/watch?v=-B7zwpMNLIY&list=RD-B7zwpMNLIY&start_radio=1",
+  "Tarkan - Adımı Kalbine Yaz\thttps://www.youtube.com/watch?v=DCQKA4sI3qU&list=RDDCQKA4sI3qU&start_radio=1\thttps://www.youtube.com/watch?v=DCQKA4sI3qU&list=RDDCQKA4sI3qU&start_radio=1",
+  "The Cure - Love Song\thttps://www.youtube.com/watch?v=Fok2RrUtDgQ&list=RDFok2RrUtDgQ&start_radio=1\thttps://www.youtube.com/watch?v=Fok2RrUtDgQ&list=RDFok2RrUtDgQ&start_radio=1",
+  "Ufuk Beydemir - Ay Tenli Kadın\thttps://www.youtube.com/watch?v=83eNSojydCE\thttps://www.youtube.com/watch?v=83eNSojydCE",
+  "Ufuk Yıldırım - Yaradana Yalvartma\thttps://www.youtube.com/watch?v=cANdjiz2srg\thttps://www.youtube.com/watch?v=cANdjiz2srg",
+  "Ümit Sayın - Gül Beyaz Gül (Zeynep Bastık ile)\thttps://www.youtube.com/watch?v=ugKvd82ds34&list=RDugKvd82ds34&start_radio=1\thttps://www.youtube.com/watch?v=ugKvd82ds34&list=RDugKvd82ds34&start_radio=1",
+  "Volkan Konak - Yarim Yarim\thttps://www.youtube.com/watch?v=1Esr6E3EBdc\thttps://www.youtube.com/watch?v=1Esr6E3EBdc",
+  "Yalın - Her Şey Sensin\thttps://www.youtube.com/watch?v=GAw5PWHnZiM&list=RDGAw5PWHnZiM&start_radio=1\thttps://www.youtube.com/watch?v=GAw5PWHnZiM&list=RDGAw5PWHnZiM&start_radio=1",
+  "Yalın - Küçücüğüm\thttps://www.youtube.com/watch?v=k0yvk8ujPlo&list=RDk0yvk8ujPlo&start_radio=1\thttps://www.youtube.com/watch?v=k0yvk8ujPlo&list=RDk0yvk8ujPlo&start_radio=1",
+  "Yalın - Zalim\thttps://www.youtube.com/watch?v=rFTA9DDbTSU&list=RDrFTA9DDbTSU&start_radio=1\thttps://www.youtube.com/watch?v=rFTA9DDbTSU&list=RDrFTA9DDbTSU&start_radio=1",
+  "Yıldız Tilbe - Ummadığım Anda\thttps://www.youtube.com/watch?v=N0TsIxik6rY\thttps://www.youtube.com/watch?v=N0TsIxik6rY",
+  "Zeynep Bastık & Rıza Tamer - Benden Sonra\thttps://www.youtube.com/watch?v=Fm-myFuG1LI&list=RDFm-myFuG1LI&start_radio=1\thttps://www.youtube.com/watch?v=Fm-myFuG1LI&list=RDFm-myFuG1LI&start_radio=1",
+  "Beyaz Kelebekler - Sen Gidince\thttps://www.youtube.com/watch?v=3XaYVLXoKrc&list=RD3XaYVLXoKrc&start_radio=1\thttps://www.youtube.com/watch?v=3XaYVLXoKrc&list=RD3XaYVLXoKrc&start_radio=1"
+] as const;
 
 function AccessPanel({
   onLogin,
@@ -218,40 +268,44 @@ function AccessPanel({
 }) {
   const [pw, setPw] = useState("");
   return (
-    <div className="min-h-screen grid place-items-center relative">
-      <div className="mx-auto w-[min(400px,90%)]">
-        <h1 className="text-2xl font-black mb-4">Erişim Paneli</h1>
+    <div className="min-h-screen grid place-items-center relative bg-black selection:bg-pink-500/30">
+      <div className="mx-auto w-[min(400px,90%)] relative z-10">
+        <h1 className="text-3xl font-black mb-6 text-center text-pink-500 drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]">
+            Erişim Paneli
+        </h1>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             onLogin(pw);
           }}
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-4"
         >
           <input
             type="password"
             value={pw}
             onChange={(e) => setPw(e.target.value)}
             placeholder="Parola"
-            className="retro-input-soft"
+            className="retro-input-soft border-pink-500/30 focus:border-pink-500 text-center"
           />
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-          <button type="submit" className="retro-btn-soft">
+          {error && <p className="text-red-400 text-sm text-center font-bold">{error}</p>}
+          <button type="submit" className="retro-btn-soft bg-pink-600 hover:bg-pink-500 text-white border-none">
             Giriş Yap
           </button>
           <Link
             href="/"
-            className="text-center text-sm text-neutral-400 hover:underline mt-2"
+            className="text-center text-sm text-neutral-500 hover:text-pink-400 hover:underline mt-2 transition-colors"
           >
             Lobiye Dön
           </Link>
         </form>
       </div>
 
-      <VhsOverlay intensity={0.1} sfxVolume={0.35} />
+      <VhsOverlay intensity={0.08} sfxVolume={0.35} />
     </div>
   );
 }
+
+// --- ANA COMPONENT ---
 
 export default function AdminPage() {
   const { firestore, auth } = useFirebase();
@@ -259,16 +313,19 @@ export default function AdminPage() {
   const [role, setRole] = useState<Role | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [bulkText, setBulkText] = useState("");
+  // İKİ AYRI STATE: Manual Giriş İçin
+  const [bulkText90s, setBulkText90s] = useState("");
+  const [bulkTextLove, setBulkTextLove] = useState("");
+  
   const [busy, setBusy] = useState(false);
-
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showDefaultConfirm, setShowDefaultConfirm] = useState(false);
+  
+  // Varsayılan listeyi yükleme modalı
+  const [showDefaultConfirm, setShowDefaultConfirm] = useState<{type: Category | null, open: boolean}>({ type: null, open: false });
 
   const [editTarget, setEditTarget] = useState<Song | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Song | null>(null);
 
-  // Auth fix: Admin sayfası da request.auth alsın (rules bunu istiyor)
   useEffect(() => {
     if (!auth) return;
     if (auth.currentUser) return;
@@ -284,7 +341,6 @@ export default function AdminPage() {
 
   const auditLogsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Sadece owner/admin görsün diye UI tarafında role ile zaten gizliyoruz
     return collection(firestore, "audit_logs");
   }, [firestore]);
 
@@ -312,8 +368,10 @@ export default function AdminPage() {
     });
   }, [logs]);
 
+  // FİLTRELER
   const pending = sortedSongs.filter((s) => s.status === "pending");
-  const approved = sortedSongs.filter((s) => s.status === "approved");
+  const approved90s = sortedSongs.filter((s) => s.status === "approved" && (!s.category || s.category === "90lar"));
+  const approvedLove = sortedSongs.filter((s) => s.status === "approved" && s.category === "sevgililer");
   const rejected = sortedSongs.filter((s) => s.status === "rejected");
 
   async function addAudit(action: string, songTitle: string) {
@@ -330,16 +388,32 @@ export default function AdminPage() {
     }
   }
 
-  async function bulkAdd(useDefault: boolean) {
+  // --- GELİŞMİŞ TOPLU EKLEME FONKSİYONU ---
+  async function bulkAdd(listSource: "manual_90s" | "manual_love" | "default_90s" | "default_love") {
     if (!firestore || !auth?.currentUser) return;
     setBusy(true);
 
-    const text = useDefault ? buildDefaultBulkAsTextareaValue() : bulkText;
+    let textToParse = "";
+    let categoryToSet: Category = "90lar";
 
-    const lines = normalizeLine(text).split("\n").map(normalizeLine).filter(Boolean);
+    if (listSource === "manual_90s") {
+      textToParse = bulkText90s;
+      categoryToSet = "90lar";
+    } else if (listSource === "manual_love") {
+      textToParse = bulkTextLove;
+      categoryToSet = "sevgililer";
+    } else if (listSource === "default_90s") {
+      textToParse = buildBulkText(DEFAULT_90S_TEXT);
+      categoryToSet = "90lar";
+    } else if (listSource === "default_love") {
+      textToParse = buildBulkText(VALENTINES_BULK_TEXT);
+      categoryToSet = "sevgililer";
+    }
+
+    const lines = normalizeLine(textToParse).split("\n").map(normalizeLine).filter(Boolean);
     if (!lines.length) {
       setBusy(false);
-      alert("Liste boş.");
+      alert("Eklenecek liste boş.");
       return;
     }
 
@@ -350,7 +424,6 @@ export default function AdminPage() {
     let bad = 0;
 
     for (const line of lines) {
-      // expected: "Title;KaraokeLink"
       const parts = line.split(";").map((p) => p.trim());
       if (parts.length !== 3) {
         bad++;
@@ -358,26 +431,27 @@ export default function AdminPage() {
       }
 
       const [title, normalLink, karaoke] = parts;
-      if (!title || !karaoke || !isProbablyUrl(karaoke)) {
+      
+      if (!title || !karaoke) {
         bad++;
         continue;
       }
 
       const songRef = doc(collection(firestore, "song_requests"));
       batchSongs.set(songRef, {
-  studentName: "Sistem (Varsayılan/Toplu)",
-  songTitle: title,
-  songLink: normalLink,      // ← BUNU EKLİYORSUN
-  karaokeLink: karaoke,
-  status: "approved",
-  createdAt: serverTimestamp(),
-  studentId: auth.currentUser.uid,
-});
-
+        studentName: categoryToSet === "sevgililer" ? "Sistem (❤️ Liste)" : "Sistem (90'lar)",
+        songTitle: title,
+        songLink: normalLink,
+        karaokeLink: karaoke,
+        status: "approved",
+        category: categoryToSet, // KATEGORİ ATAMASI
+        createdAt: serverTimestamp(),
+        studentId: auth.currentUser.uid,
+      });
 
       const logRef = doc(collection(firestore, "audit_logs"));
       batchLogs.set(logRef, {
-        action: "Toplu olarak eklendi ve onaylandı",
+        action: `Toplu eklendi [${categoryToSet}]`,
         songTitle: title,
         performedBy: role ?? "admin",
         timestamp: serverTimestamp(),
@@ -389,14 +463,15 @@ export default function AdminPage() {
     try {
       await batchSongs.commit();
       await batchLogs.commit();
-      alert(`${ok} şarkı eklendi. Hatalı satır: ${bad}`);
-      if (!useDefault) setBulkText("");
+      alert(`[${categoryToSet.toUpperCase()}] Listesine ${ok} şarkı eklendi. Hatalı satır: ${bad}`);
+      if (listSource === "manual_90s") setBulkText90s("");
+      if (listSource === "manual_love") setBulkTextLove("");
     } catch (e) {
       console.error("Bulk add failed:", e);
       alert("Toplu ekleme başarısız.");
     } finally {
       setBusy(false);
-      setShowDefaultConfirm(false);
+      setShowDefaultConfirm({ type: null, open: false });
     }
   }
 
@@ -410,10 +485,10 @@ export default function AdminPage() {
       snap.forEach((d) => batch.delete(d.ref));
       await batch.commit();
       await addAudit("Tüm liste silindi", "ALL");
-      alert("Tüm liste silindi.");
+      alert("Tertemiz oldu.");
     } catch (e) {
       console.error("Delete all failed:", e);
-      alert("Silme başarısız (permission ise: auth/rules tarafını kontrol et).");
+      alert("Silinemedi.");
     } finally {
       setBusy(false);
       setShowDeleteConfirm(false);
@@ -432,28 +507,20 @@ export default function AdminPage() {
     addAudit("Silindi", song.songTitle);
   }
 
-  // Login: (senin mevcut mantığın) md5 check burada olmalıydı. Bende aynı şekilde bıraktım:
   function handleLogin(pw: string) {
-  const hashed = md5(pw).toString();
-
-  // owner: gizli_bkara90ke
-  if (hashed === "0a8a46f5c4a84c9f35cf8f8a231d1936") {
-    setRole("owner");
-    setLoginError(null);
-    setBulkText(buildDefaultBulkAsTextareaValue());
-    return;
+    const hashed = md5(pw).toString();
+    if (hashed === "0a8a46f5c4a84c9f35cf8f8a231d1936") {
+      setRole("owner");
+      setLoginError(null);
+      return;
+    }
+    if (hashed === "bfbb9631e2d34e8875654a7402a19f1b") {
+      setRole("admin");
+      setLoginError(null);
+      return;
+    }
+    setLoginError("Yanlış parola.");
   }
-
-  // admin: bkara90ke
-  if (hashed === "bfbb9631e2d34e8875654a7402a19f1b") {
-    setRole("admin");
-    setLoginError(null);
-    return;
-  }
-
-  setLoginError("Yanlış parola.");
-}
-
 
   if (!role) {
     return <AccessPanel onLogin={handleLogin} error={loginError} />;
@@ -462,408 +529,388 @@ export default function AdminPage() {
   const loading = isLoading || (role === "owner" && logsLoading);
 
   return (
-    <div className="min-h-screen p-6 relative">
-      <div className="mx-auto w-[min(1100px,92%)]">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-black">
-            {role === "owner" ? "Sahip Paneli" : "Yönetici Paneli"}
-          </h1>
-          <Link href="/" className="rounded-2xl px-4 py-3 border border-white/20">
+    <div className="min-h-screen p-6 relative bg-black selection:bg-pink-500/30 text-white font-sans">
+      <div className="mx-auto w-[min(1200px,96%)] relative z-10">
+        <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
+          <div>
+            <h1 className="text-3xl font-black bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+                {role === "owner" ? "SAHİP KONTROL MERKEZİ" : "YÖNETİCİ PANELİ"}
+            </h1>
+            <p className="text-neutral-400 text-sm mt-1">Sistemin kalbi burası.</p>
+          </div>
+          <Link href="/" className="rounded-xl px-5 py-3 border border-white/20 hover:bg-white/10 transition-all font-semibold hover:border-white/40">
             Lobiye Dön
           </Link>
         </div>
 
-        {loading && <p>Yükleniyor...</p>}
+        {loading && <div className="text-pink-400 animate-pulse text-xl font-bold p-10 text-center">Veriler veritabanından çekiliyor...</div>}
 
         {!loading && (
-          <Tabs defaultValue="requests">
-            <TabsList>
-              <TabsTrigger value="requests">Şarkı İstekleri</TabsTrigger>
-              {canDangerZone && <TabsTrigger value="bulk-add">Toplu Ekle</TabsTrigger>}
-              {canDangerZone && <TabsTrigger value="audit">Denetim Kayıtları</TabsTrigger>}
+          <Tabs defaultValue="requests" className="space-y-6">
+            <TabsList className="bg-neutral-900/80 border border-white/10 p-1 rounded-xl flex flex-wrap h-auto gap-2">
+              <TabsTrigger value="requests" className="data-[state=active]:bg-yellow-500/20 data-[state=active]:text-yellow-200 py-2.5">
+                  Bekleyenler ({pending.length})
+              </TabsTrigger>
+              <TabsTrigger value="approved_love" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white py-2.5">
+                  ❤️ Aşk Şarkıları ({approvedLove.length})
+              </TabsTrigger>
+              <TabsTrigger value="approved_90s" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white py-2.5">
+                  📼 90'lar ({approved90s.length})
+              </TabsTrigger>
+              <TabsTrigger value="rejected" className="data-[state=active]:bg-red-500/20 data-[state=active]:text-red-300 py-2.5">
+                  Reddedilenler ({rejected.length})
+              </TabsTrigger>
+              {canDangerZone && (
+                <TabsTrigger value="bulk-add" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white py-2.5 border border-blue-500/30 ml-auto">
+                    🚀 Şarkı Ekleme Üssü
+                </TabsTrigger>
+              )}
+              {canDangerZone && (
+                <TabsTrigger value="audit" className="data-[state=active]:bg-neutral-700 py-2.5">
+                    Denetim
+                </TabsTrigger>
+              )}
             </TabsList>
 
-            <TabsContent value="requests" className="mt-6">
-              <section>
-                <h2 className="text-xl font-bold mb-3 text-neutral-300">
-                  Onay Bekleyenler ({pending.length})
-                </h2>
-                <div className="grid gap-2">
-                  {pending.map((s) => (
-                    <div
-                      key={s.id}
-                      className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-white/5 backdrop-blur"
-                    >
-                      <div>
-                        <strong>{s.studentName}</strong> — {s.songTitle}
-                        <a
-                          href={s.karaokeLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-sm text-fuchsia-300 hover:underline break-all"
-                        >
-                          {s.karaokeLink}
-                        </a>
-                      </div>
+            {/* --- BEKLEYENLER --- */}
+            <TabsContent value="requests" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-yellow-200">Onay Bekleyen İstekler</h2>
+                <span className="text-sm text-neutral-500">Kullanıcıların gönderdiği istekler burada görünür.</span>
+              </div>
+              <div className="grid gap-3">
+                {pending.length === 0 ? (
+                    <div className="p-10 border border-dashed border-white/10 rounded-xl text-center text-neutral-500">
+                        Şu an bekleyen istek yok. Herkes şarkı söylüyor olmalı!
+                    </div>
+                ) : (
+                    pending.map((s) => (
+                        <div key={s.id} className="group border border-yellow-500/30 rounded-2xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center bg-yellow-500/5 backdrop-blur hover:bg-yellow-500/10 transition-all gap-4">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-bold text-yellow-500 uppercase tracking-wider">Bekliyor</span>
+                                    <span className="text-xs text-neutral-400">• {s.studentName}</span>
+                                </div>
+                                <strong className="text-xl text-yellow-100 block">{s.songTitle}</strong>
+                                <div className="text-xs text-neutral-400 mt-2 space-y-1 font-mono">
+                                    <a href={s.songLink || "#"} target="_blank" className="block text-sky-400 hover:underline truncate opacity-70 hover:opacity-100">Orijinal: {s.songLink}</a>
+                                    <a href={s.karaokeLink} target="_blank" className="block text-pink-400 hover:underline truncate opacity-70 hover:opacity-100">Karaoke: {s.karaokeLink}</a>
+                                </div>
+                            </div>
 
-                      {canModerate && (
-                        <div className="flex gap-2 items-center">
-                          <button
-                            onClick={() => setStatus(s, "approved")}
-                            className="rounded-xl px-3 py-2 bg-green-500/20 text-green-300"
-                          >
-                            Onayla
-                          </button>
-                          <button
-                            onClick={() => setStatus(s, "rejected")}
-                            className="rounded-xl px-3 py-2 bg-red-500/20 text-red-300"
-                          >
-                            Reddet
-                          </button>
-
-                          <Button
-                            onClick={() => setEditTarget(s)}
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            onClick={() => setDeleteTarget(s)}
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                            {canModerate && (
+                                <div className="flex gap-2 items-center w-full md:w-auto justify-end border-t md:border-t-0 border-white/10 pt-3 md:pt-0">
+                                    <button onClick={() => setStatus(s, "approved")} className="rounded-lg px-4 py-2 bg-green-500/20 text-green-300 hover:bg-green-500/30 border border-green-500/30 font-bold transition-all">Onayla</button>
+                                    <button onClick={() => setStatus(s, "rejected")} className="rounded-lg px-4 py-2 bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 font-bold transition-all">Reddet</button>
+                                    <div className="w-px h-8 bg-white/10 mx-2 hidden md:block"></div>
+                                    <Button onClick={() => setEditTarget(s)} size="icon" variant="ghost" className="h-9 w-9 hover:bg-white/10"><Pencil className="h-4 w-4" /></Button>
+                                    <Button onClick={() => setDeleteTarget(s)} size="icon" variant="ghost" className="h-9 w-9 text-red-400 hover:text-red-300 hover:bg-red-900/20"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            )}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="mt-8">
-                <h2 className="text-xl font-bold mb-3 text-neutral-400">
-                  Onaylananlar ({approved.length})
-                </h2>
-                <div className="grid gap-2">
-                  {approved.map((s) => (
-                    <div
-                      key={s.id}
-                      className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-black/20 backdrop-blur opacity-70"
-                    >
-                      <div>
-                        <strong>{s.studentName}</strong> — {s.songTitle}
-                        <a
-                          href={s.karaokeLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-sm text-fuchsia-300 hover:underline break-all"
-                        >
-                          {s.karaokeLink}
-                        </a>
-                      </div>
-
-                      {canModerate && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setStatus(s, "pending")}
-                            className="rounded-xl px-3 py-2 bg-yellow-500/20 text-yellow-300 text-xs"
-                          >
-                            Beklemeye Al
-                          </button>
-
-                          <Button
-                            onClick={() => setEditTarget(s)}
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            onClick={() => setDeleteTarget(s)}
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="mt-8">
-                <h2 className="text-xl font-bold mb-3 text-neutral-500">
-                  Reddedilenler ({rejected.length})
-                </h2>
-                <div className="grid gap-2">
-                  {rejected.map((s) => (
-                    <div
-                      key={s.id}
-                      className="border border-white/15 rounded-2xl p-3 flex justify-between items-center bg-black/20 backdrop-blur opacity-70"
-                    >
-                      <div>
-                        <strong>{s.studentName}</strong> — {s.songTitle}
-                        <a
-                          href={s.karaokeLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block text-sm text-fuchsia-300 hover:underline break-all"
-                        >
-                          {s.karaokeLink}
-                        </a>
-                      </div>
-
-                      {canModerate && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setStatus(s, "pending")}
-                            className="rounded-xl px-3 py-2 bg-yellow-500/20 text-yellow-300 text-xs"
-                          >
-                            Beklemeye Al
-                          </button>
-
-                          <Button
-                            onClick={() => setEditTarget(s)}
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            onClick={() => setDeleteTarget(s)}
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {canDangerZone && (
-                <section className="mt-12 border-t-2 border-red-500/30 pt-6">
-                  <h2 className="text-xl font-bold mb-3 text-red-400 flex items-center gap-2">
-                    <ShieldAlert /> Tehlikeli Alan
-                  </h2>
-                  <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1">
-                      <h3 className="font-bold text-white">Veritabanı Operasyonları</h3>
-                      <p className="text-sm text-red-300/80 mt-1">
-                        Bu işlemler geri alınamaz.
-                      </p>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <Button
-                        variant="destructive"
-                        onClick={() => setShowDeleteConfirm(true)}
-                        disabled={busy}
-                      >
-                        Tüm Listeyi Sil
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => setShowDefaultConfirm(true)}
-                        disabled={busy}
-                      >
-                        Varsayılan Listeyi Ekle
-                      </Button>
-                    </div>
-                  </div>
-                </section>
-              )}
+                    ))
+                )}
+              </div>
             </TabsContent>
 
-            {canDangerZone && (
-              <TabsContent value="bulk-add" className="mt-6">
-                <h2 className="text-xl font-bold mb-3 text-neutral-300">Şarkıları Toplu Ekle</h2>
-                <div className="flex flex-col gap-4">
-                  <p className="text-sm text-neutral-400">
-                    Her satır: <code className="bg-white/10 px-2 py-1 rounded-md text-fuchsia-300">
-                      Şarkı Adı;NormalLink;KaraokeLink
-                    </code>
-                  </p>
-
-                  <textarea
-                    id="bulk-textarea"
-                    value={bulkText}
-                    onChange={(e) => setBulkText(e.target.value)}
-                    placeholder="Şebnem Ferah-Sil Baştan;https://youtube.com/..."
-                    className="retro-input-soft min-h-[200px]"
-                    rows={10}
-                  />
-
-                  <div className="flex justify-end">
-                    <Button onClick={() => bulkAdd(false)} disabled={busy}>
-                      {busy ? "Ekleniyor..." : "Metin Alanındaki Listeyi Ekle"}
-                    </Button>
-                  </div>
+            {/* --- SEVGİLİLER GÜNÜ ONAYLI --- */}
+            <TabsContent value="approved_love" className="space-y-4">
+                <div className="flex items-center gap-3 mb-4 p-4 rounded-2xl bg-gradient-to-r from-pink-900/40 to-transparent border border-pink-500/20">
+                    <div className="p-3 bg-pink-500 rounded-full text-white shadow-lg shadow-pink-500/50">
+                        <Heart className="size-6 fill-white" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-pink-100">Sevgililer Günü Listesi</h2>
+                        <p className="text-pink-300/70 text-sm">Ana sayfada "Aşk Listesi" butonuna basınca çıkanlar.</p>
+                    </div>
                 </div>
+
+                <div className="grid gap-2">
+                    {approvedLove.map((s) => (
+                        <div key={s.id} className="border border-pink-500/20 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-center bg-pink-500/5 hover:bg-pink-500/10 transition-colors gap-3">
+                            <div className="flex-1 w-full">
+                                <strong className="text-pink-200 text-lg">{s.songTitle}</strong>
+                                <div className="text-xs text-neutral-400 mt-1 flex gap-2 items-center">
+                                    <span className="bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded text-[10px]">AŞK</span>
+                                    <span>{s.studentName}</span>
+                                </div>
+                            </div>
+                             {canModerate && (
+                                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                    <button onClick={() => setStatus(s, "pending")} className="rounded-lg px-3 py-1.5 bg-yellow-500/10 text-yellow-300 text-xs border border-yellow-500/20 hover:bg-yellow-500/20">Beklemeye Al</button>
+                                    <Button onClick={() => setEditTarget(s)} size="icon" variant="ghost" className="h-8 w-8 hover:bg-white/10"><Pencil className="h-4 w-4" /></Button>
+                                    <Button onClick={() => setDeleteTarget(s)} size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </TabsContent>
+
+            {/* --- 90LAR ONAYLI --- */}
+            <TabsContent value="approved_90s" className="space-y-4">
+                 <div className="flex items-center gap-3 mb-4 p-4 rounded-2xl bg-gradient-to-r from-purple-900/40 to-transparent border border-purple-500/20">
+                    <div className="p-3 bg-purple-500 rounded-full text-white shadow-lg shadow-purple-500/50">
+                        <Music className="size-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-bold text-purple-100">90'lar Pop Listesi</h2>
+                        <p className="text-purple-300/70 text-sm">Eskimeyen klasikler burada duruyor.</p>
+                    </div>
+                </div>
+
+                <div className="grid gap-2">
+                    {approved90s.map((s) => (
+                        <div key={s.id} className="border border-purple-500/20 rounded-xl p-3 flex flex-col sm:flex-row justify-between items-center bg-purple-500/5 hover:bg-purple-500/10 transition-colors gap-3">
+                            <div className="flex-1 w-full">
+                                <strong className="text-purple-200 text-lg">{s.songTitle}</strong>
+                                <div className="text-xs text-neutral-400 mt-1 flex gap-2 items-center">
+                                    <span className="bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded text-[10px]">90LAR</span>
+                                    <span>{s.studentName}</span>
+                                </div>
+                            </div>
+                             {canModerate && (
+                                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                    <button onClick={() => setStatus(s, "pending")} className="rounded-lg px-3 py-1.5 bg-yellow-500/10 text-yellow-300 text-xs border border-yellow-500/20 hover:bg-yellow-500/20">Beklemeye Al</button>
+                                    <Button onClick={() => setEditTarget(s)} size="icon" variant="ghost" className="h-8 w-8 hover:bg-white/10"><Pencil className="h-4 w-4" /></Button>
+                                    <Button onClick={() => setDeleteTarget(s)} size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </TabsContent>
+
+            <TabsContent value="rejected">
+                <div className="grid gap-2 opacity-60">
+                     {rejected.map((s) => (
+                        <div key={s.id} className="border border-white/5 rounded-xl p-3 flex justify-between items-center bg-black/40 grayscale hover:grayscale-0 transition-all">
+                            <div><strong>{s.studentName}</strong> — {s.songTitle}</div>
+                            {canModerate && (
+                                <div className="flex gap-2">
+                                     <button onClick={() => setStatus(s, "pending")} className="text-xs underline">Geri Al</button>
+                                     <Button onClick={() => setDeleteTarget(s)} size="icon" variant="ghost" className="h-6 w-6"><Trash2 className="h-3 w-3" /></Button>
+                                </div>
+                            )}
+                        </div>
+                     ))}
+                </div>
+            </TabsContent>
+
+            {/* --- TOPLU EKLEME MERKEZİ (ARTIK AYRI AYRI) --- */}
+            {canDangerZone && (
+              <TabsContent value="bulk-add" className="space-y-8 mt-6">
+                
+                {/* BÖLÜM 1: SEVGİLİLER GÜNÜ */}
+                <div className="border border-pink-500/30 rounded-3xl overflow-hidden bg-black/20">
+                    <div className="bg-pink-900/20 p-4 border-b border-pink-500/30 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Heart className="text-pink-500 fill-pink-500 animate-pulse" />
+                            <h3 className="text-xl font-bold text-pink-100">SEVGİLİLER GÜNÜ LİSTESİ YÖNETİMİ</h3>
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-pink-500/50 text-pink-300 hover:bg-pink-500/20"
+                            onClick={() => setShowDefaultConfirm({ type: "sevgililer", open: true })}
+                        >
+                            <UploadCloud className="mr-2 h-4 w-4" /> Varsayılan 50 Şarkıyı Yükle
+                        </Button>
+                    </div>
+                    <div className="p-6">
+                        <p className="text-sm text-neutral-400 mb-2">
+                            Aşağıdaki kutuya ekleyeceğiniz şarkılar direkt olarak <strong>Sevgililer Günü</strong> listesine gider.
+                        </p>
+                        <div className="bg-black/30 p-2 rounded-lg mb-2 font-mono text-xs text-pink-300/70 border border-white/5">
+                            Format: Şarkı Adı;NormalLink;KaraokeLink
+                        </div>
+                        <Textarea
+                            value={bulkTextLove}
+                            onChange={(e) => setBulkTextLove(e.target.value)}
+                            placeholder={`Ajda Pekkan - O Benim Dünyam;https://...;https://...\nKenan Doğulu - Tencere Kapak;https://...;https://...`}
+                            className="retro-input-soft min-h-[150px] font-mono text-xs border-pink-500/20 focus:border-pink-500"
+                        />
+                        <div className="flex justify-end mt-4">
+                            <Button onClick={() => bulkAdd("manual_love")} disabled={busy} className="bg-pink-600 hover:bg-pink-500 text-white w-full sm:w-auto">
+                                <Save className="mr-2 h-4 w-4" /> Manuel Listeyi "Aşk Listesine" Kaydet
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* BÖLÜM 2: 90LAR */}
+                <div className="border border-purple-500/30 rounded-3xl overflow-hidden bg-black/20">
+                    <div className="bg-purple-900/20 p-4 border-b border-purple-500/30 flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                            <Music className="text-purple-500" />
+                            <h3 className="text-xl font-bold text-purple-100">90'LAR LİSTESİ YÖNETİMİ</h3>
+                        </div>
+                         <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-purple-500/50 text-purple-300 hover:bg-purple-500/20"
+                            onClick={() => setShowDefaultConfirm({ type: "90lar", open: true })}
+                        >
+                            <UploadCloud className="mr-2 h-4 w-4" /> Varsayılan 90'ları Yükle
+                        </Button>
+                    </div>
+                    <div className="p-6">
+                        <p className="text-sm text-neutral-400 mb-2">
+                            Aşağıdaki kutuya ekleyeceğiniz şarkılar direkt olarak <strong>90'lar</strong> listesine gider.
+                        </p>
+                        <div className="bg-black/30 p-2 rounded-lg mb-2 font-mono text-xs text-purple-300/70 border border-white/5">
+                            Format: Şarkı Adı;NormalLink;KaraokeLink
+                        </div>
+                        <Textarea
+                            value={bulkText90s}
+                            onChange={(e) => setBulkText90s(e.target.value)}
+                            placeholder={`Tarkan - Şımarık;https://...;https://...\nMFÖ - Ele Güne Karşı;https://...;https://...`}
+                            className="retro-input-soft min-h-[150px] font-mono text-xs border-purple-500/20 focus:border-purple-500"
+                        />
+                        <div className="flex justify-end mt-4">
+                            <Button onClick={() => bulkAdd("manual_90s")} disabled={busy} className="bg-purple-600 hover:bg-purple-500 text-white w-full sm:w-auto">
+                                <Save className="mr-2 h-4 w-4" /> Manuel Listeyi "90'lar Listesine" Kaydet
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
               </TabsContent>
             )}
 
+            {/* --- DENETİM VE TEHLİKELİ BÖLGE --- */}
             {canDangerZone && (
-              <TabsContent value="audit" className="mt-6">
-                <h2 className="text-xl font-bold mb-3 text-neutral-300">Son Hareketler</h2>
-                <div className="grid gap-2">
+               <TabsContent value="audit" className="mt-6 space-y-8">
+                 <div className="grid gap-2 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                   {sortedLogs.map((l) => (
-                    <div
-                      key={l.id}
-                      className="border border-white/15 rounded-2xl p-3 bg-white/5 backdrop-blur text-sm"
-                    >
-                      <span className="font-bold text-fuchsia-300">{l.songTitle}</span>{" "}
-                      - <span className="text-neutral-300">{l.action}</span>
-                      <div className="text-xs text-neutral-400 mt-1">
-                        {l.performedBy === "owner" ? "Sahip" : "Yönetici"} tarafından,{" "}
-                        {l.timestamp?.toDate
-                          ? formatDistance(l.timestamp.toDate(), new Date(), {
-                              addSuffix: true,
-                              locale: tr,
-                            })
-                          : "az önce"}
-                        .
-                      </div>
+                    <div key={l.id} className="border border-white/10 rounded-xl p-3 bg-white/5 text-sm flex justify-between hover:bg-white/10 transition-colors">
+                      <div><span className="font-bold text-sky-300">{l.songTitle}</span> <span className="text-neutral-300">- {l.action}</span></div>
+                      <div className="text-xs text-neutral-500">{l.timestamp?.toDate ? formatDistance(l.timestamp.toDate(), new Date(), { addSuffix: true, locale: tr }) : "..."}</div>
                     </div>
                   ))}
                 </div>
-              </TabsContent>
+
+                <div className="border border-red-900/50 bg-red-950/10 p-6 rounded-3xl mt-12">
+                     <h2 className="text-xl font-bold mb-4 text-red-500 flex items-center gap-2"><ShieldAlert /> TEHLİKELİ BÖLGE</h2>
+                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="text-sm text-red-200/70">
+                            Buradaki işlemler geri alınamaz. Tüm veritabanını temizlemek istiyorsan butona bas.
+                            <br/>(Lütfen emin olmadan basma, geri getiremem.)
+                        </div>
+                        <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} disabled={busy} className="bg-red-600 hover:bg-red-500 w-full sm:w-auto h-12 text-lg font-bold">
+                            TÜM LİSTEYİ SİL
+                        </Button>
+                     </div>
+                </div>
+               </TabsContent>
             )}
+            
           </Tabs>
         )}
       </div>
 
-      {/* Edit Dialog */}
+      {/* --- MODALLAR --- */}
+      
+      {/* 1. DÜZENLEME MODALI */}
       <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Şarkıyı Düzenle</DialogTitle>
-            <DialogDescription>Şarkı detaylarını güncelleyin.</DialogDescription>
-          </DialogHeader>
-
+        <DialogContent className="bg-neutral-900 border-white/20 text-white sm:max-w-[500px]">
+          <DialogHeader><DialogTitle className="text-2xl font-bold">Şarkı Detaylarını Düzenle</DialogTitle></DialogHeader>
           {editTarget && (
-            <form
-              onSubmit={(e) => {
+            <form onSubmit={(e) => {
                 e.preventDefault();
                 if (!firestore) return;
-
                 const fd = new FormData(e.currentTarget);
-                const studentName = String(fd.get("studentName") || "").trim();
-                const songTitle = String(fd.get("songTitle") || "").trim();
-                const karaokeLink = String(fd.get("karaokeLink") || "").trim();
-
                 updateDocumentNonBlocking(doc(firestore, "song_requests", editTarget.id), {
-                  studentName,
-                  songTitle,
-                  karaokeLink,
+                  studentName: String(fd.get("studentName")).trim(),
+                  songTitle: String(fd.get("songTitle")).trim(),
+                  songLink: String(fd.get("songLink")).trim(),
+                  karaokeLink: String(fd.get("karaokeLink")).trim(),
+                  category: String(fd.get("category")) as Category,
                 });
-
-                addAudit("Düzenlendi", songTitle);
+                addAudit("Düzenlendi", String(fd.get("songTitle")));
                 setEditTarget(null);
-              }}
-            >
-              <div className="flex flex-col gap-4 py-4">
-                <Input name="studentName" defaultValue={editTarget.studentName} placeholder="İsim" />
-                <Input name="songTitle" defaultValue={editTarget.songTitle} placeholder="Şarkı Başlığı" />
-                <Input
-                  name="karaokeLink"
-                  defaultValue={editTarget.karaokeLink}
-                  placeholder="Karaoke Linki"
-                />
+              }}>
+              <div className="flex flex-col gap-5 py-6">
+                <div className="space-y-1">
+                    <label className="text-xs text-neutral-400 ml-1">İstek Yapan Kişi</label>
+                    <Input name="studentName" defaultValue={editTarget.studentName} className="bg-black/50 border-white/10 h-10" />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs text-neutral-400 ml-1">Şarkı Adı</label>
+                    <Input name="songTitle" defaultValue={editTarget.songTitle} className="bg-black/50 border-white/10 h-10 font-bold" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-xs text-neutral-400 ml-1">Normal Link</label>
+                        <Input name="songLink" defaultValue={editTarget.songLink || ""} className="bg-black/50 border-white/10 h-10 text-xs" />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-xs text-pink-400 ml-1">Karaoke Link</label>
+                        <Input name="karaokeLink" defaultValue={editTarget.karaokeLink} className="bg-black/50 border-pink-500/30 h-10 text-xs" />
+                    </div>
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs text-neutral-400 ml-1">Liste Kategorisi</label>
+                    <Select name="category" defaultValue={editTarget.category || "90lar"}>
+                        <SelectTrigger className="bg-black/50 border-white/10 h-10"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                            <SelectItem value="90lar">📼 90'lar Pop</SelectItem>
+                            <SelectItem value="sevgililer">❤️ Sevgililer Günü</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
               </div>
-
-              <DialogFooter>
-                <Button type="button" variant="secondary" onClick={() => setEditTarget(null)}>
-                  İptal
-                </Button>
-                <Button type="submit">Kaydet</Button>
+              <DialogFooter className="gap-2">
+                  <Button type="button" variant="ghost" onClick={() => setEditTarget(null)}>Vazgeç</Button>
+                  <Button type="submit" className="bg-blue-600 hover:bg-blue-500 w-full sm:w-auto">Değişiklikleri Kaydet</Button>
               </DialogFooter>
             </form>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Delete single */}
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
-        <DialogContent>
+      {/* 2. TOPLU YÜKLEME ONAY MODALI */}
+      <Dialog open={showDefaultConfirm.open} onOpenChange={(val) => setShowDefaultConfirm({ ...showDefaultConfirm, open: val })}>
+        <DialogContent className="bg-neutral-900 border-white/20 text-white">
           <DialogHeader>
-            <DialogTitle>Emin misiniz?</DialogTitle>
-            <DialogDescription>Bu işlem geri alınamaz.</DialogDescription>
+            <DialogTitle className={`text-2xl font-black ${showDefaultConfirm.type === "sevgililer" ? "text-pink-500" : "text-purple-500"}`}>
+                {showDefaultConfirm.type === "sevgililer" ? "❤️ Aşk Listesi Yükleniyor" : "📼 90'lar Listesi Yükleniyor"}
+            </DialogTitle>
+            <DialogDescription className="text-neutral-300 pt-2">
+               Bu işlem seçilen hazır listeyi veritabanına ekler. Mevcut şarkılar silinmez, üzerine eklenir.
+               <br/><br/>
+               <strong>Eklenecek Liste:</strong> {showDefaultConfirm.type === "sevgililer" ? "Varsayılan Sevgililer Günü (50 Şarkı)" : "Varsayılan 90'lar Klasikleri"}
+            </DialogDescription>
           </DialogHeader>
-
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
-              İptal
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                if (!deleteTarget) return;
-                doDelete(deleteTarget);
-                setDeleteTarget(null);
-              }}
-            >
-              Sil
-            </Button>
+          <DialogFooter className="gap-2 mt-4">
+             <Button variant="ghost" onClick={() => setShowDefaultConfirm({ type: null, open: false })}>İptal</Button>
+             <Button 
+                onClick={() => bulkAdd(showDefaultConfirm.type === "sevgililer" ? "default_love" : "default_90s")} 
+                className={showDefaultConfirm.type === "sevgililer" ? "bg-pink-600 hover:bg-pink-500" : "bg-purple-600 hover:bg-purple-500"}
+             >
+                Onayla ve Yükle
+             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete all */}
+      {/* 3. SİLME ONAY MODALI */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
+        <DialogContent className="bg-red-950 border-red-500/50 text-white">
           <DialogHeader>
-            <DialogTitle>Tüm Şarkıları Silmek Üzeresiniz!</DialogTitle>
-            <DialogDescription>
-              Bu işlem geri alınamaz. Veritabanındaki tüm şarkılar kalıcı olarak silinir.
+            <DialogTitle className="text-red-500 text-3xl font-black">HER ŞEYİ SİL?</DialogTitle>
+            <DialogDescription className="text-red-200 text-lg mt-2">
+                Bu işlemin geri dönüşü yoktur. Veritabanındaki bütün şarkılar (bekleyenler, onaylılar) kalıcı olarak silinecektir.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
-              İptal
-            </Button>
-            <Button variant="destructive" onClick={deleteAll} disabled={busy}>
-              {busy ? "Siliniyor..." : "Evet, Tümünü Sil"}
-            </Button>
+          <DialogFooter className="gap-2 mt-6">
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)} className="hover:bg-red-900/20 text-white">Vazgeç, Silme</Button>
+            <Button variant="destructive" onClick={deleteAll} className="bg-red-600 hover:bg-red-500 font-bold px-6">Evet, SİL</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Default add */}
-      <Dialog open={showDefaultConfirm} onOpenChange={setShowDefaultConfirm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Varsayılan Listeyi Ekle?</DialogTitle>
-            <DialogDescription>
-              Bu işlem varsayılan repertuvarı veritabanına ekler. Mevcut şarkıların üstüne yazmaz,
-              sadece ekleme yapar.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setShowDefaultConfirm(false)}>
-              İptal
-            </Button>
-            <Button onClick={() => bulkAdd(true)} disabled={busy}>
-              {busy ? "Ekleniyor..." : "Evet, Ekle"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <VhsOverlay intensity={0.1} sfxVolume={0} />
+      <VhsOverlay intensity={0.05} sfxVolume={0} />
     </div>
   );
 }
