@@ -552,7 +552,7 @@ export default function AdminPage() {
                   Bekleyenler ({pending.length})
               </TabsTrigger>
               <TabsTrigger value="approved_love" className="data-[state=active]:bg-pink-600 data-[state=active]:text-white py-2.5">
-                  ❤️ Aşk Şarkıları ({approvedLove.length})
+                  ❤️ Şarkıları ({approvedLove.length})
               </TabsTrigger>
               <TabsTrigger value="approved_90s" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white py-2.5">
                   📼 90'lar ({approved90s.length})
@@ -621,7 +621,7 @@ export default function AdminPage() {
                     </div>
                     <div>
                         <h2 className="text-2xl font-bold text-pink-100">Sevgililer Günü Listesi</h2>
-                        <p className="text-pink-300/70 text-sm">Ana sayfada "Aşk Listesi" butonuna basınca çıkanlar.</p>
+                        <p className="text-pink-300/70 text-sm">Ana sayfada "Sevgi Listesi" butonuna basınca çıkanlar.</p>
                     </div>
                 </div>
 
@@ -631,7 +631,7 @@ export default function AdminPage() {
                             <div className="flex-1 w-full">
                                 <strong className="text-pink-200 text-lg">{s.songTitle}</strong>
                                 <div className="text-xs text-neutral-400 mt-1 flex gap-2 items-center">
-                                    <span className="bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded text-[10px]">AŞK</span>
+                                    <span className="bg-pink-500/20 text-pink-300 px-2 py-0.5 rounded text-[10px]">SEVGİ</span>
                                     <span>{s.studentName}</span>
                                 </div>
                             </div>
@@ -732,7 +732,7 @@ export default function AdminPage() {
                         />
                         <div className="flex justify-end mt-4">
                             <Button onClick={() => bulkAdd("manual_love")} disabled={busy} className="bg-pink-600 hover:bg-pink-500 text-white w-full sm:w-auto">
-                                <Save className="mr-2 h-4 w-4" /> Manuel Listeyi "Aşk Listesine" Kaydet
+                                <Save className="mr-2 h-4 w-4" /> Manuel Listeyi "Sevgi Listesine" Kaydet
                             </Button>
                         </div>
                     </div>
@@ -874,7 +874,7 @@ export default function AdminPage() {
         <DialogContent className="bg-neutral-900 border-white/20 text-white">
           <DialogHeader>
             <DialogTitle className={`text-2xl font-black ${showDefaultConfirm.type === "sevgililer" ? "text-pink-500" : "text-purple-500"}`}>
-                {showDefaultConfirm.type === "sevgililer" ? "❤️ Aşk Listesi Yükleniyor" : "📼 90'lar Listesi Yükleniyor"}
+                {showDefaultConfirm.type === "sevgililer" ? "❤️ Sevgi Listesi Yükleniyor" : "📼 90'lar Listesi Yükleniyor"}
             </DialogTitle>
             <DialogDescription className="text-neutral-300 pt-2">
                Bu işlem seçilen hazır listeyi veritabanına ekler. Mevcut şarkılar silinmez, üzerine eklenir.
