@@ -171,13 +171,13 @@ export default function Page() {
                     variant="outline"
                     className="flex-1 rounded-xl bg-gradient-to-r from-pink-500/10 to-rose-500/10 border-pink-500/30 text-pink-200 hover:bg-pink-500/20 hover:text-white transition-all duration-300 h-10 px-6"
                 >
-                    <Heart className="mr-2 h-4 w-4 fill-pink-500/50" /> ❤️ Aşk Listesi
+                    <Heart className="mr-2 h-4 w-4 fill-pink-500/50" /> ❤️ Listesi
                 </Button>
                 </SheetTrigger>
 
                 <SheetContent side="bottom" className="bg-black/80 backdrop-blur-2xl border-t border-pink-500/50 text-white">
                 <SheetHeader>
-                    <SheetTitle className="text-2xl font-black text-pink-400">❤️ Sevgililer Günü Repertuvarı</SheetTitle>
+                    <SheetTitle className="text-2xl font-black text-pink-400">❤️ Sevgi Günü Repertuvarı</SheetTitle>
                     <SheetDescription className="text-neutral-400">Kalbinin sesini dinle.</SheetDescription>
                 </SheetHeader>
                 <div className="grid gap-3 py-4 max-h-[60vh] overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-pink-600">
@@ -239,7 +239,7 @@ export default function Page() {
             <div className="text-center sm:text-left">
                 <h2 className="text-xl font-bold text-white mb-1">Şarkını Seç</h2>
                 <p className="text-sm text-white/60">
-                Sevgililer Günü için özel isteğini gönder. Aşk havada!
+                Sevgi Günü için özel isteğini gönder!
                 </p>
             </div>
 
